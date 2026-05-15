@@ -147,12 +147,12 @@ export const apiClient = {
         const url = `${API_BASE}/sessions/${encodeURIComponent(sessionId)}/export/lap/${lapNumber}?profile_id=${profileId}`;
         const res = await fetch(url);
         if (!res.ok) throw new Error('Failed to export lap');
-        
+
         const blob = await res.blob();
         const downloadUrl = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = downloadUrl;
-        
+
         // Extract filename from header if possible, else fallback
         const contentDisposition = res.headers.get('Content-Disposition');
         let filename = `lap_${lapNumber}.duckdb`;
@@ -160,7 +160,7 @@ export const apiClient = {
             const match = contentDisposition.match(/filename="(.+)"/);
             if (match) filename = match[1];
         }
-        
+
         link.setAttribute('download', filename);
         document.body.appendChild(link);
         link.click();
@@ -176,7 +176,7 @@ export const apiClient = {
         return this._fetchJson(url);
     },
 
-    async getSteeringWheels(): Promise<{ categories: Record<string, {name: string, path: string}[]> }> {
+    async getSteeringWheels(): Promise<{ categories: Record<string, { name: string, path: string }[]> }> {
         const res = await fetch(`${API_BASE}/steering-wheels`);
         if (!res.ok) throw new Error('Failed to fetch steering wheels');
         return res.json();
@@ -198,7 +198,7 @@ export const apiClient = {
     },
 
     async pickAndUpload(
-        path: string, 
+        path: string,
         profileId: string = 'guest',
         bounds?: { x: number, y: number, width: number, height: number }
     ): Promise<{ status: string, id?: string }> {

@@ -403,6 +403,47 @@
   object-fit: cover;
 }
 
+/* New for v1.4.0 - Session Grid & Settings Split */
+.session-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  width: 100%;
+}
+
+.session-quad {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  width: 100%;
+}
+
+.quad-img {
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+
+.hardware-visual {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.settings-split {
+  display: flex;
+  flex-direction: row;
+  gap: 1rem;
+  width: 100%;
+}
+
+.settings-split .showcase-img {
+  flex: 1;
+}
+
+.wheel-main {
+  margin-bottom: 0.5rem;
+}
+
 /* Track Toggle Styles */
 .track-toggle {
   display: flex;
@@ -470,5 +511,17 @@
 
   .showcase-text-icon {
     margin: 0 auto 0.5rem;
+  }
+
+  .session-quad {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-split {
+    flex-direction: column;
+  }
+
+  .showcase-img.small {
+    width: 90%;
   }
 }

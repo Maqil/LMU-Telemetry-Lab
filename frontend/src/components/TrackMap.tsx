@@ -1519,15 +1519,23 @@ export const TrackMap = ({ isExpanded = false, onToggleExpand, isMiniMap = false
                                                 </Tooltip>
                                                 <div className="glass-container rounded-lg border border-transparent hover:bg-white/5 transition-all">
                                                     <div className="glass-content h-7 px-1 gap-0.5 flex items-center">
-                                                        <button onClick={() => setCameraMode('static')} className={`p-1 px-2 rounded-md transition-all ${cameraMode === 'static' ? 'text-blue-400 bg-blue-500/20' : 'text-slate-500 hover:text-slate-300'}`}><ViewfinderIcon size={14} /></button>
-                                                        <button onClick={() => setCameraMode('follow')} className={`p-1 px-2 rounded-md transition-all ${cameraMode === 'follow' ? 'text-blue-400 bg-blue-500/20' : 'text-slate-500 hover:text-slate-300'}`}><FollowIcon size={14} /></button>
-                                                        <button onClick={() => setCameraMode('heading-up')} className={`p-1 px-2 rounded-md transition-all ${cameraMode === 'heading-up' ? 'text-blue-400 bg-blue-500/20' : 'text-slate-500 hover:text-slate-300'}`}><Navigation size={14} /></button>
+                                                        <Tooltip text="FIXED VIEW" position="top">
+                                                            <button onClick={() => setCameraMode('static')} className={`p-1 px-2 rounded-md transition-all ${cameraMode === 'static' ? 'text-blue-400 bg-blue-500/20' : 'text-slate-500 hover:text-slate-300'}`}><ViewfinderIcon size={14} /></button>
+                                                        </Tooltip>
+                                                        <Tooltip text="FOLLOW MODE" position="top">
+                                                            <button onClick={() => setCameraMode('follow')} className={`p-1 px-2 rounded-md transition-all ${cameraMode === 'follow' ? 'text-blue-400 bg-blue-500/20' : 'text-slate-500 hover:text-slate-300'}`}><FollowIcon size={14} /></button>
+                                                        </Tooltip>
+                                                        <Tooltip text="HEADING UP" position="top">
+                                                            <button onClick={() => setCameraMode('heading-up')} className={`p-1 px-2 rounded-md transition-all ${cameraMode === 'heading-up' ? 'text-blue-400 bg-blue-500/20' : 'text-slate-500 hover:text-slate-300'}`}><Navigation size={14} /></button>
+                                                        </Tooltip>
                                                     </div>
                                                 </div>
                                             </>
                                         )}
                                         {onToggleExpand && !isMapMaximized && (
-                                            <button onClick={onToggleExpand} className="transition-all rounded-lg glass-container hover:scale-110 active:scale-95 text-slate-500 hover:text-white border border-transparent hover:bg-white/5" onMouseMove={handleGlassMouseMove}><div className="glass-content px-2.5 py-1.5 flex items-center justify-center"><ChevronRight size={16} /></div></button>
+                                            <Tooltip text="BACK TO SIDEBAR MAP" position="top">
+                                                <button onClick={onToggleExpand} className="transition-all rounded-lg glass-container hover:scale-110 active:scale-95 text-slate-500 hover:text-white border border-transparent hover:bg-white/5" onMouseMove={handleGlassMouseMove}><div className="glass-content px-2.5 py-1.5 flex items-center justify-center"><ChevronRight size={16} /></div></button>
+                                            </Tooltip>
                                         )}
                                         <Tooltip text={isMapMaximized ? "RESTORE" : "MAXIMIZE"} position="top">
                                             <button onClick={() => setIsMapMaximized(!isMapMaximized)} className={`transition-all rounded-full glass-container hover:scale-110 active:scale-95 border border-transparent ml-1 ${isMapMaximized ? 'bg-blue-600 text-white shadow-[0_0_15px_rgba(59,130,246,0.3)]' : 'text-slate-500 hover:text-white hover:bg-white/5'}`} onMouseMove={handleGlassMouseMove}><div className="glass-content p-2.5 flex items-center justify-center">{isMapMaximized ? <Minimize2 size={18} /> : <Maximize2 size={18} />}</div></button>
@@ -1548,7 +1556,7 @@ export const TrackMap = ({ isExpanded = false, onToggleExpand, isMiniMap = false
                 </motion.div>
             </div>
         );
-    }, [isExpanded, isBarHovered, isPlaying, playbackSpeed, playbackProgress, showMiniMap, showHudMenu, showTelemetryOverlay, isMapMaximized, hudVisibility, maximizedSidebarMode, dimensions.width, telemetryData, isMiniMap, togglePlayback, setPlaybackSpeed, setPlaybackProgress, setShowMiniMap, setShowHudMenu, setShowTelemetryOverlay, setHudVisibility, fitTrack, setCameraMode, setIsMapMaximized, onToggleExpand, isSingleLap, singleLapXAxisMode, dashboardSyncMode]);
+    }, [isExpanded, isBarHovered, isPlaying, playbackSpeed, playbackProgress, showMiniMap, showHudMenu, showTelemetryOverlay, isMapMaximized, hudVisibility, maximizedSidebarMode, dimensions.width, telemetryData, isMiniMap, togglePlayback, setPlaybackSpeed, setPlaybackProgress, setShowMiniMap, setShowHudMenu, setShowTelemetryOverlay, setHudVisibility, fitTrack, cameraMode, setCameraMode, setIsMapMaximized, onToggleExpand, isSingleLap, singleLapXAxisMode, dashboardSyncMode]);
 
     return (
         <div ref={containerRef}

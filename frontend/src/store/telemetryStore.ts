@@ -790,7 +790,7 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
     },
     setIsMapMaximized: (is) => {
         const updates: any = { isMapMaximized: is, isHudAnimating: true, isMapTransitioning: true };
-        
+
         // When entering maximized mode, default all HUDs to open
         if (is) {
             updates.showMiniMap = true;

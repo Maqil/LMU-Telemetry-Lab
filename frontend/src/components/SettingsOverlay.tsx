@@ -7,10 +7,10 @@ import { Tooltip } from './ui/Tooltip';
 import packageJson from '../../package.json';
 
 const SteeringWheelIcon = ({ size = 16, className = "" }) => (
-    <svg 
-        viewBox="0 0 24 24" 
-        width={size} 
-        height={size} 
+    <svg
+        viewBox="0 0 24 24"
+        width={size}
+        height={size}
         className={className}
         fill="none"
         stroke="currentColor"
@@ -65,7 +65,7 @@ export const SettingsOverlay: React.FC = () => {
     const setActiveChartCategory = useTelemetryStore(state => state.setActiveChartCategory);
     const activeChartCategory = useTelemetryStore(state => state.activeChartCategory);
     const telemetryData = useTelemetryStore(state => state.telemetryData);
-    
+
     // View Modes for dynamic templates
     const tyresPressureViewMode = useTelemetryStore(state => state.tyresPressureViewMode);
     const suspensionViewMode = useTelemetryStore(state => state.suspensionViewMode);
@@ -106,20 +106,20 @@ export const SettingsOverlay: React.FC = () => {
             handlingViewMode
         });
         const custom = JSON.parse(localStorage.getItem('custom_chart_settings') || '{}');
-        
+
         return templateConfigs.map(c => {
             const key = `${c.id}-${c.wheelIndex ?? 'all'}`;
             const activeMatch = chartConfigs.find(ac => ac.id === c.id && ac.wheelIndex === c.wheelIndex);
-            return { 
-                ...c, 
+            return {
+                ...c,
                 ...custom[key],
                 order: activeMatch ? activeMatch.order : c.order,
                 visible: custom[key]?.visible !== undefined ? custom[key].visible : (activeMatch ? activeMatch.visible : c.visible)
             };
         }).sort((a, b) => a.order - b.order);
     }, [
-        activeSettingsCategory, chartConfigs, 
-        tyresPressureViewMode, suspensionViewMode, thirdDeflectionViewMode, 
+        activeSettingsCategory, chartConfigs,
+        tyresPressureViewMode, suspensionViewMode, thirdDeflectionViewMode,
         rideHeightViewMode, slipRatioViewMode, handlingViewMode
     ]);
 
@@ -135,7 +135,7 @@ export const SettingsOverlay: React.FC = () => {
         const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
         const midY = rect.top + rect.height / 2;
         const pos = e.clientY < midY ? 'top' : 'bottom';
-        
+
         setDragOverIndex(idx);
         setDropPosition(pos);
     };
@@ -146,17 +146,17 @@ export const SettingsOverlay: React.FC = () => {
 
         const reordered = [...displayCharts];
         const [removed] = reordered.splice(draggedIndex, 1);
-        
+
         let insertAt = toIdx;
         if (dropPosition === 'bottom' && draggedIndex > toIdx) insertAt = toIdx + 1;
         if (dropPosition === 'top' && draggedIndex < toIdx) insertAt = toIdx - 1;
         if (insertAt < 0) insertAt = 0;
 
         reordered.splice(insertAt, 0, removed);
-        
+
         const newConfigs = reordered.map((c, i) => ({ ...c, order: i }));
         setChartConfigs(newConfigs);
-        
+
         handleDragEnd();
     };
 
@@ -214,7 +214,7 @@ export const SettingsOverlay: React.FC = () => {
                             </div>
                             <div className="glass-container-flat bg-black/30 p-1.5 rounded-2xl flex border border-white/5 relative">
                                 {/* Sliding Indicator */}
-                                <div 
+                                <div
                                     className="absolute top-1.5 bottom-1.5 w-[calc(50%-6px)] bg-white/10 backdrop-blur-md rounded-xl border border-white/10 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] shadow-inner"
                                     style={{ left: speedUnit === 'kmh' ? '6px' : 'calc(50%)' }}
                                 />
@@ -238,7 +238,7 @@ export const SettingsOverlay: React.FC = () => {
                             </div>
                             <div className="glass-container-flat bg-black/30 p-1.5 rounded-2xl flex border border-white/5 relative">
                                 {/* Sliding Indicator */}
-                                <div 
+                                <div
                                     className="absolute top-1.5 bottom-1.5 w-[calc(50%-6px)] bg-white/10 backdrop-blur-md rounded-xl border border-white/10 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] shadow-inner"
                                     style={{ left: tempUnit === 'c' ? '6px' : 'calc(50%)' }}
                                 />
@@ -263,13 +263,13 @@ export const SettingsOverlay: React.FC = () => {
                                 <SingleLapIcon size={16} className="text-blue-400" />
                                 <span className="text-xs font-black uppercase tracking-widest">Chart X-Axis</span>
                             </div>
-                            
-                            <div 
+
+                            <div
                                 className="glass-container bg-black/30 rounded-[2rem] border border-white/5 p-4 flex flex-col items-center gap-1"
                                 onMouseMove={(e) => handleGlassMouseMove(e, 0.1)}
                             >
                                 <div className="glass-content glass-container-flat bg-black/50 p-1.5 rounded-2xl flex border border-white/5 relative w-full">
-                                    <div 
+                                    <div
                                         className="absolute top-1.5 bottom-1.5 w-[calc(50%-6px)] bg-blue-500/20 backdrop-blur-md rounded-xl border border-blue-500/30 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] shadow-[0_0_15px_rgba(59,130,246,0.2)]"
                                         style={{ left: singleLapXAxisMode === 'distance' ? '6px' : 'calc(50%)' }}
                                     />
@@ -293,7 +293,7 @@ export const SettingsOverlay: React.FC = () => {
                                 <CarMarkerIcon size={16} className="text-blue-400" />
                                 <span className="text-xs font-black uppercase tracking-widest">Map Marker Style</span>
                             </div>
-                            
+
                             <div className="grid grid-cols-2 gap-3">
                                 {(['arrow', 'dot'] as const).map(m => (
                                     <button
@@ -306,7 +306,7 @@ export const SettingsOverlay: React.FC = () => {
                                         {mapMarkerType === m && (
                                             <div className="absolute inset-0 bg-gradient-to-br from-blue-600/10 to-transparent pointer-events-none" />
                                         )}
-                                        
+
                                         {/* Marker Preview */}
                                         <div className={`w-12 h-12 flex items-center justify-center rounded-2xl transition-all duration-500 ${mapMarkerType === m ? 'bg-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.5)] rotate-0' : 'bg-white/5 grayscale group-hover:grayscale-0'}`}>
                                             {m === 'arrow' ? (
@@ -349,7 +349,7 @@ export const SettingsOverlay: React.FC = () => {
                             )}
                         </div>
 
-                        <div 
+                        <div
                             className="glass-container bg-black/30 rounded-[2rem] border border-white/5 shadow-[inset_0_2px_20px_rgba(0,0,0,0.5)] p-5"
                             onMouseMove={(e) => handleGlassMouseMove(e, 0.1)}
                             style={{ '--glass-hover-scale': '1.015', '--glass-content-scale': '1.01' } as any}
@@ -409,7 +409,7 @@ export const SettingsOverlay: React.FC = () => {
                             <span className="text-xs font-black uppercase tracking-widest">Telemetry Overlap</span>
                         </div>
 
-                        <div 
+                        <div
                             className="glass-container bg-black/30 rounded-[2.5rem] border border-white/5 shadow-[inset_0_2px_20px_rgba(0,0,0,0.5)] p-5 overflow-hidden"
                             onMouseMove={(e) => handleGlassMouseMove(e, 0.1)}
                             style={{ '--glass-hover-scale': '1.015', '--glass-content-scale': '1.01' } as any}
@@ -423,7 +423,7 @@ export const SettingsOverlay: React.FC = () => {
                                             {Number(telemetryHistorySeconds).toFixed(1)}<span className="text-[9px] ml-0.5 opacity-60">s</span>
                                         </span>
                                     </div>
-                                    
+
                                     <div className="relative h-6 flex items-center">
                                         <input
                                             type="range"
@@ -435,7 +435,7 @@ export const SettingsOverlay: React.FC = () => {
                                             className="w-full h-1.5 bg-white/5 rounded-full appearance-none cursor-pointer accent-blue-500 hover:accent-blue-400 transition-all"
                                         />
                                     </div>
-                                    
+
                                     <div className="flex justify-between px-1 opacity-40">
                                         <span className="text-[8px] font-black text-white uppercase tracking-tighter">1.0s</span>
                                         <span className="text-[8px] font-black text-white uppercase tracking-tighter">5.0s</span>
@@ -447,9 +447,9 @@ export const SettingsOverlay: React.FC = () => {
                                     <div className="absolute -inset-2 bg-blue-500/5 rounded-2xl blur-xl opacity-0 group-hover/hint:opacity-100 transition-opacity" />
                                     <div className="relative flex flex-col gap-3">
                                         <div className="rounded-xl overflow-hidden border border-white/10 bg-black/40 shadow-xl relative h-16 w-full">
-                                            <img 
-                                                src="/live_map_telemetry.png" 
-                                                alt="Telemetry Hint" 
+                                            <img
+                                                src="/live_map_telemetry.png"
+                                                alt="Telemetry Hint"
                                                 className="w-full h-full object-contain opacity-60 grayscale group-hover/hint:grayscale-0 group-hover/hint:opacity-100 transition-all duration-500"
                                             />
                                             {/* Illustrative Overlay for Hint - Precision Aligned */}
@@ -474,7 +474,7 @@ export const SettingsOverlay: React.FC = () => {
                                 <Layout size={16} className="text-blue-400" />
                                 <span className="text-xs font-black uppercase tracking-widest">Chart Layout & Colors</span>
                             </div>
-                            
+
                             <div className="flex items-center gap-2">
                                 <Tooltip text="Reset colors for this category" position="bottom">
                                     <button
@@ -493,7 +493,7 @@ export const SettingsOverlay: React.FC = () => {
                                                 // Logic to clear custom visibility/order for this category
                                                 const custom = JSON.parse(localStorage.getItem('custom_chart_settings') || '{}');
                                                 const targetIds = (CATEGORY_CHART_CONFIGS[activeSettingsCategory as keyof typeof CATEGORY_CHART_CONFIGS] || []).map(c => `${c.id}-${c.wheelIndex ?? 'all'}`);
-                                                
+
                                                 targetIds.forEach(key => {
                                                     if (custom[key]) {
                                                         delete custom[key].visible;
@@ -533,9 +533,9 @@ export const SettingsOverlay: React.FC = () => {
                                         return (
                                             <>
                                                 {/* Sliding Active Block */}
-                                                <div 
+                                                <div
                                                     className="absolute bg-blue-600 rounded-full shadow-[0_0_12px_rgba(37,99,235,0.4)] transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
-                                                    style={{ 
+                                                    style={{
                                                         height: 'calc(100% - 4px)',
                                                         width: `calc(${100 / availableTabs.length}% - 4px)`,
                                                         left: `calc(${(activeIndex / availableTabs.length) * 100}% + 2px)`,
@@ -544,8 +544,8 @@ export const SettingsOverlay: React.FC = () => {
                                                 />
 
                                                 {availableTabs.map((cat) => (
-                                                    <button 
-                                                        key={cat.id} 
+                                                    <button
+                                                        key={cat.id}
                                                         onClick={() => {
                                                             setActiveSettingsCategory(cat.id);
                                                             // Sync back to dashboard if it's a chart category
@@ -553,9 +553,8 @@ export const SettingsOverlay: React.FC = () => {
                                                                 setActiveChartCategory(cat.id as any);
                                                             }
                                                         }}
-                                                        className={`relative z-10 px-4 h-full flex items-center justify-center text-[9px] font-black uppercase tracking-[0.1em] transition-colors duration-300 flex-1 min-w-[85px] ${
-                                                            activeSettingsCategory === cat.id ? 'text-white' : 'text-gray-500 hover:text-white'
-                                                        }`}
+                                                        className={`relative z-10 px-4 h-full flex items-center justify-center text-[9px] font-black uppercase tracking-[0.1em] transition-colors duration-300 flex-1 min-w-[85px] ${activeSettingsCategory === cat.id ? 'text-white' : 'text-gray-500 hover:text-white'
+                                                            }`}
                                                     >
                                                         {cat.label}
                                                     </button>
@@ -568,14 +567,14 @@ export const SettingsOverlay: React.FC = () => {
                         </div>
 
                         {/* Chart List Container */}
-                        <div 
+                        <div
                             className="glass-container bg-black/30 rounded-[2.5rem] border border-white/5 shadow-[inset_0_2px_20px_rgba(0,0,0,0.5)] p-4"
                         >
                             <div className="glass-content flex flex-col gap-3">
                                 {displayCharts.map((config, idx) => {
                                     const displayUnit = getDisplayUnit(config);
                                     return (
-                                        <div 
+                                        <div
                                             key={`${config.id}-${config.wheelIndex ?? 'no-wheel'}`}
                                             draggable
                                             onDragStart={(e) => handleDragStart(e, idx)}
@@ -586,7 +585,7 @@ export const SettingsOverlay: React.FC = () => {
                                                 ${draggedIndex === idx ? 'opacity-40 grayscale scale-95' : 'opacity-100'}
                                                 ${dragOverIndex === idx ? 'bg-blue-500/10 border-blue-500/30 shadow-[0_0_20px_rgba(59,130,246,0.3)]' : 'border-white/10 hover:border-white/30'}`}
                                             onMouseMove={handleGlassMouseMove}
-                                            style={{ 
+                                            style={{
                                                 backgroundColor: dragOverIndex === idx ? undefined : `${config.color}15`,
                                                 borderColor: dragOverIndex === idx ? undefined : `${config.color}35`,
                                                 boxShadow: dragOverIndex === idx ? undefined : `0 4px 15px -3px ${config.color}15`,
@@ -606,7 +605,7 @@ export const SettingsOverlay: React.FC = () => {
                                                     <div className="font-black tracking-tight text-xs text-white uppercase truncate group-hover/item:translate-x-1 transition-transform">
                                                         {config.alias || config.id}
                                                     </div>
-                                                    <div 
+                                                    <div
                                                         key={`${config.id}-${displayUnit}`}
                                                         className="text-[9px] font-bold uppercase tracking-widest mt-0.5 animate-in fade-in slide-in-from-left-1 duration-300"
                                                         style={{ color: `${config.color}cc` }}
@@ -628,7 +627,7 @@ export const SettingsOverlay: React.FC = () => {
                                                 <button
                                                     onClick={() => updateChartConfig(config.id, { visible: !config.visible }, config.wheelIndex)}
                                                     className={`p-2.5 rounded-xl transition-all ${config.visible ? 'text-white' : 'text-gray-700 bg-white/5 border border-white/10'}`}
-                                                    style={{ 
+                                                    style={{
                                                         backgroundColor: config.visible ? `${config.color}40` : undefined,
                                                         border: config.visible ? `1px solid ${config.color}60` : undefined,
                                                         boxShadow: config.visible ? `0 0 15px ${config.color}20` : undefined

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Download, Globe, ChevronDown, Layers, Crosshair, FolderKanban, Gamepad2, BarChart2 } from 'lucide-react';
+import { Download, Globe, ChevronDown, Layers, Crosshair, FolderKanban, Gamepad2, BarChart2, Settings2 } from 'lucide-react';
 import './App.css';
 
 import logo from './assets/logo.png';
@@ -9,9 +9,15 @@ import track2dImg from './assets/2d_racing_line.png';
 import track3dImg from './assets/3d_racing_line.png';
 import compareImg from './assets/reference_comparison.png';
 import workspaceImg from './assets/setup_multiple_workspace_to_manage_your_data.png';
-import sessionImg from './assets/select_session.png';
 import wheelImg from './assets/choose_or_upload_your_own_wheel.png';
 import multiSessionImg from './assets/compares_between_different_session.png';
+import carSetupImg from './assets/car_setup_comparison.png';
+import customSettings1 from './assets/custom_settings_1.png';
+import customSettings2 from './assets/custom_settings_2.png';
+import session1 from './assets/select_session_1.png';
+import session2 from './assets/select_session_2.png';
+import session3 from './assets/select_session_3.png';
+import session4 from './assets/select_session_4.png';
 
 const translations = {
   en: {
@@ -30,6 +36,8 @@ const translations = {
     featureCompareDesc: 'Compare your telemetry against reference laps. Instantly identify where you are losing time and optimize your racing technique.',
     featureMultiSessionTitle: 'Cross-Session Analysis',
     featureMultiSessionDesc: 'Compare telemetry data across different sessions. Track your progression over time and identify the optimal setup for every condition.',
+    featureSetupTitle: 'Detailed Setup Comparison',
+    featureSetupDesc: 'Compare specific car setup parameters between different laps. Identify how changes in suspension, aerodynamics, or tire pressures affect your track performance.',
     featureWorkspaceTitle: 'Advanced Data Organization',
     featureWorkspaceDesc: 'Set up multiple workspaces to manage telemetry data effortlessly. Select specific sessions to keep your analysis focused and structured.',
     featureHardwareTitle: 'True-to-Life Hardware Sync',
@@ -53,6 +61,8 @@ const translations = {
     featureCompareDesc: '將你的單圈表現與基準圈進行深度對比，瞬間找出落後區間，最佳化你的駕駛技巧。',
     featureMultiSessionTitle: '跨賽程深度比對',
     featureMultiSessionDesc: '跨越不同賽程進行遙測數據比對。輕鬆追蹤你的長期進步幅度，並在各種賽道條件下找出最完美的車輛調校。',
+    featureSetupTitle: '深度車輛調校比對',
+    featureSetupDesc: '精確比對不同單圈間的車輛調校參數。分析懸吊、空力或胎壓的微調如何影響你的賽道表現，找出最完美的設定。',
     featureWorkspaceTitle: '進階工作區管理',
     featureWorkspaceDesc: '輕鬆整理龐大的遙測數據。支援多工作區建立與單一賽程篩選，讓你的數據分析保持井然有序。',
     featureHardwareTitle: '真實硬體外觀同步',
@@ -76,6 +86,8 @@ const translations = {
     featureCompareDesc: 'Compara tu telemetría con vueltas de referencia. Identifica instantáneamente dónde pierdes tiempo y optimiza tu técnica.',
     featureMultiSessionTitle: 'Análisis Multisesión',
     featureMultiSessionDesc: 'Compara datos de telemetría de diferentes sesiones. Sigue tu progresión a lo largo del tiempo e identifica la configuración óptima.',
+    featureSetupTitle: 'Comparación de Configuración',
+    featureSetupDesc: 'Compara parámetros específicos de configuración del coche entre vueltas. Identifica cómo los cambios afectan tu rendimiento.',
     featureWorkspaceTitle: 'Organización Avanzada',
     featureWorkspaceDesc: 'Configura múltiples espacios de trabajo para gestionar datos de telemetría sin esfuerzo. Selecciona sesiones específicas para mantener tu análisis estructurado.',
     featureHardwareTitle: 'Sincronización de Hardware',
@@ -99,6 +111,8 @@ const translations = {
     featureCompareDesc: 'Confronta la tua telemetria con i giri di riferimento. Identifica all\'istante dove perdi tempo e ottimizza la tua tecnica.',
     featureMultiSessionTitle: 'Analisi Multi-Sessione',
     featureMultiSessionDesc: 'Confronta i dati telemetrici di diverse sessioni. Tieni traccia dei tuoi progressi nel tempo e identifica l\'assetto ottimale.',
+    featureSetupTitle: 'Confronto Assetto',
+    featureSetupDesc: 'Confronta i parametri specifici dell\'assetto dell\'auto tra i vari giri. Identifica come le modifiche influenzano le prestazioni.',
     featureWorkspaceTitle: 'Organizzazione Avanzata',
     featureWorkspaceDesc: 'Imposta più aree di lavoro per gestire i dati telemetrici senza sforzo. Seleziona sessioni specifiche per mantenere la tua analisi strutturata.',
     featureHardwareTitle: 'Sincronizzazione Hardware',
@@ -348,9 +362,27 @@ export const App: React.FC = () => {
             </div>
           </motion.div>
 
+          {/* Feature 3.5: Car Setup Comparison */}
+          <motion.div 
+            className="showcase-row reverse large-visual"
+            initial={{ opacity: 0, y: 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ margin: "-50px" }}
+            transition={{ duration: 0.7 }}
+          >
+            <div className="showcase-text">
+               <div className="showcase-text-icon"><Settings2 size={24} /></div>
+               <h3>{t.featureSetupTitle}</h3>
+               <p>{t.featureSetupDesc}</p>
+            </div>
+            <div className="showcase-visual">
+               <img src={carSetupImg} className="showcase-img" alt="Car Setup Comparison" />
+            </div>
+          </motion.div>
+
           {/* Feature 4: Workspace */}
           <motion.div 
-            className="showcase-row reverse"
+            className="showcase-row"
             initial={{ opacity: 0, y: 40 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ margin: "-50px" }}
@@ -361,15 +393,24 @@ export const App: React.FC = () => {
                <h3>{t.featureWorkspaceTitle}</h3>
                <p>{t.featureWorkspaceDesc}</p>
             </div>
-            <div className="showcase-visual split-row">
-               <img src={workspaceImg} className="showcase-img half" alt="Workspace Setup" />
-               <img src={sessionImg} className="showcase-img half" alt="Select Session" />
+            <div className="showcase-visual">
+               <div className="session-grid">
+                  <div className="workspace-main">
+                    <img src={workspaceImg} className="showcase-img" alt="Workspace Setup" />
+                  </div>
+                  <div className="session-quad">
+                    <img src={session1} className="showcase-img quad-img" alt="Session 1" />
+                    <img src={session2} className="showcase-img quad-img" alt="Session 2" />
+                    <img src={session3} className="showcase-img quad-img" alt="Session 3" />
+                    <img src={session4} className="showcase-img quad-img" alt="Session 4" />
+                  </div>
+               </div>
             </div>
           </motion.div>
 
           {/* Feature 5: Hardware */}
           <motion.div 
-            className="showcase-row"
+            className="showcase-row reverse"
             initial={{ opacity: 0, y: 40 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ margin: "-50px" }}
@@ -380,8 +421,12 @@ export const App: React.FC = () => {
                <h3>{t.featureHardwareTitle}</h3>
                <p>{t.featureHardwareDesc}</p>
             </div>
-            <div className="showcase-visual">
-               <img src={wheelImg} className="showcase-img small" alt="Hardware Wheel Sync" />
+            <div className="showcase-visual hardware-visual">
+               <img src={wheelImg} className="showcase-img small wheel-main" alt="Hardware Wheel Sync" />
+               <div className="settings-split">
+                  <img src={customSettings1} className="showcase-img" alt="Settings 1" />
+                  <img src={customSettings2} className="showcase-img" alt="Settings 2" />
+               </div>
             </div>
           </motion.div>
 
