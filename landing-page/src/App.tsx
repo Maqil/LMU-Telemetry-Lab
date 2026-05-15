@@ -417,7 +417,7 @@ export const App: React.FC = () => {
                             opacity: 1 - offset * 0.3, 
                             scale: 1 - offset * 0.05,
                             x: offset * 20,
-                            y: offset * -15,
+                            y: offset * 12,
                             zIndex: 10 - offset
                           }}
                           exit={{ opacity: 0, scale: 0.8, x: -100 }}
