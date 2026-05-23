@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Download, Globe, ChevronDown, Layers, Crosshair, FolderKanban, Gamepad2, BarChart2, Settings2, MousePointer2, Monitor } from 'lucide-react';
+import { Download, Globe, ChevronDown, Layers, Crosshair, FolderKanban, Gamepad2, BarChart2, Settings2, MousePointer2, Monitor, BookOpen, FolderOpen } from 'lucide-react';
 import './App.css';
 
 import logo from './assets/logo.png';
@@ -17,6 +17,8 @@ import session1 from './assets/select_session_1.png';
 import session2 from './assets/select_session_2.png';
 import session3 from './assets/select_session_3.png';
 import session4 from './assets/select_session_4.png';
+import recording1 from './assets/recording_1.png';
+import recording2 from './assets/recording_2.png';
 
 const translations = {
   en: {
@@ -45,7 +47,18 @@ const translations = {
     featureHardwareDesc: 'Choose or upload your exact steering wheel model. Sync your real-world hardware settings with the app for a 1:1 simulation experience.',
     footer: '© 2026 LMU Telemetry Lab. Built with passion for sim racing.',
     langName: 'English',
-    clickToSwitch: 'Click to switch cards'
+    clickToSwitch: 'Click to switch cards',
+    howToTitle: 'How to Record Telemetry',
+    howToDesc: 'Follow these steps to generate and find your LMU telemetry files.',
+    method1Title: 'Method 1: Manual Keybind',
+    method1Desc: 'Go to game settings: Settings -> Controls -> Gameplay -> Telemetry Recording and bind a key. Once on track, press the key to start recording (recommended after exiting the pit lane), and press it again to stop.',
+    method2Title: 'Method 2: Automatic Recording',
+    method2Desc: 'Go to game settings: Settings -> Gameplay -> Extra -> Automatically Record Telemetry and turn it on. The game will automatically start recording every time you drive. You can still use your manual keybind to stop recording.',
+    filePathTitle: 'Telemetry File Directory',
+    filePathDesc: 'Telemetry files are saved in the game\'s installation directory under:',
+    steamTipTitle: 'How to find your game directory?',
+    steamTipDesc: 'In Steam Library -> Right-click Le Mans Ultimate (or click the Gear icon) -> Manage -> Browse local files. This will open the game\'s installation folder where you can find UserData\\Telemetry.',
+    bannerTip: 'Scroll down or click here to view the Step-by-Step Telemetry Recording Guide!'
   },
   'zh-TW': {
     loading: 'v...讀取中',
@@ -73,7 +86,18 @@ const translations = {
     featureHardwareDesc: '選擇或上傳你專屬的方向盤模型。將真實世界的硬體設定與應用程式完美同步，享受 1:1 的沉浸分析體驗。',
     footer: '© 2026 LMU Telemetry Lab. Built with passion for sim racing.',
     langName: '繁體中文',
-    clickToSwitch: '點擊切換圖片'
+    clickToSwitch: '點擊切換圖片',
+    howToTitle: '如何紀錄遙測數據？',
+    howToDesc: '請按照以下步驟在遊戲中生成並找到你的遙測數據檔案。',
+    method1Title: '方法一：手動按鍵控制',
+    method1Desc: '進入遊戲設定：Settings -> Controls -> Gameplay -> Telemetry Recording，綁定一個按鍵。在駛入賽道後按下該按鍵即可開始紀錄（建議在駛出 Pit 區後開啟），再次點擊即終止紀錄。',
+    method2Title: '方法二：自動開啟紀錄',
+    method2Desc: '進入遊戲設定：Settings -> Gameplay -> Extra -> Automatically Record Telemetry 並開啟。開啟後遊戲將在你每一次駛入賽道時自動記錄，過程中你亦可隨時使用手動設定的按鍵來終止紀錄。',
+    filePathTitle: '遙測檔案儲存路徑',
+    filePathDesc: '遙測紀錄檔案會保存在 Le Mans Ultimate 安裝目錄下的以下路徑：',
+    steamTipTitle: '如何快速找到遊戲主目錄？',
+    steamTipDesc: 'In Steam 收藏庫中找到 Le Mans Ultimate -> 右鍵點選（或點擊右側的齒輪「管理」圖示） -> 點選 管理 -> 瀏覽本機檔案 (Browse local files)，即可直接打開遊戲安裝主目錄，接著進入 UserData\\Telemetry 資料夾。',
+    bannerTip: '滑到最下面或點擊此處，即可查看「遙測數據紀錄」步驟教學！'
   },
   es: {
     loading: 'v... cargando',
@@ -101,12 +125,23 @@ const translations = {
     featureHardwareDesc: 'Elige o sube tu propio modelo de volante. Sincroniza tus ajustes reales.',
     footer: '© 2026 LMU Telemetry Lab. Creado con pasión por el sim racing.',
     langName: 'Español',
-    clickToSwitch: 'Haz clic para cambiar'
+    clickToSwitch: 'Haz clic para cambiar',
+    howToTitle: 'Cómo registrar la telemetría',
+    howToDesc: 'Siga estos pasos para generar y encontrar sus archivos de telemetría LMU.',
+    method1Title: 'Método 1: Tecla Manual',
+    method1Desc: 'Ve a ajustes: Settings -> Controls -> Gameplay -> Telemetry Recording y asigna una tecla. En pista, presiona la tecla para iniciar el registro (se recomienda tras salir de boxes) y vuelve a presionarla para detenerlo.',
+    method2Title: 'Método 2: Registro Automático',
+    method2Desc: 'Ve a ajustes: Settings -> Gameplay -> Extra -> Automatically Record Telemetry y actívalo. El juego registrará automáticamente al conducir. Puedes seguir usando la tecla manual para detener.',
+    filePathTitle: 'Directorio de archivos de telemetría',
+    filePathDesc: 'Los archivos de telemetría se guardan en el directorio del juego bajo:',
+    steamTipTitle: '¿Cómo encontrar el directorio del juego?',
+    steamTipDesc: 'En Steam -> Biblioteca -> Clic derecho en Le Mans Ultimate (o icono de engranaje) -> Administrar -> Ver archivos locales. Esto abrirá la carpeta del juego donde encontrará UserData\\Telemetry.',
+    bannerTip: '¡Desplácese hacia abajo o haga clic aquí para ver la guía de registro de telemetría!'
   },
   it: {
     loading: 'v... caricamento',
     description1: 'Piattaforma avanzata di analisi telemetrica creata per Le Mans Ultimate.',
-    description2: 'Sblocca il tuo vero potenziale in pista con la visualizzazione 3D e il tracciamento dei dati in tempo reale.',
+    description2: 'Sblocca il tuo vero potenziale in pista con la visualizzazione 3D e il tracciamento dei dati in tempo real.',
     downloadWin: 'Scarica per Windows',
     sponsor: 'Offrimi un caffè',
     screenshotAlt: 'Grafici dei dati',
@@ -117,7 +152,7 @@ const translations = {
     toggle3D: 'Mappa 3D',
     featureCompareTitle: 'Confronto Giri di Riferimento',
     featureCompareDesc: 'Confronta la tua telemetria con i giri di riferimento. Identifica all\'istante dove perdi tempo e ottimizza la tua tecnica.',
-    featureMultiSessionTitle: 'Analisi Multi-Sessione',
+    featureMultiSessionTitle: 'Análisis Multi-Sessione',
     featureMultiSessionDesc: 'Confronta i dati telemetrici di diverse sessioni. Tieni traccia dei tuoi progressi nel tempo e identifica l\'assetto ottimale.',
     featureSetupTitle: 'Confronto Assetto',
     featureSetupDesc: 'Confronta i parametri specifici dell\'assetto dell\'auto tra i vari giri.',
@@ -129,11 +164,33 @@ const translations = {
     featureHardwareDesc: 'Scegli o carica il tuo modello di volante. Sincronizza le tue impostazioni reali.',
     footer: '© 2026 LMU Telemetry Lab. Creato con passione per il sim racing.',
     langName: 'Italiano',
-    clickToSwitch: 'Clicca per cambiare'
+    clickToSwitch: 'Clicca per cambiare',
+    howToTitle: 'Come registrare la telemetria',
+    howToDesc: 'Segui questi passaggi per generare e trovare i file di telemetria di LMU.',
+    method1Title: 'Metodo 1: Tasto Manuale',
+    method1Desc: 'Vai su impostazioni: Settings -> Controls -> Gameplay -> Telemetry Recording e assegna un tasto. In pista, premi il tasto per avviare (consigliato dopo l\'uscita dai box) e ripremi per fermare.',
+    method2Title: 'Metodo 2: Registrazione Automatica',
+    method2Desc: 'Vai su impostazioni: Settings -> Gameplay -> Extra -> Automatically Record Telemetry e attivalo. Il gioco registrerà automaticamente ogni volta che guidi. Puoi usare il tasto manuale per fermare.',
+    filePathTitle: 'Directory dei file di telemetria',
+    filePathDesc: 'I file di telemetria sono salvati nella cartella del gioco sotto:',
+    steamTipTitle: 'Come trovare la cartella del gioco?',
+    steamTipDesc: 'In Steam -> Libreria -> Tasto destro su Le Mans Ultimate (o icona dell\'ingranaggio) -> Gestisci -> Sfoglia i file locali. Questo aprirà la cartella di installazione del gioco dove puoi trovare UserData\\Telemetry.',
+    bannerTip: 'Scorri fino in fondo o clicca qui per vedere la guida alla registrazione della telemetria!'
   }
 };
 
 type LangType = keyof typeof translations;
+
+const renderDescWithHighlight = (text: string) => {
+  const regex = /([（(][^）)]+[）)])/g;
+  const parts = text.split(regex);
+  return parts.map((part, i) => {
+    if (/([（(][^）)]+[）)])/.test(part)) {
+      return <span key={i} className="text-highlight">{part}</span>;
+    }
+    return part;
+  });
+};
 
 export const App: React.FC = () => {
   const [lang, setLang] = useState<LangType>('en');
@@ -238,6 +295,13 @@ export const App: React.FC = () => {
               </AnimatePresence>
             </div>
 
+            <a href="https://discord.gg/zNPehXA3jK" target="_blank" rel="noreferrer" className="nav-discord">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.894.077.077 0 0 1-.008-.128c.126-.093.252-.19.372-.287a.075.075 0 0 1 .077-.011c3.92 1.793 8.18 1.793 12.061 0a.073.073 0 0 1 .078.009c.12.099.246.195.373.289a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.894.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.156-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.156 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.156-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.156 2.418z"/>
+              </svg>
+              Discord
+            </a>
+
             <a href="https://github.com/rabbit20031225/LMU-Telemetry-Lab" target="_blank" rel="noreferrer" className="nav-github">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
               GitHub
@@ -253,6 +317,18 @@ export const App: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: "easeOut" }}
         >
+          {/* How-to Guide Pill Banner */}
+          <motion.div 
+            className="how-to-banner"
+            onClick={() => document.getElementById('how-to')?.scrollIntoView({ behavior: 'smooth' })}
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            <span className="banner-badge">💡 Tip</span>
+            <span className="banner-text">{t.bannerTip}</span>
+            <ChevronDown size={14} className="banner-arrow" />
+          </motion.div>
+
           <div className="brand-header">
             <motion.img 
               src={logo} 
@@ -487,10 +563,93 @@ export const App: React.FC = () => {
                <p>{t.featureHardwareDesc}</p>
             </div>
             <div className="showcase-visual">
-               <img src={wheelImg} className="showcase-img small" alt="Hardware Wheel Sync" />
-            </div>
+                <img src={wheelImg} className="showcase-img small" alt="Hardware Wheel Sync" />
+             </div>
           </motion.div>
 
+        </section>
+
+        {/* How to Record Telemetry Section */}
+        <section className="how-to-section" id="how-to">
+          <motion.div 
+            className="section-header"
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ margin: "-50px" }}
+          >
+            <div className="section-title-icon">
+              <BookOpen size={32} className="title-icon-glow" />
+            </div>
+            <h2>{t.howToTitle}</h2>
+            <p className="section-subtitle">{t.howToDesc}</p>
+          </motion.div>
+
+          <div className="how-to-list">
+            {/* Step 1: Manual Keybind */}
+            <motion.div 
+              className="how-to-row-card"
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ margin: "-50px" }}
+              transition={{ duration: 0.6 }}
+            >
+              <div className="how-to-card-content">
+                <span className="step-badge">Method 1</span>
+                <h3>{t.method1Title}</h3>
+                <p>{renderDescWithHighlight(t.method1Desc)}</p>
+              </div>
+              <div className="how-to-card-image">
+                <img src={recording1} alt="Manual Telemetry Recording Keybind Settings" />
+              </div>
+            </motion.div>
+
+            {/* Step 2: Automatic Recording */}
+            <motion.div 
+              className="how-to-row-card reverse"
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ margin: "-50px" }}
+              transition={{ duration: 0.6 }}
+            >
+              <div className="how-to-card-content">
+                <span className="step-badge">Method 2</span>
+                <h3>{t.method2Title}</h3>
+                <p>{t.method2Desc}</p>
+              </div>
+              <div className="how-to-card-image">
+                <img src={recording2} alt="Automatic Telemetry Recording Settings" />
+              </div>
+            </motion.div>
+          </div>
+
+          {/* Directory Location Info Box */}
+          <motion.div 
+            className="directory-info-box"
+            initial={{ opacity: 0, scale: 0.95 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ margin: "-50px" }}
+            transition={{ duration: 0.6 }}
+          >
+            <div className="info-icon">
+              <FolderOpen size={24} />
+            </div>
+            <div className="info-content">
+              <h4>{t.filePathTitle}</h4>
+              <p>{t.filePathDesc}</p>
+              <div className="path-display-container">
+                <code className="path-code">
+                  ...\Steam\steamapps\common\Le Mans Ultimate\UserData\Telemetry
+                </code>
+              </div>
+              
+              <div className="steam-tip-divider"></div>
+              
+              <div className="steam-tip-section">
+                <h5>{t.steamTipTitle}</h5>
+                <p>{t.steamTipDesc}</p>
+              </div>
+            </div>
+          </motion.div>
         </section>
       </main>
 
