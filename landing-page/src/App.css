@@ -1,3 +1,66 @@
+html {
+  scroll-behavior: smooth;
+}
+
+/* How-to Banner */
+.how-to-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: rgba(102, 252, 241, 0.05);
+  border: 1px solid rgba(102, 252, 241, 0.2);
+  border-radius: 999px;
+  padding: 0.5rem 1.2rem;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+  margin-bottom: 2rem;
+  box-shadow: 0 4px 15px rgba(102, 252, 241, 0.03);
+  z-index: 2;
+}
+
+.how-to-banner:hover {
+  background: rgba(102, 252, 241, 0.1);
+  border-color: rgba(102, 252, 241, 0.5);
+  box-shadow: 0 4px 20px rgba(102, 252, 241, 0.12);
+}
+
+.banner-badge {
+  background: #66fcf1;
+  color: #0b0c10;
+  font-size: 0.75rem;
+  font-weight: 800;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 8px rgba(102, 252, 241, 0.3);
+}
+
+.banner-text {
+  color: #a0aab2;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: color 0.2s;
+}
+
+.how-to-banner:hover .banner-text {
+  color: #fff;
+}
+
+.banner-arrow {
+  color: #66fcf1;
+  animation: banner-bounce 2s infinite;
+}
+
+@keyframes banner-bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(3px);
+  }
+}
+
 .landing-container {
   min-height: 100vh;
   background-color: #0b0c10;
@@ -150,6 +213,20 @@
 
 .nav-github:hover {
   color: #fff;
+}
+
+.nav-discord {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #a0aab2;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+.nav-discord:hover {
+  color: #5865f2;
 }
 
 /* 科技感環境光暈 */
@@ -495,6 +572,228 @@
   border-top: 1px solid rgba(255,255,255,0.05);
 }
 
+/* How to Record Telemetry Section */
+.how-to-section {
+  width: 100%;
+  max-width: 1100px;
+  margin: 6rem auto 2rem;
+  padding: 0 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3.5rem;
+  z-index: 1;
+}
+
+.section-title-icon {
+  margin-bottom: 0.5rem;
+  color: #66fcf1;
+}
+
+.title-icon-glow {
+  filter: drop-shadow(0 0 8px rgba(102, 252, 241, 0.5));
+}
+
+.section-subtitle {
+  color: #8f9aa3;
+  font-size: 1.1rem;
+  margin-top: 0.5rem;
+}
+
+.how-to-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3rem;
+  width: 100%;
+}
+
+.how-to-row-card {
+  background: rgba(18, 24, 32, 0.5);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 24px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: row;
+  min-height: 380px;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+}
+
+.how-to-row-card:hover {
+  transform: translateY(-5px);
+  border-color: rgba(102, 252, 241, 0.2);
+  box-shadow: 0 20px 50px rgba(102, 252, 241, 0.08);
+}
+
+.how-to-row-card.reverse {
+  flex-direction: row-reverse;
+}
+
+.how-to-card-image {
+  flex: 1.4;
+  overflow: hidden;
+  position: relative;
+  background: radial-gradient(circle, rgba(18, 24, 32, 0.4) 0%, rgba(5, 7, 10, 0.8) 100%);
+  padding: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.how-to-card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  transition: transform 0.5s ease;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.how-to-row-card:hover .how-to-card-image img {
+  transform: scale(1.02);
+}
+
+.how-to-card-content {
+  flex: 1;
+  padding: 3rem 2.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.step-badge {
+  display: inline-block;
+  align-self: flex-start;
+  background: rgba(102, 252, 241, 0.1);
+  color: #66fcf1;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.how-to-card-content h3 {
+  color: #fff;
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.how-to-card-content p {
+  color: #a0aab2;
+  font-size: 0.98rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* Telemetry Path Info Box */
+.directory-info-box {
+  width: 100%;
+  background: linear-gradient(135deg, rgba(18, 24, 32, 0.8) 0%, rgba(10, 14, 20, 0.8) 100%);
+  border: 1px dashed rgba(102, 252, 241, 0.2);
+  border-radius: 20px;
+  padding: 2rem;
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  max-width: 900px;
+}
+
+.info-icon {
+  color: #66fcf1;
+  padding: 0.75rem;
+  background: rgba(102, 252, 241, 0.1);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 0 15px rgba(102, 252, 241, 0.2);
+}
+
+.info-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.info-content h4 {
+  color: #fff;
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.info-content p {
+  color: #a0aab2;
+  font-size: 0.95rem;
+  margin: 0 0 0.5rem 0;
+}
+
+.path-display-container {
+  display: flex;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 0.8rem 1.2rem;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.path-code {
+  font-family: 'Consolas', 'Fira Code', monospace;
+  color: #66fcf1;
+  font-size: 0.92rem;
+  white-space: nowrap;
+  letter-spacing: 0.5px;
+}
+
+/* Steam Tip Section Inside Info Box */
+.steam-tip-divider {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  margin: 1.5rem 0 1.2rem;
+  width: 100%;
+}
+
+.steam-tip-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.steam-tip-section h5 {
+  color: #f2a900;
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.steam-tip-section p {
+  color: #8f9aa3;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.text-highlight {
+  color: #ffb000;
+  font-weight: 700;
+  background: rgba(255, 176, 0, 0.08);
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 176, 0, 0.15);
+}
+
 /* RWD 響應式 */
 @media (max-width: 768px) {
   .brand-header {
@@ -532,5 +831,44 @@
 
   .showcase-img.small {
     width: 90%;
+  }
+
+  /* How-to RWD */
+  .how-to-list {
+    gap: 2rem;
+  }
+
+  .how-to-row-card, .how-to-row-card.reverse {
+    flex-direction: column-reverse;
+    min-height: auto;
+  }
+
+  .how-to-card-image {
+    flex: none;
+    height: 220px;
+    width: 100%;
+  }
+
+  .how-to-card-content {
+    flex: none;
+    padding: 2rem 1.5rem;
+    gap: 0.75rem;
+  }
+
+  .directory-info-box {
+    flex-direction: column;
+    gap: 1.25rem;
+    padding: 1.5rem;
+  }
+
+  .path-display-container {
+    padding: 0.75rem 1rem;
+  }
+
+  .path-code {
+    font-size: 0.82rem;
+    overflow-x: auto;
+    width: 100%;
+    text-align: center;
   }
 }
