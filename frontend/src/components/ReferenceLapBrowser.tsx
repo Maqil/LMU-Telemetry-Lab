@@ -1,45 +1,18 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useTelemetryStore } from '../store/telemetryStore';
+import { useTelemetryStore, findMappedCarModel } from '../store/telemetryStore';
 import { apiClient } from '../api/client';
 import type { ReferenceLap } from '../types';
 import { Search, History, MapPin, X, Loader2, Calendar, ChevronRight, ChevronDown } from 'lucide-react';
 import { handleGlassMouseMove } from '../utils/glassEffect';
 import { Tooltip } from './ui/Tooltip';
-
-const getBrandLogoPath = (modelName: string) => {
-    const lower = (modelName || '').toLowerCase();
-    if (lower.includes('mclaren')) return '/logos/mclaren.png';
-    if (lower.includes('ferrari')) return '/logos/ferrari.png';
-    if (lower.includes('porsche')) return '/logos/porsche.png';
-    if (lower.includes('lamborghini')) return '/logos/lamborghini.png';
-    if (lower.includes('bmw')) return '/logos/bmw.png';
-    if (lower.includes('aston')) return '/logos/aston_martin.png';
-    if (lower.includes('mercedes') || lower.includes('amg')) return '/logos/mercedes.png';
-    if (lower.includes('corvette')) return '/logos/corvette.png';
-    if (lower.includes('toyota')) return '/logos/toyota.png';
-    if (lower.includes('cadillac')) return '/logos/cadillac.png';
-    if (lower.includes('peugeot')) return '/logos/peugeot.png';
-    if (lower.includes('alpine')) return '/logos/alpine.png';
-    if (lower.includes('lexus')) return '/logos/lexus.png';
-    if (lower.includes('genesis')) return '/logos/genesis.png';
-    if (lower.includes('ford') || lower.includes('mustang')) return '/logos/ford.png';
-    if (lower.includes('isotta')) return '/logos/isotta_fraschini.png';
-    if (lower.includes('glickenhaus')) return '/logos/glickenhaus.png';
-    if (lower.includes('vanwall')) return '/logos/vanwall.png';
-    if (lower.includes('chevrolet')) return '/logos/corvette.png';
-    if (lower.includes('oreca')) return '/logos/oreca.png';
-    if (lower.includes('ginetta')) return '/logos/ginetta.png';
-    if (lower.includes('ligier')) return '/logos/ligier.png';
-    const brand = lower.split(' ')[0];
-    return `/logos/${brand}.png`;
-};
+import { getBrandLogoPath } from '../utils/carHelpers';
 
 interface ReferenceLapBrowserProps {
     onClose: () => void;
 }
 
 export const ReferenceLapBrowser: React.FC<ReferenceLapBrowserProps> = ({ onClose }) => {
-    const { sessionMetadata, activeProfileId, currentSessionId, selectedLapIdx, referenceLap, referenceLapIdx, selectReferenceLap } = useTelemetryStore();
+    const { sessionMetadata, activeProfileId, currentSessionId, selectedLapIdx, referenceLap, referenceLapIdx, selectReferenceLap, customCarMappings, sessions } = useTelemetryStore();
     const [laps, setLaps] = useState<ReferenceLap[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [search, setSearch] = useState('');
@@ -66,7 +39,20 @@ export const ReferenceLapBrowser: React.FC<ReferenceLapBrowserProps> = ({ onClos
     }, [sessionMetadata, activeProfileId]);
 
     const groupedData = useMemo(() => {
-        const filtered = laps.filter(l => 
+        const mappedLaps = laps.map(l => {
+            // 透過 sessionId 回推原始車款名稱 (100% 前端防禦性即時連動)
+            const matchedSession = sessions.find(s => s.id === l.sessionId);
+            const rawCarName = matchedSession?.rawCarName || l.rawCarName;
+
+            const key = rawCarName || l.carModel;
+            const mappedCar = findMappedCarModel(key, customCarMappings);
+            if (mappedCar) {
+                return { ...l, carModel: mappedCar };
+            }
+            return l;
+        });
+
+        const filtered = mappedLaps.filter(l => 
             l.sessionName.toLowerCase().includes(search.toLowerCase()) ||
             l.driver.toLowerCase().includes(search.toLowerCase()) ||
             (l.carModel || '').toLowerCase().includes(search.toLowerCase())
@@ -109,7 +95,7 @@ export const ReferenceLapBrowser: React.FC<ReferenceLapBrowserProps> = ({ onClos
         });
 
         return Object.values(groups).sort((a, b) => b.date - a.date);
-    }, [laps, search]);
+    }, [laps, search, customCarMappings, sessions]);
 
     const toggleSession = (id: string) => {
         setExpandedSession(prev => prev === id ? null : id);

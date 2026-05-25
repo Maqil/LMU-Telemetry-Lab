@@ -3,6 +3,34 @@ import type { Session, Lap, TelemetryData, Profile } from '../types';
 
 const API_BASE = '/api/v1';
 
+function parseContentDisposition(disposition: string | null, fallback: string): string {
+    if (!disposition) return fallback;
+    
+    // 1. 優先匹配 filename* (RFC 5987)
+    const filenameStarRegex = /filename\*=(?:utf-8|us-ascii)'[^']*'(.*)/i;
+    const starMatch = filenameStarRegex.exec(disposition);
+    if (starMatch && starMatch[1]) {
+        try {
+            return decodeURIComponent(starMatch[1].replace(/['"]/g, ''));
+        } catch (e) {
+            console.error("Failed to decode filename*", e);
+        }
+    }
+    
+    // 2. 如果沒有 filename*，則匹配一般的 filename
+    const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/i;
+    const matches = filenameRegex.exec(disposition);
+    if (matches != null && matches[1]) {
+        try {
+            return decodeURIComponent(matches[1].replace(/['"]/g, ''));
+        } catch {
+            return matches[1].replace(/['"]/g, '');
+        }
+    }
+    
+    return fallback;
+}
+
 export const apiClient = {
     // --- Profile Management ---
     async getProfiles(): Promise<{ profiles: Profile[] }> {
@@ -67,7 +95,8 @@ export const apiClient = {
             track_name: trackName,
             track_layout: trackLayout,
             car_class: carClass,
-            profile_id: profileId
+            profile_id: profileId,
+            _t: Date.now().toString()
         });
         const res = await fetch(`${API_BASE}/reference-laps?${params.toString()}`);
         if (!res.ok) throw new Error('Failed to fetch reference laps');
@@ -140,32 +169,40 @@ export const apiClient = {
         });
     },
 
-    async exportSessionSetup(sessionId: string, profileId: string = 'guest'): Promise<void> {
-        const res = await fetch(`${API_BASE}/sessions/${encodeURIComponent(sessionId)}/setup/export?profile_id=${profileId}`);
+    async exportSessionSetup(sessionId: string, profileId: string = 'guest', customCarModel?: string): Promise<void> {
+        let url = `${API_BASE}/sessions/${encodeURIComponent(sessionId)}/setup/export?profile_id=${profileId}`;
+        if (customCarModel) {
+            url += `&custom_car_model=${encodeURIComponent(customCarModel)}`;
+        }
+        console.log("[DEBUG] Fetching export SVM URL:", url);
+        const res = await fetch(url);
         if (!res.ok) {
             const err = await res.json().catch(() => ({ detail: 'Failed to export setup' }));
             throw new Error(err.detail || 'Failed to export setup');
         }
         
         // Get the filename from the Content-Disposition header if available
-        let filename = `${sessionId.split('.')[0]}_setup.svm`;
-        const disposition = res.headers.get('Content-Disposition');
-        if (disposition && disposition.indexOf('filename=') !== -1) {
-            const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
-            const matches = filenameRegex.exec(disposition);
-            if (matches != null && matches[1]) {
-                filename = matches[1].replace(/['"]/g, '');
+        const defaultFilename = `${sessionId.split('.')[0]}_setup.svm`;
+        let filename = parseContentDisposition(res.headers.get('Content-Disposition'), defaultFilename);
+        
+        // 終極前端防禦：如果在下載時有校正車名，而檔名中卻含有原始車名，前端直接主動替換！
+        if (customCarModel && filename && filename.indexOf('_') !== -1) {
+            const parts = filename.split('_');
+            if (parts.length >= 3) {
+                // 替換車型部分並移除非法檔名字元
+                parts[1] = customCarModel.replace(/ /g, '-').replace(/[#?:]/g, '');
+                filename = parts.join('_');
             }
         }
         
         const blob = await res.blob();
-        const url = window.URL.createObjectURL(blob);
+        const blobUrl = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url;
+        a.href = blobUrl;
         a.download = filename;
         document.body.appendChild(a);
         a.click();
-        window.URL.revokeObjectURL(url);
+        window.URL.revokeObjectURL(blobUrl);
         document.body.removeChild(a);
     },
 
@@ -173,8 +210,11 @@ export const apiClient = {
         return this._fetchJson(`/sessions/${encodeURIComponent(sessionId)}/setup?profile_id=${profileId}`);
     },
 
-    async exportLap(sessionId: string, lapNumber: number, profileId: string = 'guest'): Promise<void> {
-        const url = `${API_BASE}/sessions/${encodeURIComponent(sessionId)}/export/lap/${lapNumber}?profile_id=${profileId}`;
+    async exportLap(sessionId: string, lapNumber: number, profileId: string = 'guest', customCarModel?: string): Promise<void> {
+        let url = `${API_BASE}/sessions/${encodeURIComponent(sessionId)}/export/lap/${lapNumber}?profile_id=${profileId}`;
+        if (customCarModel) {
+            url += `&custom_car_model=${encodeURIComponent(customCarModel)}`;
+        }
         const res = await fetch(url);
         if (!res.ok) throw new Error('Failed to export lap');
 
@@ -184,11 +224,32 @@ export const apiClient = {
         link.href = downloadUrl;
 
         // Extract filename from header if possible, else fallback
-        const contentDisposition = res.headers.get('Content-Disposition');
-        let filename = `lap_${lapNumber}.duckdb`;
-        if (contentDisposition) {
-            const match = contentDisposition.match(/filename="(.+)"/);
-            if (match) filename = match[1];
+        const defaultFilename = `lap_${lapNumber}.duckdb`;
+        let filename = parseContentDisposition(res.headers.get('Content-Disposition'), defaultFilename);
+
+        // 終極前端防禦：如果在下載時有校正車名，而 filename 裡面含有原始車名，前端直接替換之
+        if (customCarModel && filename) {
+            const normalizedCustom = customCarModel.replace(/ /g, '-').replace(/[#?:]/g, '');
+            
+            // 獲取當前 session 的 rawCarName 來精準匹配，避免誤傷含有橫杠的賽道名
+            try {
+                // 從 window.useTelemetryStore 或類似方式獲取當前 rawCarName
+                const storeState = (window as any).useTelemetryStore?.getState?.();
+                const rawCarName = storeState?.sessionMetadata?.rawCarName;
+                if (rawCarName) {
+                    const rawBase = rawCarName.split(':')[0].trim().replace(/ /g, '-');
+                    const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const replaceRegex = new RegExp(escapeRegExp(rawBase), 'gi');
+                    filename = filename.replace(replaceRegex, normalizedCustom);
+                } else {
+                    // Fallback 替換常見 Logitech 格式
+                    filename = filename.replace(/Logitech-G-Challenge-[^-\s_]+/i, normalizedCustom);
+                    filename = filename.replace(/LOGITECH-G-CHALLENGE-[^-\s_]+/i, normalizedCustom);
+                }
+            } catch {
+                filename = filename.replace(/Logitech-G-Challenge-[^-\s_]+/i, normalizedCustom);
+                filename = filename.replace(/LOGITECH-G-CHALLENGE-[^-\s_]+/i, normalizedCustom);
+            }
         }
 
         link.setAttribute('download', filename);

@@ -99,6 +99,7 @@ export interface ReferenceLap {
     driver: string;
     sessionTime: string;
     carModel?: string;
+    rawCarName?: string;
     stintCount?: number;
     totalLaps?: number;
     fuelUsed?: number;

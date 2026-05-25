@@ -543,9 +543,16 @@ from fastapi.responses import PlainTextResponse
 from ..services.setup_exporter import generate_svm_from_duckdb
 
 @router.get("/sessions/{session_id}/setup/export")
-async def export_session_setup(session_id: str, profile_id: Optional[str] = Query("guest")):
+async def export_session_setup(session_id: str, request: Request, custom_car_model: Optional[str] = Query(None), profile_id: Optional[str] = Query("guest")):
     """Export car setup data to .svm format."""
     from ..services.car_lookup import get_car_info
+
+    # 優先從 Query Params 中手動提取，防止 FastAPI 自動解析 Race Condition
+    q_custom = request.query_params.get("custom_car_model")
+    if q_custom:
+        custom_car_model = q_custom
+
+    logger.info(f"API: GET /setup/export - Session: {session_id}, custom_car_model: {custom_car_model}, profile_id: {profile_id}")
 
     data_dir, _ = get_contextual_dirs(profile_id)
     db_path = os.path.join(data_dir, session_id)
@@ -575,7 +582,10 @@ async def export_session_setup(session_id: str, profile_id: Optional[str] = Quer
 
             raw_car = meta.get("CarName", "")
             raw_class = meta.get("CarClass", "")
-            car_model, _ = get_car_info(raw_car, raw_class)
+            if custom_car_model:
+                car_model = custom_car_model
+            else:
+                car_model, _ = get_car_info(raw_car, raw_class)
             car_model = car_model.replace(" ", "-")
 
             recording_time = meta.get("RecordingTime", os.path.splitext(session_id)[0])
@@ -943,8 +953,14 @@ async def get_telemetry(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/sessions/{session_id}/export/lap/{lap_number}")
-async def export_session_lap(session_id: str, lap_number: int, profile_id: Optional[str] = Query("guest")):
+async def export_session_lap(session_id: str, lap_number: int, request: Request, custom_car_model: Optional[str] = Query(None), profile_id: Optional[str] = Query("guest")):
     """Export a specific lap as a standalone .duckdb file."""
+    # 優先從 Query Params 中手動提取，防止 FastAPI 自動解析 Race Condition
+    q_custom = request.query_params.get("custom_car_model")
+    if q_custom:
+        custom_car_model = q_custom
+
+    logger.info(f"API: GET /export/lap - Session: {session_id}, Lap: {lap_number}, custom_car_model: {custom_car_model}, profile_id: {profile_id}")
     data_dir, cache_dir = get_contextual_dirs(profile_id)
     db_path = os.path.join(data_dir, session_id)
     if not os.path.exists(db_path):
@@ -977,7 +993,10 @@ async def export_session_lap(session_id: str, lap_number: int, profile_id: Optio
             raw_car = meta_dict.get('CarName', '')
             raw_class = meta_dict.get('CarClass', '')
             driver_name = meta_dict.get('DriverName', 'Driver').replace(" ", "-")
-            car_model, _ = get_car_info(raw_car, raw_class)
+            if custom_car_model:
+                car_model = custom_car_model
+            else:
+                car_model, _ = get_car_info(raw_car, raw_class)
             car_model = car_model.replace(" ", "-")
             recording_time = meta_dict.get('RecordingTime') or datetime.now().strftime("%Y-%m-%dT%H_%M_%SZ")
 
@@ -1007,6 +1026,14 @@ async def export_session_lap(session_id: str, lap_number: int, profile_id: Optio
         if not os.path.exists(export_path):
             raise HTTPException(status_code=500, detail="Failed to generate export file")
             
+        # 5. Overwrite metadata in exported DuckDB if custom_car_model is supplied
+        if custom_car_model:
+            try:
+                with duckdb.connect(export_path, read_only=False) as con_export:
+                    con_export.execute("UPDATE metadata SET value = ? WHERE key = 'CarName'", (custom_car_model,))
+            except Exception as update_err:
+                logger.warning(f"Failed to update metadata CarName in sliced export DB: {update_err}")
+
         return FileResponse(
             path=export_path,
             filename=export_filename,

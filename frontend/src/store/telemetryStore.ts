@@ -28,6 +28,14 @@ const findIndexInChannelRange = (arr: Float64Array | number[], target: number, s
     return p1 + (target - v1) / (v2 - v1);
 };
 
+export const findMappedCarModel = (rawName: string | undefined, mappings: Record<string, string>): string | undefined => {
+    if (!rawName) return undefined;
+    const matchedKey = Object.keys(mappings).find(
+        k => k.toUpperCase() === rawName.toUpperCase()
+    );
+    return matchedKey ? mappings[matchedKey] : undefined;
+};
+
 export interface TelemetryState {
     sessions: Session[];
     currentSessionId: string | null;
@@ -668,7 +676,11 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
         if (!sessionId) return;
         set({ isListLoading: true });
         try {
-            await apiClient.exportLap(sessionId, lapNumber, get().activeProfileId || 'guest');
+            const rawCarName = get().sessionMetadata?.rawCarName;
+            const customCarMappings = get().customCarMappings;
+            const mappedCarModel = findMappedCarModel(rawCarName, customCarMappings);
+            const customCarModel = mappedCarModel || get().sessionMetadata?.modelName;
+            await apiClient.exportLap(sessionId, lapNumber, get().activeProfileId || 'guest', customCarModel || undefined);
         } catch (e) {
             console.error('Failed to export lap:', e);
             set({ error: 'Failed to export lap file' });
@@ -682,8 +694,12 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
         set({ isListLoading: true });
         try {
             const profileId = get().activeProfileId || 'guest';
-            await apiClient.exportLap(sessionId, lapNumber, profileId);
-            await apiClient.exportSessionSetup(sessionId, profileId);
+            const rawCarName = get().sessionMetadata?.rawCarName;
+            const customCarMappings = get().customCarMappings;
+            const mappedCarModel = findMappedCarModel(rawCarName, customCarMappings);
+            const customCarModel = mappedCarModel || get().sessionMetadata?.modelName;
+            await apiClient.exportLap(sessionId, lapNumber, profileId, customCarModel || undefined);
+            await apiClient.exportSessionSetup(sessionId, profileId, customCarModel || undefined);
         } catch (e) {
             console.error('Failed to export lap + setup:', e);
             set({ error: 'Failed to export lap + setup files' });
@@ -1333,8 +1349,9 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
             const customCarMappings = get().customCarMappings;
             const mappedSessions = data.sessions.map(s => {
                 const key = s.rawCarName || s.carModel;
-                if (key && customCarMappings[key]) {
-                    return { ...s, carModel: customCarMappings[key] };
+                const mappedCar = findMappedCarModel(key, customCarMappings);
+                if (mappedCar) {
+                    return { ...s, carModel: mappedCar };
                 }
                 return s;
             });
@@ -1386,8 +1403,9 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
 
             const metadata = { ...data.metadata };
             const customCarMappings = get().customCarMappings;
-            if (metadata && metadata.rawCarName && customCarMappings[metadata.rawCarName]) {
-                metadata.modelName = customCarMappings[metadata.rawCarName];
+            const mappedCar = findMappedCarModel(metadata?.rawCarName, customCarMappings);
+            if (metadata && mappedCar) {
+                metadata.modelName = mappedCar;
             }
             set({ laps: data.laps, sessionMetadata: metadata });
 
@@ -1615,8 +1633,9 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
 
             const refMetadata = { ...sessionData.metadata };
             const customCarMappings = get().customCarMappings;
-            if (refMetadata && refMetadata.rawCarName && customCarMappings[refMetadata.rawCarName]) {
-                refMetadata.modelName = customCarMappings[refMetadata.rawCarName];
+            const mappedCar = findMappedCarModel(refMetadata?.rawCarName, customCarMappings);
+            if (refMetadata && mappedCar) {
+                refMetadata.modelName = mappedCar;
             }
             set({ referenceTelemetryData: data, referenceSessionMetadata: refMetadata });
 
@@ -1643,8 +1662,9 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
             ]);
             const refMetadata = { ...sessionData.metadata };
             const customCarMappings = get().customCarMappings;
-            if (refMetadata && refMetadata.rawCarName && customCarMappings[refMetadata.rawCarName]) {
-                refMetadata.modelName = customCarMappings[refMetadata.rawCarName];
+            const mappedCar = findMappedCarModel(refMetadata?.rawCarName, customCarMappings);
+            if (refMetadata && mappedCar) {
+                refMetadata.modelName = mappedCar;
             }
             set({ referenceTelemetryData: data, referenceSessionMetadata: refMetadata, referenceLap: lap, referenceLapIdx: null });
         } catch (err) {
@@ -1970,3 +1990,7 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
         get().syncFromElapsed(time);
     }
 }));
+
+if (typeof window !== 'undefined') {
+    (window as any).useTelemetryStore = useTelemetryStore;
+}

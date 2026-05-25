@@ -1042,6 +1042,7 @@ class TelemetryService:
                                 "driver": meta.get('DriverName', 'Unknown'),
                                 "sessionTime": meta.get('SessionTime', 'Unknown'),
                                 "carModel": car_model,
+                                "rawCarName": meta.get('CarName', ''),
                                 "totalLaps": total_laps,
                                 "stintCount": stint_count,
                                 "fuelUsed": lap.get('fuelUsed', 0.0)

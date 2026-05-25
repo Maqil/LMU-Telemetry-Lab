@@ -7,7 +7,7 @@
     *   **圖表修復**：修正左側輪胎滑移率極性，並修復了 Handling 頁面下滑移率無法正常拆分/合併顯示的 Bug。
 *   **檔案管理與車型識別優化**：
     *   **檔案管理員**：改由後端上傳 API 直接回傳新 Session ID 進行精確展開與捲動，取代舊版以時間猜測的方式。
-    *   **車型手動校正與 File Manager 實時連動**：新增手動校正系統，支援將客製化塗裝/賽事車型（如 Logitech G Challenge）映射對照至官方車款。後端擴充 `rawCarName` 欄位，實現 File Manager 中所有分組模式下小卡、資料夾與 Logo 的零延遲即時連動。
+    *   **車型手動校正與 File Manager 實時連動**：新增手動校正系統，支援將客製化塗裝/賽事車型（如 Logitech G Challenge）映射對照至官方車款。後端擴充 `rawCarName` 欄位，實現 File Manager 中所有分組模式下小卡、資料夾與 Logo 的零延遲即時連動。同時在 `.svm` 與 `.duckdb` 檔案匯出時實時同步檔名，並以 SQL 覆寫已切片資料庫之內部 metadata 表中的車名，確保車型一致性。
     *   **校正選取 UI 極致打磨**：大幅放大選車彈窗 Model Name 至 `15px font-black`，Logo 改採原色高清晰度展現；校正按鍵改為極簡無字的藍色毛玻璃發光 Icon 藥丸按鈕。
 *   **Discord 官方社群與 Landing Page 生態整合**：
     *   **App 介面整合**：於設定選單 Footer 整合了 glassmorphism 高質感 3D 微互動 Discord 加入按鈕；Navbar Logo 旁動態展示版本號 `v{version}` 並完美去抖。
@@ -25,7 +25,7 @@
     *   **Interactive Fixes**: Corrected left-wheel slip ratio polarity and fixed unresponsive split/merged toggle interactions under the Handling tab.
 *   **FileManager & Vehicle Identification**:
     *   **Smart Expansion**: Uses backend API-returned session IDs for precise directory expansion and smooth scrolling, replacing created-time guessing.
-    *   **Car Model Calibration & Live Propagation**: Introduced a manual car model alignment system for unmapped/custom livery names. Features backend `rawCarName` payloads that reactive-updates File Manager session cards, group folders, and brand logos instantly across all grouping modes.
+    *   **Car Model Calibration & Live Propagation**: Introduced a manual car model alignment system for unmapped/custom livery names. Features backend `rawCarName` payloads that reactive-updates File Manager session cards, group folders, and brand logos instantly across all grouping modes. Also synchronizes calibrated model names to `.svm` and `.duckdb` export filenames, and patches the internal database metadata table using backend SQL rewrites to maintain consistency across users.
     *   **Overlay & Pill Button Polish**: Enlarged overlay model text sizes to `15px font-black`, displays brand logos in full vibrant color, and upgrades the calibration button to a clean, icon-only micro-pill glow style.
 *   **Discord Community & UI/UX Polish**:
     *   **App Integrations**: Added a glassmorphic 3D parallax Discord join button to the settings footer. Navbar dynamically displays `v{version}` and hard-locks scaling to eliminate brand hover jitter.

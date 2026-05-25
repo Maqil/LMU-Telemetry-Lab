@@ -7,6 +7,9 @@
 ### 1. 手動映射校正與實時 File Manager 數據連動 (Manual Calibration & Live File Manager Propagation)
 - **實時數據擴充**：於後端 `/sessions` 接口中，補上並回傳 DuckDB 的原始車輛 ID（`rawCarName`），並擴充前端的 `Session` 介面。這使前端能將自訂對照關係（`customCarMappings`）精確映射至 Sessions 列表的資料庫實體中。
 - **全域零延遲同步**：當使用者點擊 Current/Reference Car 的校正按鈕並選定車款後，`telemetryStore` 會立即攔截並更新所有匹配該原始名稱之 Session 的 `carModel`。這會觸發 File Manager 對 `sessions` 變更的即時響應，使列表中的車型小卡、分組資料夾名稱與品牌 Logo **瞬間、無縫地替換為校正後的正確狀態**。
+- **匯出檔名與內部 metadata 實時同步**：
+  - **`.svm` 設定匯出檔名同步**：將手動校準的車型（如 `Lexus RCF LMGT3`）傳遞至後端 `.svm` 設定檔匯出 API，使產生的檔名同步更新為校準後的名稱（例如 `track_Lexus-RCF-LMGT3_time_setup.svm`）。
+  - **`.duckdb` 單圈檔案導出與元數據修改**：單圈匯出 API 現在支持 `custom_car_model` 參數。在匯出單圈生成新切片的 `.duckdb` 檔案後，後端會**直接執行 SQL UPDATE 語句**（`UPDATE metadata SET value = ? WHERE key = 'CarName'`），將切片資料庫內部的 `metadata` 表中的車輛名稱替換為校準後的車型。如此一來，其他使用者載入此 `.duckdb` 檔案時，亦能正確識別該校準車款。
 
 ### 2. 精緻發光校正按鈕與提示 (Refined Micro-Pill Calibration Button)
 - **極簡極致微光按鈕**：將原先隱蔽的灰色齒輪升級為高質感、無文字的**透亮發光 Icon 按鈕**，保持簡約高雅的版面風格。
@@ -29,6 +32,9 @@ This update integrates a premium, glassmorphic "Manual Car Model Calibration Sys
 - **Live File Manager Propagation & Schema Alignment**:
   - **Payload Extension**: Enhanced the backend `/sessions` endpoint to pack and deliver the underlying raw DuckDB vehicle ID (`rawCarName`) to the frontend, extending the `Session` schema type accordingly.
   - **Dynamic Multi-Group Updates**: Calibrating a vehicle instantly triggers `telemetryStore` to override all matched sessions. This reactive updates the File Manager listings dynamically—**modifying session cards, grouping folder headers, and brand logos instantly** across all views (Car, Class, Track, All) without requiring a reload.
+  - **Filename and Database Metadata Sync on Export**:
+    - **`.svm` Setup Filename Override**: Propagates the custom car calibration mapping down to the backend setup exporter, ensuring generated setup filenames accurately mirror the calibrated model name (e.g. `track_Lexus-RCF-LMGT3_time_setup.svm`).
+    - **`.duckdb` Sliced Metadata Rewrite**: Upgraded the backend lap slicing algorithm (`export_session_lap`) to inject a database patcher. After slicing out a single lap database, it executes a SQL payload `UPDATE metadata SET value = ? WHERE key = 'CarName'` inside the export. Other users loading this sliced `.duckdb` file will automatically see the calibrated vehicle model without requiring local rules.
 - **Icon-Only Calibration Button & Tooltip Refinements**:
   - **Premium Glow Icon Button**: Replaced the muted grey gear icon with a minimal, icon-only button to keep navbar alignments clean.
   - **Micro-Interactions**: Features a translucent glowing core and blue border (`bg-blue-500/10 border-blue-500/30 text-blue-400 hover:text-white`), smooth rotating transitions, and physics-based tactile clicks (`active:scale-95`).

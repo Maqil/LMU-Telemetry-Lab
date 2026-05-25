@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useTelemetryStore } from '../store/telemetryStore';
+import { useTelemetryStore, findMappedCarModel } from '../store/telemetryStore';
 import { ArrowLeft, Loader2, Settings2, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { CarSetupData } from '../types';
@@ -217,6 +217,7 @@ export const CarSetupView: React.FC = () => {
     const referenceLap = useTelemetryStore(s => s.referenceLap);
     const referenceSessionMetadata = useTelemetryStore(s => s.referenceSessionMetadata);
     const currentSessionId = useTelemetryStore(s => s.currentSessionId);
+    const activeProfileId = useTelemetryStore(s => s.activeProfileId);
     const fetchReferenceSetup = useTelemetryStore(s => s.fetchReferenceSetup);
     const clearReferenceSetup = useTelemetryStore(s => s.clearReferenceSetup);
 
@@ -228,8 +229,11 @@ export const CarSetupView: React.FC = () => {
         }
     }, [referenceLap?.sessionId]);
 
+    const customCarMappings = useTelemetryStore(s => s.customCarMappings);
     const carClass = sessionMetadata?.carClass;
-    const carModel = sessionMetadata?.modelName;
+    const rawCarName = sessionMetadata?.rawCarName;
+    const mappedCarModel = findMappedCarModel(rawCarName, customCarMappings);
+    const carModel = mappedCarModel || sessionMetadata?.modelName;
     const refCarModel = referenceSessionMetadata?.modelName || referenceLap?.carModel;
     const hasReference = referenceCarSetupData !== null;
 
@@ -239,7 +243,7 @@ export const CarSetupView: React.FC = () => {
         if (!currentSessionId) return;
         try {
             setIsExporting(true);
-            await apiClient.exportSessionSetup(currentSessionId);
+            await apiClient.exportSessionSetup(currentSessionId, activeProfileId || 'guest', carModel || undefined);
         } catch (error) {
             console.error('Failed to export setup:', error);
             // Optionally could add a toast here
