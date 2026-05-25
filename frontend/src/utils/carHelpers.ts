@@ -37,3 +37,58 @@ export const getClassColor = (cls: string = '') => {
     if (c.includes('GT3') || c.includes('GTE')) return 'border-emerald-500/20 text-emerald-400 bg-emerald-500/10 shadow-[0_0_10px_rgba(52,211,153,0.1)]';
     return 'border-gray-500/50 text-gray-400 bg-gray-500/10';
 };
+
+export const CLASS_MODEL_NAMES: Record<string, string[]> = {
+    'HYPERCAR': [
+        'Genesis GMR-001',
+        'Alpine A424',
+        'Aston Martin Valkyrie LMH',
+        'BMW M Hybrid V8',
+        'Cadillac V-Series.R',
+        'Ferrari 499P',
+        'Glickenhaus SCG 007',
+        'Isotta Fraschini Tipo6',
+        'Lamborghini SC63',
+        'Peugeot 9X8',
+        'Porsche 963',
+        'Toyota GR010-Hybrid',
+        'Toyota GR010',
+        'Vanwall Vandervell 680'
+    ],
+    'LMP2': [
+        'ORECA 07'
+    ],
+    'LMP3': [
+        'Duqueine D09 P3',
+        'Ginetta G61-LT-P325 Evo',
+        'Ligier JS P325'
+    ],
+    'LMGT3': [
+        'Ford Mustang LMGT3',
+        'McLaren 720S LMGT3 Evo',
+        'Mercedes-AMG LMGT3',
+        'BMW M4 LMGT3',
+        'Aston Martin Vantage AMR LMGT3',
+        'Chevrolet Corvette Z06 LMGT3.R',
+        'Ferrari 296 LMGT3',
+        'Lamborghini Huracan LMGT3 Evo2',
+        'Lexus RCF LMGT3',
+        'Porsche 911 GT3 R LMGT3'
+    ],
+    'GTE': [
+        'Aston Martin Vantage AMR',
+        'Corvette C8.R GTE',
+        'Ferrari 488 GTE Evo',
+        'Porsche 911 RSR-19'
+    ]
+};
+
+export const normalizeCarClass = (cls: string = ''): string => {
+    const c = (cls || "").toUpperCase();
+    if (c.includes('HYPER') || c.includes('LMDH') || c.includes('LMH')) return 'HYPERCAR';
+    if (c.includes('LMP2')) return 'LMP2';
+    if (c.includes('LMP3')) return 'LMP3';
+    if (c.includes('GT3')) return 'LMGT3';
+    if (c.includes('GTE')) return 'GTE';
+    return 'HYPERCAR'; // default fallback
+};

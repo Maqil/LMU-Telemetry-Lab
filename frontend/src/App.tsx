@@ -16,6 +16,7 @@ import { SessionInfo } from './components/SessionInfo';
 import { LoginOverlay } from './components/LoginOverlay';
 import { SteeringWheelView } from './components/SteeringWheelView';
 import { SettingsOverlay } from './components/SettingsOverlay';
+import { CarSelectionOverlay } from './components/CarSelectionOverlay';
 import { F1Dashboard } from './components/F1Dashboard';
 import { Tooltip } from './components/ui/Tooltip';
 import { Lab3DRoot } from './components/Lab3D/Lab3DRoot';
@@ -316,6 +317,7 @@ function App() {
   const fetchProfiles = useTelemetryStore(state => state.fetchProfiles);
   const showSettings = useTelemetryStore(state => state.showSettings);
   const setShowSettings = useTelemetryStore(state => state.setShowSettings);
+  const showCarSelection = useTelemetryStore(state => state.showCarSelection);
   const dashboardSyncMode = useTelemetryStore(state => state.dashboardSyncMode);
   const setDashboardSyncMode = useTelemetryStore(state => state.setDashboardSyncMode);
   const smoothCursorIndex = useTelemetryStore(state => state.smoothCursorIndex);
@@ -1619,6 +1621,20 @@ function App() {
               className="fixed inset-0 z-[3200] bg-black/40"
             >
               <SettingsOverlay />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {showCarSelection && (
+            <motion.div
+              initial={{ opacity: 0, backdropFilter: "blur(0px)" }}
+              animate={{ opacity: 1, backdropFilter: "blur(24px)" }}
+              exit={{ opacity: 0, backdropFilter: "blur(0px)" }}
+              transition={{ duration: 0.4, ease: "easeOut" }}
+              className="fixed inset-0 z-[3200] bg-black/40"
+            >
+              <CarSelectionOverlay />
             </motion.div>
           )}
         </AnimatePresence>

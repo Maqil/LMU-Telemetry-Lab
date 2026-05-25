@@ -5,7 +5,7 @@ import { handleGlassMouseMove } from '../utils/glassEffect';
 import { Tooltip } from './ui/Tooltip';
 import { getBrandLogoPath, getClassColor } from '../utils/carHelpers';
 import { getCountryFlagPath } from '../utils/trackHelpers';
-import { Settings2 } from 'lucide-react';
+import { Settings2, Car } from 'lucide-react';
 
 interface CarInfoCardProps {
     metadata: SessionMetadata;
@@ -17,10 +17,17 @@ const CarInfoCard: React.FC<CarInfoCardProps> = ({ metadata, theme = 'current' }
     const fetchSetup = useTelemetryStore(s => s.fetchSetup);
     const setShowSetupView = useTelemetryStore(s => s.setShowSetupView);
     const currentSessionId = useTelemetryStore(s => s.currentSessionId);
+    const setShowCarSelection = useTelemetryStore(s => s.setShowCarSelection);
     const accentColor = isRef ? 'text-amber-500' : 'text-blue-400';
     const hoverAccentColor = isRef ? 'group-hover:text-amber-400' : 'group-hover:text-blue-400';
     const borderColor = isRef ? 'group-hover:border-amber-500/40' : 'group-hover:border-blue-500/40';
     const shadowColor = isRef ? 'shadow-[0_20px_40px_rgba(245,158,11,0.15)]' : 'shadow-[0_20px_40px_rgba(37,99,235,0.15)]';
+
+    const [logoFailed, setLogoFailed] = React.useState(false);
+
+    React.useEffect(() => {
+        setLogoFailed(false);
+    }, [metadata.modelName]);
 
     return (
         <div
@@ -35,6 +42,22 @@ const CarInfoCard: React.FC<CarInfoCardProps> = ({ metadata, theme = 'current' }
                         <span className={`text-[9px] font-black uppercase tracking-[0.2em] ${accentColor} drop-shadow-sm`}>
                             {isRef ? 'Reference Car' : 'Current Car'}
                         </span>
+                        <Tooltip text="Calibrate Car Model" position="top">
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowCarSelection({
+                                        rawCarName: metadata.rawCarName || metadata.modelName,
+                                        currentModel: metadata.modelName,
+                                        carClass: metadata.carClass,
+                                        isRef
+                                    });
+                                }}
+                                className="p-1.5 text-blue-400 hover:text-white bg-blue-500/10 hover:bg-blue-500/25 border border-blue-500/30 hover:border-blue-500/50 rounded-lg transition-all duration-300 flex items-center justify-center shrink-0 cursor-pointer shadow-[0_0_10px_rgba(59,130,246,0.15)] active:scale-95"
+                            >
+                                <Settings2 size={12} className="transition-transform duration-500 hover:rotate-90" />
+                            </button>
+                        </Tooltip>
                     </div>
                     {!isRef && currentSessionId && (
                         <button
@@ -51,15 +74,18 @@ const CarInfoCard: React.FC<CarInfoCardProps> = ({ metadata, theme = 'current' }
 
                 <div className="flex items-center gap-3 mb-2">
                     <div className={`w-10 h-10 flex items-center justify-center bg-white/10 rounded-xl border border-white/20 ${borderColor} transition-all p-1.5`}>
-                        <img
-                            src={getBrandLogoPath(metadata.modelName)}
-                            alt="Brand Logo"
-                            className="w-full h-full object-contain filter brightness-125 transition-all drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]"
-                            onError={(e) => {
-                                e.currentTarget.style.display = 'none';
-                                e.currentTarget.parentElement!.insertAdjacentHTML('beforeend', '<div class="w-6 h-6 bg-gray-800 rounded-full border border-gray-700"></div>');
-                            }}
-                        />
+                        {logoFailed ? (
+                            <div className="w-6 h-6 bg-gray-800 rounded-full border border-gray-700 flex items-center justify-center">
+                                <Car size={12} className="text-gray-500" />
+                            </div>
+                        ) : (
+                            <img
+                                src={getBrandLogoPath(metadata.modelName)}
+                                alt="Brand Logo"
+                                className="w-full h-full object-contain filter brightness-125 transition-all drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]"
+                                onError={() => setLogoFailed(true)}
+                            />
+                        )}
                     </div>
                     <div className="flex flex-col relative">
                         <h2 className={`text-sm font-black italic tracking-widest text-white uppercase font-sans leading-tight ${hoverAccentColor} transition-colors`}>

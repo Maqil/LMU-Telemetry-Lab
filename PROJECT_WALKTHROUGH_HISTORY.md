@@ -1,5 +1,48 @@
 # PROJECT WALKTHROUGH HISTORY
 
+## 2026-05-26 | LMU 車型手動校正、智慧對照映射與 File Manager 實時連動反應 (v1.4.2 Phase 6)
+
+本次更新在 `SessionInfo`（車輛資訊面板）與主導覽列整合了全新的「手動校正車型映射（Manual Car Model Calibration）系統」。使用者可一鍵開啟高質感 glassmorphism 疊加彈窗，手動將任何不標準或客製化賽事（如 Logitech G Challenge）的車款名稱，完美映射對齊至 LMU 官方合法的車型，且此關係全域持久化與即時反應，特別針對 File Manager 實施了多分組模式下的聯動即時反應。
+
+### 1. 手動映射校正與實時 File Manager 數據連動 (Manual Calibration & Live File Manager Propagation)
+- **實時數據擴充**：於後端 `/sessions` 接口中，補上並回傳 DuckDB 的原始車輛 ID（`rawCarName`），並擴充前端的 `Session` 介面。這使前端能將自訂對照關係（`customCarMappings`）精確映射至 Sessions 列表的資料庫實體中。
+- **全域零延遲同步**：當使用者點擊 Current/Reference Car 的校正按鈕並選定車款後，`telemetryStore` 會立即攔截並更新所有匹配該原始名稱之 Session 的 `carModel`。這會觸發 File Manager 對 `sessions` 變更的即時響應，使列表中的車型小卡、分組資料夾名稱與品牌 Logo **瞬間、無縫地替換為校正後的正確狀態**。
+
+### 2. 精緻發光校正按鈕與提示 (Refined Micro-Pill Calibration Button)
+- **極簡極致微光按鈕**：將原先隱蔽的灰色齒輪升級為高質感、無文字的**透亮發光 Icon 按鈕**，保持簡約高雅的版面風格。
+- **動態微互動**：搭載亮藍色半透明微光背景與細緻邊框 (`bg-blue-500/10 border-blue-500/30 text-blue-400 hover:text-white`)。內嵌高解析度微縮 Settings 向量圖示，在滑鼠懸停時觸發平滑旋轉與發光，並支援 `active:scale-95` 物理觸覺回饋。
+- **英文 Tooltip 提示**：將提示字更新為更專業、一致的英文標題：**`Calibrate Car Model`**。
+
+### 3. 選車彈窗 Model Name 與細節字級全面大氣升級 (Car Selection Overlay Font & Scale Polish)
+- **Model Name 顯著放大**：為展現 LMU 車輛車名的精緻張力，將彈窗中每個選項卡片裡的車款名稱從原先偏小的 `text-xs` (12px) **大氣放大至 `text-[15px] font-black`**。
+- **細部文字排版優化**：
+  - 將彈窗中 Header 的原始車輛 Key (`Align raw: ...`) 放大至 **`text-xs` (12px)**，微調間距釋放視覺壓力。
+  - 將清單 Title 的可選車型說明字級提升為 **`text-xs` (12px)**，並採用高對比度的 `text-gray-400 font-black`。
+  - 將下方子組別標籤 (如 `HYPERCAR` 等) 放大至 **`text-[10px] text-gray-400 font-black`**，並拉開至 `mt-1`，完美提升層次對比。
+- **Logo 亮彩原色呈現**：移除未選中車輛 Logo 上的 `grayscale`（黑白）濾鏡，使所有官方/自訂品牌 Logo **全程以絢麗的彩色原色展示**，辨識度倍增。
+
+🟢 2026-05-26 | Manual Car Calibration, Smart Mapping Alignment & Live File Manager Propagation (v1.4.2 Phase 6)
+
+This update integrates a premium, glassmorphic "Manual Car Model Calibration System" next to Current/Reference Car labels. Users can open an elegant overlay to manually align custom/unmapped race series vehicles (such as Logitech G Challenge) with official LMU models. This calibration seamlessly propagates across the telemetry dashboard and File Manager groups dynamically in real-time, complete with responsive animations and state persistence.
+
+### Key Changes
+- **Live File Manager Propagation & Schema Alignment**:
+  - **Payload Extension**: Enhanced the backend `/sessions` endpoint to pack and deliver the underlying raw DuckDB vehicle ID (`rawCarName`) to the frontend, extending the `Session` schema type accordingly.
+  - **Dynamic Multi-Group Updates**: Calibrating a vehicle instantly triggers `telemetryStore` to override all matched sessions. This reactive updates the File Manager listings dynamically—**modifying session cards, grouping folder headers, and brand logos instantly** across all views (Car, Class, Track, All) without requiring a reload.
+- **Icon-Only Calibration Button & Tooltip Refinements**:
+  - **Premium Glow Icon Button**: Replaced the muted grey gear icon with a minimal, icon-only button to keep navbar alignments clean.
+  - **Micro-Interactions**: Features a translucent glowing core and blue border (`bg-blue-500/10 border-blue-500/30 text-blue-400 hover:text-white`), smooth rotating transitions, and physics-based tactile clicks (`active:scale-95`).
+  - **Polished English Tooltip**: Changed the hover text to a professional English label: **`Calibrate Car Model`**.
+- **Car Selection Overlay Font Scaling & Layout Uplift**:
+  - **Bold Model Header**: Upgraded the selectable model name text sizes inside card overlays from `text-xs` (12px) **up to a rich `text-[15px] font-black`** for strong, high-end branding presence.
+  - **Grid Detail Typography**:
+    - Enlarged the raw metadata source identifier (`Align raw: ...`) in the header to **`text-xs` (12px)**.
+    - Scaled list category indicators to **`text-xs` (12px)** with high-contrast styling (`text-gray-400 font-black`).
+    - Boosted sub-category class chips (e.g. `HYPERCAR`) to **`text-[10px] text-gray-400 font-black`** with wider padding (`mt-1`) to enhance hierarchy.
+  - **Original Brand Colors**: Removed all grayscale filter constraints (`grayscale`) from inactive overlay item logos, ensuring brand visual identities display **fully in vibrant color** at all times.
+
+---
+
 ## 2026-05-23 | 輪胎配方映射修復、Discord 社群整合與 Navbar 介面細節打磨 (v1.4.2 Phase 5)
 
 本次更新解決了設定檔匯出時輪胎配方的映射偏移問題，在設定選單中整合了 Discord 社群邀請連結，並對頂部 Navbar 的 Logo 與版本號展示進行了精細的交互打磨，同時在 Landing Page 導入了 LMU 遙測設定與資料庫產生的視覺化引導。

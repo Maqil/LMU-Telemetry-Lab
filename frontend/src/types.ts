@@ -11,6 +11,7 @@ export interface Session {
     trackAliases?: string[];
     carModel?: string;
     carClass?: string;
+    rawCarName?: string;
     country?: string;
     officialTrackLength?: number;
     driverName?: string;

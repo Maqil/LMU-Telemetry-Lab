@@ -232,6 +232,10 @@ export interface TelemetryState {
     setTrackBaseData: (data: any) => void; // NEW
     setIsProcessingTrack: (isProcessing: boolean) => void; // NEW
     clearSession: () => void;
+    customCarMappings: Record<string, string>;
+    showCarSelection: { rawCarName: string; currentModel: string; carClass: string; isRef: boolean } | null;
+    setShowCarSelection: (val: { rawCarName: string; currentModel: string; carClass: string; isRef: boolean } | null) => void;
+    setCustomCarMapping: (rawCarName: string, modelName: string) => void;
 
     // File Management
     uploadSession: (file: File) => Promise<string | null>;
@@ -514,6 +518,8 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
     staticTrackBaseData: null,
     isProcessingTrack: false,
     show3DLab: false,
+    customCarMappings: JSON.parse(localStorage.getItem('custom_car_mappings') || '{}'),
+    showCarSelection: null,
     isLoading: false, // Unified loading state (derived from loadingCount > 0)
     loadingCount: 0,
     loadingProgress: null,
@@ -584,6 +590,36 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
     setupLoading: false,
     showSetupView: false,
     activeChartCategory: 'Driver',
+
+    setShowCarSelection: (val) => set({ showCarSelection: val }),
+    setCustomCarMapping: (rawCarName, modelName) => {
+        const updated = { ...get().customCarMappings, [rawCarName]: modelName };
+        localStorage.setItem('custom_car_mappings', JSON.stringify(updated));
+        
+        const stateUpdate: any = { customCarMappings: updated };
+        
+        const currentMeta = get().sessionMetadata;
+        if (currentMeta && currentMeta.rawCarName === rawCarName) {
+            stateUpdate.sessionMetadata = { ...currentMeta, modelName };
+        }
+        
+        const refMeta = get().referenceSessionMetadata;
+        if (refMeta && refMeta.rawCarName === rawCarName) {
+            stateUpdate.referenceSessionMetadata = { ...refMeta, modelName };
+        }
+
+        const currentSessions = get().sessions;
+        if (currentSessions && currentSessions.length > 0) {
+            stateUpdate.sessions = currentSessions.map(s => {
+                if (s.rawCarName === rawCarName || s.carModel === rawCarName) {
+                    return { ...s, carModel: modelName };
+                }
+                return s;
+            });
+        }
+        
+        set(stateUpdate);
+    },
 
     setSpeedUnit: (unit) => {
         localStorage.setItem('speed_unit', unit);
@@ -1294,7 +1330,15 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
         set({ isListLoading: true, error: null });
         try {
             const data = await apiClient.getSessions(activeProfileId);
-            set({ sessions: data.sessions, isListLoading: false });
+            const customCarMappings = get().customCarMappings;
+            const mappedSessions = data.sessions.map(s => {
+                const key = s.rawCarName || s.carModel;
+                if (key && customCarMappings[key]) {
+                    return { ...s, carModel: customCarMappings[key] };
+                }
+                return s;
+            });
+            set({ sessions: mappedSessions, isListLoading: false });
         } catch (err) {
             set({ error: (err as Error).message, isListLoading: false });
         }
@@ -1340,7 +1384,12 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
             const defaultLapIdx = defaultLap ? defaultLap.lap : null;
             const defaultStint = defaultLap?.stint ?? 1;
 
-            set({ laps: data.laps, sessionMetadata: data.metadata });
+            const metadata = { ...data.metadata };
+            const customCarMappings = get().customCarMappings;
+            if (metadata && metadata.rawCarName && customCarMappings[metadata.rawCarName]) {
+                metadata.modelName = customCarMappings[metadata.rawCarName];
+            }
+            set({ laps: data.laps, sessionMetadata: metadata });
 
             // 3. Eager load Telemetry for the first stint at 10Hz
             const telData = await apiClient.getTelemetry(sessionId, defaultStint, 10, undefined, activeProfileId);
@@ -1564,7 +1613,12 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
                 apiClient.getLaps(lap.sessionId, activeProfileId || "guest")
             ]);
 
-            set({ referenceTelemetryData: data, referenceSessionMetadata: sessionData.metadata });
+            const refMetadata = { ...sessionData.metadata };
+            const customCarMappings = get().customCarMappings;
+            if (refMetadata && refMetadata.rawCarName && customCarMappings[refMetadata.rawCarName]) {
+                refMetadata.modelName = customCarMappings[refMetadata.rawCarName];
+            }
+            set({ referenceTelemetryData: data, referenceSessionMetadata: refMetadata });
 
             // 3D SYNC: Fetch reference 3D track if in lab mode
             if (get().show3DLab) {
@@ -1587,7 +1641,12 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
                 apiClient.getTelemetry(lap.sessionId, lap.stint, 10, undefined, activeProfileId || "guest"),
                 apiClient.getLaps(lap.sessionId, activeProfileId || "guest")
             ]);
-            set({ referenceTelemetryData: data, referenceSessionMetadata: sessionData.metadata, referenceLap: lap, referenceLapIdx: null });
+            const refMetadata = { ...sessionData.metadata };
+            const customCarMappings = get().customCarMappings;
+            if (refMetadata && refMetadata.rawCarName && customCarMappings[refMetadata.rawCarName]) {
+                refMetadata.modelName = customCarMappings[refMetadata.rawCarName];
+            }
+            set({ referenceTelemetryData: data, referenceSessionMetadata: refMetadata, referenceLap: lap, referenceLapIdx: null });
         } catch (err) {
             set({ error: `Failed to load reference: ${(err as Error).message}` });
         }

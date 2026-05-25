@@ -423,6 +423,7 @@ async def list_sessions(profile_id: Optional[str] = Query("guest")):
                 if car_model: session_info["carModel"] = car_model
                 if raw_class: session_info["carClass"] = raw_class
                 if driver_name: session_info["driverName"] = driver_name
+                if raw_car: session_info["rawCarName"] = raw_car
                 
                 # Extract Best Lap
                 try:
