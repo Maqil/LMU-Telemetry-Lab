@@ -15,6 +15,7 @@ export const getBrandLogoPath = (modelName: string) => {
     if (lower.includes('alpine')) return '/logos/alpine.png';
     if (lower.includes('lexus')) return '/logos/lexus.png';
     if (lower.includes('genesis')) return '/logos/genesis.png';
+    if (lower.includes('adess')) return '/logos/adess.png';
     if (lower.includes('ford') || lower.includes('mustang')) return '/logos/ford.png';
     if (lower.includes('isotta')) return '/logos/isotta_fraschini.png';
     if (lower.includes('glickenhaus')) return '/logos/glickenhaus.png';
@@ -44,6 +45,7 @@ export const CLASS_MODEL_NAMES: Record<string, string[]> = {
         'Alpine A424',
         'Aston Martin Valkyrie LMH',
         'BMW M Hybrid V8',
+        'BMW M Hybrid V8 Evo',
         'Cadillac V-Series.R',
         'Ferrari 499P',
         'Glickenhaus SCG 007',
@@ -53,27 +55,32 @@ export const CLASS_MODEL_NAMES: Record<string, string[]> = {
         'Porsche 963',
         'Toyota GR010-Hybrid',
         'Toyota GR010',
+        'Toyota TR010',
         'Vanwall Vandervell 680'
     ],
     'LMP2': [
         'ORECA 07'
     ],
     'LMP3': [
+        'Adess AD25',
         'Duqueine D09 P3',
         'Ginetta G61-LT-P325 Evo',
         'Ligier JS P325'
     ],
     'LMGT3': [
         'Ford Mustang LMGT3',
+        'Ford Mustang LMGT3 Evo',
         'McLaren 720S LMGT3 Evo',
         'Mercedes-AMG LMGT3',
         'BMW M4 LMGT3',
         'Aston Martin Vantage AMR LMGT3',
         'Chevrolet Corvette Z06 LMGT3.R',
         'Ferrari 296 LMGT3',
+        'Ferrari 296 LMGT3 Evo',
         'Lamborghini Huracan LMGT3 Evo2',
         'Lexus RCF LMGT3',
-        'Porsche 911 GT3 R LMGT3'
+        'Porsche 911 GT3 R LMGT3',
+        'Porsche 911 GT3 R LMGT3 Evo'
     ],
     'GTE': [
         'Aston Martin Vantage AMR',

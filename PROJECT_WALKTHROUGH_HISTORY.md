@@ -1,5 +1,41 @@
 # PROJECT WALKTHROUGH HISTORY
 
+## 2026-06-06 | LMU v1.3.3 遊戲更新車輛對齊與安裝精靈 UI/UX 優化 (v1.4.3)
+
+本次更新因應 Le Mans Ultimate 遊戲 v1.3.3 的版本更新，將 2026 新車款與隊伍陣容完整整合至前端與後端，並修正了資料庫的映射錯誤；同時優化了 Electron 桌面端安裝程式的配置，讓使用者在下載安裝或升級時能清晰看見進度百分比以及具體安裝、覆蓋或刪除了哪些檔案。
+
+### 1. 遊戲 v1.3.3 2026 新車款陣容支援 (LMU v1.3.3 2026 Car Grid Integration)
+- **CSV 分類筆誤修正**：修正了 `lmu_carname_to_modelname.csv` 第 105 行 `Mercedes-AMG LMGT3` 隊伍的分類，由 `LMGT2` 修正為 `LMGT3`。
+- **前端 Helper 車型擴充**：在 `frontend/src/utils/carHelpers.ts` 的 `CLASS_MODEL_NAMES` 對照表中，將 6 款新車型精準註冊至對應的組別下：
+  - **HYPERCAR**：`BMW M Hybrid V8 Evo`、`Toyota TR010`
+  - **LMP3**：`Adess AD25`
+  - **LMGT3**：`Ford Mustang LMGT3 Evo`、`Ferrari 296 LMGT3 Evo`、`Porsche 911 GT3 R LMGT3 Evo`
+- **品牌與資源匹配**：於 `getBrandLogoPath` 的 heuristics 中新增 `adess` 品牌映射，確保前端能正常讀取 `/logos/adess.png`；並確認所有新 ModelName 與 `/steering wheel/Cars/` 下的 png 方向盤圖片及 `/logos/` 下的 brand Logo 完美對齊，檢查通過率 100%。
+- **後端模糊識別優化**：在 `backend/app/services/car_lookup.py` 的 `MODEL_ALIASES` 字典新增了 `tr010`、`gmr-001` 與 `ad25` 的別名映射，強化對非標準命名遙測檔的 fuzzy 匹配能力。
+
+### 2. 安裝程式顯示進度條與檔案變更日誌 (Installer Progress & File Log Wizard)
+- **啟用傳統安裝嚮導**：在 `desktop/package.json` 的 `build.nsis` 中將 `oneClick` 設為 `false`，關閉預設的無介面一鍵安裝，切換為互動式的安裝精靈。
+- **進度與明細顯示**：開啟 `showProgress` 和 `showUninstallerProgress`，並在安裝畫面上加入「顯示細節 (Show details)」按鈕，點擊後會即時列出正在複製（Extracting）、覆蓋（Copy to）或刪除舊版（Deleting）的檔案清單，讓安裝與升級過程完全透明。
+
+🟢 2026-06-06 | LMU v1.3.3 Car Grid Alignment & Installer UI/UX Polish (v1.4.3)
+
+This update aligns the application with LMU game update v1.3.3, integrating the new 2026 car lineup across the frontend and backend, resolving database typos, and upgrading the NSIS desktop application installer into a multi-step installation wizard that surfaces real-time progress and file modification details.
+
+### Key Changes
+- **LMU Game v1.3.3 2026 Car Grid Integration**:
+  - **Typo Correction**: Fixed a category typo in `lmu_carname_to_modelname.csv` line 105 for `Mercedes-AMG LMGT3` (from `LMGT2` to `LMGT3`).
+  - **Car Helpers Mapping**: Registered 6 new models in the frontend `CLASS_MODEL_NAMES` structure:
+    - **HYPERCAR**: `BMW M Hybrid V8 Evo`, `Toyota TR010`
+    - **LMP3**: `Adess AD25`
+    - **LMGT3**: `Ford Mustang LMGT3 Evo`, `Ferrari 296 LMGT3 Evo`, `Porsche 911 GT3 R LMGT3 Evo`
+  - **Heuristics & Brand Assets**: Added `adess` logo mapping in `getBrandLogoPath` and verified complete coverage for steering wheel and logo resources.
+  - **Backend Fuzzy Aliases**: Expanded the `MODEL_ALIASES` dictionary in `car_lookup.py` to register `tr010`, `gmr-001`, and `ad25` for improved telemetry car recognition.
+- **Installer Progress and File Log Wizard**:
+  - **Disable One-Click Install**: Overrode electron-builder defaults in `desktop/package.json` by setting `oneClick: false` under `nsis` configurations.
+  - **Progress Logs**: Enabled progress bars for both installation and uninstallation, rendering a "Show details" toggle that details extraction, override, and deletion logs of legacy application files.
+
+---
+
 ## 2026-05-26 | LMU 車型手動校正、智慧對照映射與 File Manager 實時連動反應 (v1.4.2 Phase 6)
 
 本次更新在 `SessionInfo`（車輛資訊面板）與主導覽列整合了全新的「手動校正車型映射（Manual Car Model Calibration）系統」。使用者可一鍵開啟高質感 glassmorphism 疊加彈窗，手動將任何不標準或客製化賽事（如 Logitech G Challenge）的車款名稱，完美映射對齊至 LMU 官方合法的車型，且此關係全域持久化與即時反應，特別針對 File Manager 實施了多分組模式下的聯動即時反應。

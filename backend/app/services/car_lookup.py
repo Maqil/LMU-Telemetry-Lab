@@ -70,6 +70,7 @@ MODEL_ALIASES = {
     "911gt3r": ["porsche", "911", "gt3", "r"],
     "499p": ["ferrari", "499p"],
     "gr010": ["toyota", "gr010"],
+    "tr010": ["toyota", "tr010"],
     "v-series.r": ["cadillac", "v-series.r"],
     "sc63": ["lamborghini", "sc63"],
     "a424": ["alpine", "a424"],
@@ -81,6 +82,8 @@ MODEL_ALIASES = {
     "huracan": ["lamborghini", "huracan"],
     "rcf": ["lexus", "rcf"],
     "9x8": ["peugeot", "9x8"],
+    "gmr-001": ["genesis", "gmr-001"],
+    "ad25": ["adess", "ad25"],
 }
 
 def normalize_custom_car_name(s):

@@ -20,7 +20,7 @@ import sys
 
 @router.get("/health")
 async def health_check():
-    return {"status": "ok", "service": "antigravity-backend", "version": "1.4.2"}
+    return {"status": "ok", "service": "antigravity-backend", "version": "1.4.3"}
 
 @router.get("/sessions/{session_id}/3d-track")
 async def get_3d_track(
