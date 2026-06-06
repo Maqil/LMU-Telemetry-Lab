@@ -15,7 +15,7 @@
 
 ### 2. 安裝程式顯示進度條與檔案變更日誌 (Installer Progress & File Log Wizard)
 - **啟用傳統安裝嚮導**：在 `desktop/package.json` 的 `build.nsis` 中將 `oneClick` 設為 `false`，關閉預設的無介面一鍵安裝，切換為互動式的安裝精靈。
-- **進度與明細顯示**：開啟 `showProgress` 和 `showUninstallerProgress`，並在安裝畫面上加入「顯示細節 (Show details)」按鈕，點擊後會即時列出正在複製（Extracting）、覆蓋（Copy to）或刪除舊版（Deleting）的檔案清單，讓安裝與升級過程完全透明。
+- **進度與明細顯示**：關閉一鍵安裝後，安裝精靈會主動顯示解壓縮進度條，並允許使用者點選手動修改安裝目錄。
 
 🟢 2026-06-06 | LMU v1.3.3 Car Grid Alignment & Installer UI/UX Polish (v1.4.3)
 
@@ -32,7 +32,7 @@ This update aligns the application with LMU game update v1.3.3, integrating the 
   - **Backend Fuzzy Aliases**: Expanded the `MODEL_ALIASES` dictionary in `car_lookup.py` to register `tr010`, `gmr-001`, and `ad25` for improved telemetry car recognition.
 - **Installer Progress and File Log Wizard**:
   - **Disable One-Click Install**: Overrode electron-builder defaults in `desktop/package.json` by setting `oneClick: false` under `nsis` configurations.
-  - **Progress Logs**: Enabled progress bars for both installation and uninstallation, rendering a "Show details" toggle that details extraction, override, and deletion logs of legacy application files.
+  - **Progress Logs**: Switched to multi-step wizard, surfacing directory selection and visual extraction progress bars.
 
 ---
 

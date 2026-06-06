@@ -29,9 +29,7 @@
         "nsis": {
             "oneClick": false,
             "allowToChangeInstallationDirectory": true,
-            "allowElevation": true,
-            "showProgress": true,
-            "showUninstallerProgress": true
+            "allowElevation": true
         }
     },
     "devDependencies": {
