@@ -1607,7 +1607,6 @@ export const TrackMap3D = ({ onToggleExpand, isAnimating = false }: { onToggleEx
                     >
                         <CompactTelemetryOverlay
                             data={telemetryData}
-                            cursorIndex={smoothCursorIndex}
                             theme="current"
                             carModel={sessionMetadata?.modelName}
                             isMiniMap={false}
@@ -1616,7 +1615,6 @@ export const TrackMap3D = ({ onToggleExpand, isAnimating = false }: { onToggleEx
                         {(referenceTelemetryData || referenceLapIdx !== null) && (
                             <CompactTelemetryOverlay
                                 data={referenceTelemetryData || telemetryData}
-                                cursorIndex={dashboardSyncMode === 'distance' ? referenceDeltaIndex : referenceCursorIndex}
                                 theme="reference"
                                 carModel={referenceSessionMetadata?.modelName || sessionMetadata?.modelName}
                                 isMiniMap={false}
