@@ -131,3 +131,5 @@ Thumbs.db
 # ===========================
 .env
 .env.local
+backend/discord_config.json
+

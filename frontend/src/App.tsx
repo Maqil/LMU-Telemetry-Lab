@@ -25,6 +25,7 @@ import { GForceRadar } from './components/GForceRadar';
 import { Lab3DRoot } from './components/Lab3D/Lab3DRoot';
 import { UpdateNotifier } from './components/UpdateNotifier';
 import { CarSetupView } from './components/CarSetupView';
+import { DiscordShareModal } from './components/DiscordShareModal';
 import {
   ArrowLeft,
   Settings,
@@ -36,7 +37,8 @@ import {
   ChevronRight,
   Download,
   PackageCheck,
-  Loader2
+  Loader2,
+  Send
 } from 'lucide-react';
 import {
   handleGlassMouseMove
@@ -509,6 +511,7 @@ function App() {
     }, []);
 
   const [showLogin, setShowLogin] = useState(false);
+  const [showDiscordShare, setShowDiscordShare] = useState(false);
   const activeProfile = (profiles || []).find((p: any) => p.id === activeProfileId);
 
   // NEW: 3D Lab Mode Detection
@@ -1047,6 +1050,18 @@ function App() {
                         <h3 className="text-gray-500 text-[12px] font-black uppercase tracking-[0.2em] px-1 group-hover/analysis:text-white transition-colors">Analysis Laps</h3>
                         {selectedLapIdx !== null && (
                           <div className="flex items-center gap-1">
+                            <Tooltip text="SHARE TO DISCORD FORUM" position="bottom">
+                              <button
+                                onClick={() => setShowDiscordShare(true)}
+                                disabled={isListLoading}
+                                className="p-1.5 rounded-lg text-gray-500 hover:text-[#5865F2] hover:bg-white/10 border border-transparent hover:border-white/15 transition-all active:scale-90 glass-container"
+                                onMouseMove={(e) => handleGlassMouseMove(e, 0.2)}
+                              >
+                                <div className="glass-content">
+                                  <Send size={13} />
+                                </div>
+                              </button>
+                            </Tooltip>
                             <Tooltip text="EXPORT LAP + SETUP (.DUCKDB + .SVM)" position="bottom">
                               <button
                                 onClick={() => { if (!isListLoading) exportLapWithSetup(selectedLapIdx!); }}
@@ -1628,6 +1643,11 @@ function App() {
         {showReferenceBrowser && (
           <ReferenceLapBrowser onClose={() => setShowReferenceBrowser(false)} />
         )}
+        <DiscordShareModal
+          isOpen={showDiscordShare}
+          onClose={() => setShowDiscordShare(false)}
+          lapNumber={selectedLapIdx || 0}
+        />
         <UpdateNotifier />
         <AnimatePresence>
           {showSetupView && (

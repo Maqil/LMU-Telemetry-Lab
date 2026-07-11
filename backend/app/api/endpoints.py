@@ -1089,6 +1089,166 @@ async def export_session_lap(session_id: str, lap_number: int, request: Request,
         logger.error(f"Lap export failed for {session_id} Lap {lap_number}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
+class DiscordShareRequest(BaseModel):
+    lap_number: int
+    title: str
+    content: str
+    attach_setup: bool
+    car_class: str
+    custom_car_model: Optional[str] = None
+    profile_id: Optional[str] = "guest"
+    discord_handle: Optional[str] = None
+
+@router.get("/discord/config")
+async def get_discord_config():
+    """Get public Discord configuration (configured state and invite URL)."""
+    try:
+        from ..services.discord_service import DiscordService
+        return {
+            "is_configured": DiscordService.is_configured(),
+            "invite_url": DiscordService.get_invite_url()
+        }
+    except Exception as e:
+        logger.error(f"Error in get_discord_config: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/sessions/{session_id}/discord/share")
+async def discord_share_session_lap(session_id: str, request: DiscordShareRequest):
+    """Export a lap (and optional setup) and upload to Discord Forum."""
+    from ..services.discord_service import DiscordService
+    from ..services.car_lookup import get_car_info
+    import re
+    
+    if not DiscordService.is_configured():
+        raise HTTPException(status_code=400, detail="Discord Bot is not configured. Please check discord_config.json")
+        
+    data_dir, cache_dir = get_contextual_dirs(request.profile_id)
+    db_path = os.path.join(data_dir, session_id)
+    if not os.path.exists(db_path):
+        raise HTTPException(status_code=404, detail=f"Session file not found: {session_id}")
+        
+    # 1. Generate lap export (standalone sliced duckdb)
+    try:
+        with duckdb.connect(db_path, read_only=True) as con:
+            meta_rows = con.execute(
+                "SELECT key, value FROM metadata WHERE key IN "
+                "('TrackName', 'TrackLayout', 'CarName', 'CarClass', 'RecordingTime')"
+            ).fetchall()
+        meta = {k: v for k, v in meta_rows}
+        
+        track_name = meta.get("TrackName", "Track")
+        layout_name = meta.get("TrackLayout", "Layout").replace(" ", "-")
+        layout_name = re.sub(r'[\\/*?:"<>|]', '', layout_name)
+        
+        raw_car = meta.get("CarName", "")
+        raw_class = meta.get("CarClass", "")
+        
+        if request.custom_car_model:
+            friendly_car = request.custom_car_model
+        else:
+            friendly_car, _ = get_car_info(raw_car, raw_class)
+        car_model = friendly_car.replace(" ", "-")
+        
+        recording_time = meta.get("RecordingTime", os.path.splitext(session_id)[0])
+        
+        # Determine lap time string
+        lap_time_str = "unknown"
+        laps_res = TelemetryService.get_laps_header(db_path)
+        laps = laps_res.get("laps", [])
+        target_lap = next((l for l in laps if l.get("lap") == request.lap_number), None)
+        if target_lap:
+            t = target_lap["duration"]
+            m = int(t // 60)
+            s = int(t % 60)
+            ms = int((t * 1000) % 1000)
+            lap_time_str = f"{m}m{s:02d}s{ms:03d}"
+            
+        # Sliced lap filename
+        export_filename = f"{layout_name}-{car_model}-L{request.lap_number}-{lap_time_str}_{recording_time}.duckdb"
+        
+        if not os.path.exists(cache_dir):
+            os.makedirs(cache_dir, exist_ok=True)
+            
+        export_path = os.path.join(cache_dir, export_filename)
+        TelemetryService.export_lap(db_path, request.lap_number, export_path)
+        
+        if not os.path.exists(export_path):
+            raise HTTPException(status_code=500, detail="Failed to slice lap telemetry file")
+            
+        # Overwrite metadata in exported DuckDB if custom_car_model is supplied
+        if request.custom_car_model:
+            try:
+                with duckdb.connect(export_path, read_only=False) as con_export:
+                    con_export.execute("UPDATE metadata SET value = ? WHERE key = 'CarName'", (request.custom_car_model,))
+            except Exception as update_err:
+                logger.warning(f"Failed to update metadata CarName in sliced export DB for Discord: {update_err}")
+
+        file_paths = [export_path]
+        
+        # 2. Generate Setup file (.svm) if requested
+        setup_path = None
+        if request.attach_setup:
+            try:
+                svm_content = generate_svm_from_duckdb(db_path)
+                setup_filename = f"{layout_name}_{car_model}_{recording_time}_setup.svm"
+                setup_path = os.path.join(cache_dir, setup_filename)
+                with open(setup_path, "w", encoding="utf-8") as f_setup:
+                    f_setup.write(svm_content)
+                file_paths.append(setup_path)
+            except Exception as setup_err:
+                logger.error(f"Setup generation failed for Discord share: {setup_err}")
+
+        # 3. Share to Discord (Match tag name by track name)
+        track_tag_name = track_name if track_name else ""
+        
+        # Validate Discord membership (Scheme B)
+        if not request.discord_handle:
+            raise HTTPException(status_code=400, detail="Discord username is required for server membership verification.")
+            
+        member_data = DiscordService.search_guild_member(request.discord_handle)
+        if not member_data:
+            raise HTTPException(
+                status_code=400, 
+                detail="You are not a member of our Discord server yet! Please join our server to share telemetry."
+            )
+            
+        user_id = member_data.get("user_id")
+        driver_mention = f"<@{user_id}>"
+        
+        header_block = (
+            f"### Telemetry Shared by {driver_mention}\n\n"
+            f"* **Track:** {track_name} ({layout_name})\n"
+            f"* **Car:** {friendly_car}\n"
+            f"* **Lap Time:** {lap_time_str}\n\n"
+            f"---\n\n"
+        )
+        full_content = header_block + request.content
+        
+        result = DiscordService.share_to_forum(
+            car_class=request.car_class,
+            title=request.title,
+            content=full_content,
+            track_tag_name=track_tag_name,
+            file_paths=file_paths
+        )
+        
+        # 4. Cleanup temp files
+        for fp in file_paths:
+            try:
+                if os.path.exists(fp):
+                    os.remove(fp)
+            except Exception as cleanup_err:
+                logger.warning(f"Failed to clean up temp file {fp}: {cleanup_err}")
+                
+        if not result.get("success"):
+            raise HTTPException(status_code=500, detail=result.get("error"))
+            
+        return result
+        
+    except Exception as e:
+        logger.error(f"Discord sharing failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/debug/env")
 async def debug_env():
     """Diagnostic endpoint for packaged environment."""

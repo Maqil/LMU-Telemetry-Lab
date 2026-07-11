@@ -372,6 +372,14 @@ export interface TelemetryState {
     setDashboardSyncMode: (mode: 'distance' | 'time') => void;
     exportLap: (lapNumber: number) => Promise<void>;
     exportLapWithSetup: (lapNumber: number) => Promise<void>;
+    shareToDiscord: (
+        lapNumber: number,
+        title: string,
+        content: string,
+        attachSetup: boolean,
+        carClass: string,
+        discordHandle?: string
+    ) => Promise<{ success: boolean; thread_id?: string }>;
 }
 
 const DEFAULT_CHARTS: ChartConfig[] = [
@@ -828,6 +836,37 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
         } catch (e) {
             console.error('Failed to export lap + setup:', e);
             set({ error: 'Failed to export lap + setup files' });
+        } finally {
+            set({ isListLoading: false });
+        }
+    },
+    shareToDiscord: async (lapNumber, title, content, attachSetup, carClass, discordHandle) => {
+        const sessionId = get().currentSessionId;
+        if (!sessionId) throw new Error('No active session selected');
+        set({ isListLoading: true });
+        try {
+            const profileId = get().activeProfileId || 'guest';
+            const rawCarName = get().sessionMetadata?.rawCarName;
+            const customCarMappings = get().customCarMappings;
+            const mappedCarModel = findMappedCarModel(rawCarName, customCarMappings);
+            const customCarModel = mappedCarModel || get().sessionMetadata?.modelName;
+            
+            const result = await apiClient.shareToDiscord(
+                sessionId,
+                lapNumber,
+                title,
+                content,
+                attachSetup,
+                carClass,
+                customCarModel || undefined,
+                profileId,
+                discordHandle
+            );
+            return result;
+        } catch (e: any) {
+            console.error('Failed to share to Discord:', e);
+            set({ error: e.message || 'Failed to share to Discord' });
+            throw e;
         } finally {
             set({ isListLoading: false });
         }

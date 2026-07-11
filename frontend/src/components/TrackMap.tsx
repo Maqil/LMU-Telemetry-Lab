@@ -14,6 +14,7 @@ import { MaximizedSectorToggle } from './MaximizedSectorToggle';
 import { FileManager } from './FileManager';
 import trackCorners from '../assets/track_corners.json';
 import trackSegments from '../assets/track_segments.json';
+import trackSectorsSideConfig from '../assets/track_sectors.json';
 
 import { Maximize2, Minimize2, Play, Pause, RotateCcw, Compass, Navigation, ZoomIn, ZoomOut, Activity, ChevronRight, ChevronLeft, Check, ChevronDown, ArrowLeft } from 'lucide-react';
 
@@ -1045,6 +1046,83 @@ export const TrackMap = React.memo(({ isExpanded = false, onToggleExpand, isMini
         const resultSegments = layoutData ? (layoutData.segments || []) : [];
         console.log(`[TrackMap] Found ${resultSegments.length} segments for ${trackKey} [${layoutKey}]`);
         return resultSegments;
+    }, [trackName, layoutName]);
+
+    const sectorBadgeSides = useMemo(() => {
+        if (!trackName || !trackSectorsSideConfig) {
+            return { S1: 'right', S2: 'right', S3: 'right' };
+        }
+
+        const cleanTrackName = (name: string) => {
+            return name
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .toLowerCase()
+                .replace(/[^a-z0-9]/g, ' ')
+                .trim();
+        };
+
+        const targetTrackClean = cleanTrackName(trackName);
+
+        let trackKey = Object.keys(trackSectorsSideConfig).find(
+            key => key.toLowerCase() === trackName.toLowerCase()
+        );
+
+        if (!trackKey) {
+            trackKey = Object.keys(trackSectorsSideConfig).find(
+                key => cleanTrackName(key) === targetTrackClean
+            );
+        }
+
+        if (!trackKey) {
+            trackKey = Object.keys(trackSectorsSideConfig).find(key => {
+                const keyClean = cleanTrackName(key);
+                const keyWords = keyClean.split(/\s+/).filter(w => w.length > 2);
+                const targetWords = targetTrackClean.split(/\s+/).filter(w => w.length > 2);
+                const overlap = keyWords.filter(w => targetWords.includes(w));
+                const threshold = Math.min(keyWords.length, targetWords.length) * 0.7;
+                return overlap.length >= threshold;
+            });
+        }
+
+        if (!trackKey) return { S1: 'right', S2: 'right', S3: 'right' };
+
+        const layouts = (trackSectorsSideConfig as any)[trackKey];
+        if (!layouts) return { S1: 'right', S2: 'right', S3: 'right' };
+
+        const normalize = (lName: string) => {
+            let clean = cleanTrackName(lName);
+            const trackWords = cleanTrackName(trackName).split(/\s+/);
+            trackWords.forEach(word => {
+                if (word.length > 2) {
+                    const escaped = word.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+                    clean = clean.replace(new RegExp(`\\b${escaped}\\b`, 'g'), '');
+                }
+            });
+            return clean.replace(/\s+/g, ' ').trim();
+        };
+
+        let layoutKey = Object.keys(layouts).find(
+            key => key.toLowerCase() === (layoutName || 'default').toLowerCase()
+        );
+        if (!layoutKey) {
+            const cleanTarget = normalize(layoutName || 'default');
+            layoutKey = Object.keys(layouts).find(
+                key => normalize(key) === cleanTarget
+            );
+        }
+        if (!layoutKey) {
+            layoutKey = Object.keys(layouts).find(
+                key => key.toLowerCase() === 'default'
+            );
+        }
+
+        const layoutConfig = layoutKey ? layouts[layoutKey] : null;
+        return {
+            S1: (layoutConfig?.S1 === 'left' || layoutConfig?.S1 === 'right') ? layoutConfig.S1 : 'right',
+            S2: (layoutConfig?.S2 === 'left' || layoutConfig?.S2 === 'right') ? layoutConfig.S2 : 'right',
+            S3: (layoutConfig?.S3 === 'left' || layoutConfig?.S3 === 'right') ? layoutConfig.S3 : 'right'
+        };
     }, [trackName, layoutName]);
 
     // 1g. Sector-based performance coloring for Minimap
@@ -2136,13 +2214,22 @@ export const TrackMap = React.memo(({ isExpanded = false, onToggleExpand, isMini
                         if (midI >= len) midI = len - 1;
                         if (midI < 0) midI = 0;
 
-                        const edgePt = trackData.referenceTrack.rightEdges[midI];
+                        const isRightSide = sectorBadgeSides[label as keyof typeof sectorBadgeSides] === 'right';
+                        const edgePt = isRightSide
+                            ? trackData.referenceTrack.rightEdges[midI]
+                            : trackData.referenceTrack.leftEdges[midI];
+
                         const p1 = trackData.referenceTrack.points[Math.max(0, midI - 10)];
                         const p2 = trackData.referenceTrack.points[Math.min(len - 1, midI + 10)];
                         const lineLen = Math.sqrt((p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2) || 1;
                         const dx = (p2.x - p1.x) / lineLen;
                         const dy = (p2.y - p1.y) / lineLen;
-                        const nx = -dy, ny = dx;
+                        
+                        let nx = -dy, ny = dx;
+                        if (isRightSide) {
+                            nx = dy;
+                            ny = -dx;
+                        }
 
                         let badgeColor = '#ffffff';
                         const isSelected = selectedSectorIdx === sectorIdx;
@@ -2205,7 +2292,7 @@ export const TrackMap = React.memo(({ isExpanded = false, onToggleExpand, isMini
 
         ctx.restore();
 
-    }, [trackData, dimensions, view, telemetryData, flagImage, referenceLapIdx, isMiniMap, cameraMode, followZoom, optimalRotation, forcedRotation, isExpanded, dashboardSyncMode, mapMarkerType, staticTrackBaseData, track3DData, sectorColors, sectorBreakpoints, showMiniSectors, miniSectors, selectedSegIdx, miniSectorState, laps, selectedStint, getHeadingAtIdx, isAnimating]);
+    }, [trackData, dimensions, view, telemetryData, flagImage, referenceLapIdx, isMiniMap, cameraMode, followZoom, optimalRotation, forcedRotation, isExpanded, dashboardSyncMode, mapMarkerType, staticTrackBaseData, track3DData, sectorColors, sectorBreakpoints, showMiniSectors, miniSectors, selectedSegIdx, miniSectorState, sectorBadgeSides, laps, selectedStint, getHeadingAtIdx, isAnimating]);
 
     useEffect(() => {
         drawTrack();

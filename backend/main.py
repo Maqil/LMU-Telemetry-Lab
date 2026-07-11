@@ -99,6 +99,7 @@ else:
 async def health_check():
     return {"status": "ok", "service": "antigravity-backend", "version": "1.5.0"}
 
+# Force reload touch tag
 if __name__ == "__main__":
     import uvicorn
     import multiprocessing

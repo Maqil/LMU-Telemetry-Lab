@@ -302,6 +302,37 @@ export const apiClient = {
         return res.json();
     },
 
+    async getDiscordConfig(): Promise<{ is_configured: boolean; invite_url: string }> {
+        return this._fetchJson('/discord/config');
+    },
+
+    async shareToDiscord(
+        sessionId: string,
+        lapNumber: number,
+        title: string,
+        content: string,
+        attachSetup: boolean,
+        carClass: string,
+        customCarModel?: string,
+        profileId: string = 'guest',
+        discordHandle?: string
+    ): Promise<{ success: boolean; thread_id?: string }> {
+        return this._fetchJson(`/sessions/${sessionId}/discord/share`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                lap_number: lapNumber,
+                title,
+                content,
+                attach_setup: attachSetup,
+                car_class: carClass,
+                custom_car_model: customCarModel,
+                profile_id: profileId,
+                discord_handle: discordHandle
+            }),
+        });
+    },
+
     async _fetchJson(path: string, options: RequestInit = {}): Promise<any> {
         const res = await fetch(`${API_BASE}${path}`, options);
         if (!res.ok) {
