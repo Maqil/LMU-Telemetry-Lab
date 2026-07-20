@@ -1855,7 +1855,7 @@ export const TelemetryChart = React.memo<TelemetryChartProps>(({
 
 
     return (
-        <div className={`mb-0.5 rounded-2xl flex flex-col items-stretch glass-container-flat glass-expand-pixel transition-all duration-300 group min-w-0 relative ${isResizing ? 'select-none' : ''}`}
+        <div className={`mb-0.5 rounded-lg flex flex-col items-stretch glass-container-flat glass-expand-pixel transition-all duration-300 group min-w-0 relative ${isResizing ? 'select-none' : ''}`}
             onMouseEnter={() => {
                 isHoveringRef.current = true;
                 setIsUserInteractingWithCharts(true);
@@ -2102,7 +2102,7 @@ export const TelemetryChart = React.memo<TelemetryChartProps>(({
                         )}
 
                         <button
-                            className={`p-1.5 rounded-lg border transition-all active:scale-90 flex items-center justify-center glass-container-flat hover:scale-110 border-white/10 text-gray-400 hover:text-white hover:bg-white/10 group/collapse ml-2`}
+                            className={`p-1.5 rounded-sm border transition-all active:scale-90 flex items-center justify-center glass-container-flat hover:scale-110 border-white/10 text-gray-400 hover:text-white hover:bg-white/10 group/collapse ml-2`}
                             onMouseMove={(e) => handleGlassMouseMove(e, 0.15)}
                             onClick={(e) => {
                                 e.stopPropagation();

@@ -11,7 +11,7 @@ export const MaximizedDimensionToggle: React.FC = () => {
 
     return (
         <div 
-            className="relative flex items-center p-1 bg-[#1a1a1e]/80 backdrop-blur-3xl rounded-lg border border-white/10 glass-container w-24 h-8 overflow-hidden group/toggle shadow-[0_8px_20px_rgba(0,0,0,0.5)] animate-in fade-in slide-in-from-top-2 duration-500 pointer-events-auto" 
+            className="relative flex items-center p-1 bg-[#1a1a1e]/80 backdrop-blur-3xl rounded-sm border border-white/10 glass-container w-24 h-8 overflow-hidden group/toggle shadow-[0_8px_20px_rgba(0,0,0,0.5)] animate-in fade-in slide-in-from-top-2 duration-500 pointer-events-auto" 
             onMouseMove={handleGlassMouseMove}
         >
             {/* Sliding Indicator Pill */}

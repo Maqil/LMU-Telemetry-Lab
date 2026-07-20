@@ -64,7 +64,7 @@ const formatLapTime = (time: number) => {
 };
 
 // SHARED LOGIC: Calculate 3D position and orientation for both Car and CameraController
-const getCarTransform = (telemetryData: any, cursorIndex: number | null, smoothCursorIndex: number | null, isPlaying: boolean, center: any, zScale: number, zBase: number, trackPoints: any[] | null) => {
+const getCarTransform = (telemetryData: any, cursorIndex: number | null, smoothCursorIndex: number | null, isPlaying: boolean, center: any, zScale: number, zBase: number, trackPoints: any[] | null, flipY: boolean = false) => {
     if (!telemetryData || cursorIndex === null || !center) return null;
     const lats = telemetryData['GPS Latitude'];
     const lons = telemetryData['GPS Longitude'];
@@ -88,7 +88,8 @@ const getCarTransform = (telemetryData: any, cursorIndex: number | null, smoothC
 
     const degM = 111320;
     const x = (lon - center.lon) * center.lonScale * degM;
-    const y = (lat - center.lat) * degM;
+    // ACC-only: reflect the north axis to match the 2D map. LMU keeps +y (flipY=false).
+    const y = (flipY ? -1 : 1) * (lat - center.lat) * degM;
 
     let targetZ = 0;
     let trackClosestIdx = -1;
@@ -126,7 +127,8 @@ const getCarTransform = (telemetryData: any, cursorIndex: number | null, smoothC
         if (i1 !== i2) {
             const dLat = lats[i2] - lats[i1];
             const dLon = (lons[i2] - lons[i1]) * center.lonScale;
-            heading = -Math.atan2(dLon, dLat);
+            // Heading follows the north-axis reflection (ACC flips; LMU unchanged).
+            heading = flipY ? Math.atan2(-dLon, -dLat) : -Math.atan2(dLon, dLat);
 
             // --- IMPROVEMENT: Low-Speed Stability & Yaw-Based Slip Visualization ---
             const speed = telemetryData['Ground Speed'];
@@ -139,8 +141,8 @@ const getCarTransform = (telemetryData: any, cursorIndex: number | null, smoothC
                     const v_mps = curSpeedKmh / 3.6;
                     // Note: 3D heading is in radians, so we skip the deg-to-rad conversion at the end
                     const slipOffsetRad = (curGLat * 9.81 / (v_mps * v_mps)) * 0.5;
-                    // Negative because of 3D coordinate system (Y-up, heading is rotation around Z)
-                    heading -= Math.max(-0.26, Math.min(0.26, slipOffsetRad)); // Cap at ~15 degrees
+                    // Slip offset sign follows the north-axis reflection (ACC flips).
+                    heading += (flipY ? 1 : -1) * Math.max(-0.26, Math.min(0.26, slipOffsetRad)); // Cap at ~15 degrees
                 }
             }
         }
@@ -433,13 +435,13 @@ const RacingLine = ({ points, center, zScale = 0, isReference = false }: { point
     );
 };
 
-const Car = ({ telemetryData, cursorIndex, smoothCursorIndex, isPlaying, center, zScale = 1, zBase = 0, isReference = false, trackPoints = null }: any) => {
+const Car = ({ telemetryData, cursorIndex, smoothCursorIndex, isPlaying, center, zScale = 1, zBase = 0, isReference = false, trackPoints = null, flipY = false }: any) => {
     const groupRef = useRef<THREE.Group>(null);
     const mapMarkerType = useTelemetryStore(state => state.mapMarkerType);
 
     const transform = useMemo(() => {
-        return getCarTransform(telemetryData, cursorIndex, smoothCursorIndex, isPlaying, center, zScale, zBase, trackPoints);
-    }, [telemetryData, cursorIndex, smoothCursorIndex, isPlaying, center, zScale, zBase, trackPoints]);
+        return getCarTransform(telemetryData, cursorIndex, smoothCursorIndex, isPlaying, center, zScale, zBase, trackPoints, flipY);
+    }, [telemetryData, cursorIndex, smoothCursorIndex, isPlaying, center, zScale, zBase, trackPoints, flipY]);
 
     const arrowShape = useMemo(() => {
         const shape = new THREE.Shape();
@@ -517,7 +519,7 @@ const Car = ({ telemetryData, cursorIndex, smoothCursorIndex, isPlaying, center,
     );
 };
 
-const CameraController = ({ viewMode, telemetryData, cursorIndex, smoothCursorIndex, isPlaying, center, zScale = 1, zBase = 0, trackPoints = null, trackCenterOffset, pcaRotation, resetKey }: any) => {
+const CameraController = ({ viewMode, telemetryData, cursorIndex, smoothCursorIndex, isPlaying, center, zScale = 1, zBase = 0, trackPoints = null, trackCenterOffset, pcaRotation, resetKey, flipY = false }: any) => {
     const lastWorldPosRef = useRef<THREE.Vector3 | null>(null);
     const lastHeadingRef = useRef<number | null>(null);
     const orbitHeadingRef = useRef<number>(0);
@@ -537,7 +539,7 @@ const CameraController = ({ viewMode, telemetryData, cursorIndex, smoothCursorIn
             // No early return here, let it pass through to the initialization/reset block below
         }
 
-        const transform = getCarTransform(telemetryData, cursorIndex, smoothCursorIndex, isPlaying, center, zScale, zBase, trackPoints);
+        const transform = getCarTransform(telemetryData, cursorIndex, smoothCursorIndex, isPlaying, center, zScale, zBase, trackPoints, flipY);
         if (!transform) return;
 
         // Calculate world position
@@ -981,13 +983,14 @@ export const TrackMap3D = ({ onToggleExpand, isAnimating = false }: { onToggleEx
 
     // DERIVE Racing Line points from API (Preferred) or local fusion (Fallback)
     const fusedRacingLinePoints = useMemo(() => {
+        const ySign = track3DData?.flipY ? -1 : 1;  // ACC-only north reflection; LMU = 1
         // COORDINATE ANCHOR: Use the height-corrected points from the API if available
         if (track3DData?.racingLine && track3DData.racingLine.length > 0 && track3DData.center && unifiedCenter) {
             const sourceCenter = track3DData.center;
             if (sourceCenter.lat !== unifiedCenter.lat || sourceCenter.lon !== unifiedCenter.lon) {
                 const degM = 111320;
                 const dx = (sourceCenter.lon - unifiedCenter.lon) * unifiedCenter.lonScale * degM;
-                const dy = (sourceCenter.lat - unifiedCenter.lat) * degM;
+                const dy = ySign * (sourceCenter.lat - unifiedCenter.lat) * degM;
                 return track3DData.racingLine.map(p => ({
                     ...p,
                     x: p.x + dx,
@@ -1017,7 +1020,7 @@ export const TrackMap3D = ({ onToggleExpand, isAnimating = false }: { onToggleEx
 
         for (let i = startIdx; i <= eIdx; i += step) {
             const x = (lons[i] - unifiedCenter.lon) * unifiedCenter.lonScale * degM;
-            const y = (lats[i] - unifiedCenter.lat) * degM;
+            const y = ySign * (lats[i] - unifiedCenter.lat) * degM;
             pts.push({
                 x, y,
                 z: alts ? alts[i] : 0
@@ -1027,12 +1030,13 @@ export const TrackMap3D = ({ onToggleExpand, isAnimating = false }: { onToggleEx
     }, [telemetryData, selectedLapIdx, laps, track3DData, unifiedCenter]);
 
     const fusedReferenceRacingLinePoints = useMemo(() => {
+        const ySign = referenceTrack3DData?.flipY ? -1 : 1;  // ACC-only north reflection; LMU = 1
         if (referenceTrack3DData?.racingLine && referenceTrack3DData.racingLine.length > 0 && referenceTrack3DData.center && unifiedCenter) {
             const sourceCenter = referenceTrack3DData.center;
             if (sourceCenter.lat !== unifiedCenter.lat || sourceCenter.lon !== unifiedCenter.lon) {
                 const degM = 111320;
                 const dx = (sourceCenter.lon - unifiedCenter.lon) * unifiedCenter.lonScale * degM;
-                const dy = (sourceCenter.lat - unifiedCenter.lat) * degM;
+                const dy = ySign * (sourceCenter.lat - unifiedCenter.lat) * degM;
                 return referenceTrack3DData.racingLine.map(p => ({
                     ...p,
                     x: p.x + dx,
@@ -1060,7 +1064,7 @@ export const TrackMap3D = ({ onToggleExpand, isAnimating = false }: { onToggleEx
 
         for (let i = startIdx; i <= eIdx; i += step) {
             const x = (lons[i] - unifiedCenter.lon) * unifiedCenter.lonScale * degM;
-            const y = (lats[i] - unifiedCenter.lat) * degM;
+            const y = ySign * (lats[i] - unifiedCenter.lat) * degM;
             pts.push({
                 x, y,
                 z: alts ? alts[i] : 0
@@ -1185,7 +1189,7 @@ export const TrackMap3D = ({ onToggleExpand, isAnimating = false }: { onToggleEx
     return (
         <div
             ref={containerRef}
-            className={`h-full flex flex-col min-h-[inherit] relative group/map transition-all duration-300 glass-container-flat hover:scale-100 overflow-hidden ${isMapMaximized ? 'rounded-none glass-no-blur' : 'rounded-2xl'}`}
+            className={`h-full flex flex-col min-h-[inherit] relative group/map transition-all duration-300 glass-container-flat hover:scale-100 overflow-hidden ${isMapMaximized ? 'rounded-none glass-no-blur' : 'rounded-lg'}`}
             onMouseMove={handleGlassMouseMove}
             style={{ '--glass-hover-scale': '1', '--glass-content-scale': '1' } as any}
         >
@@ -1224,7 +1228,7 @@ export const TrackMap3D = ({ onToggleExpand, isAnimating = false }: { onToggleEx
                 {/* HUD: Top Center Telemetry (Refined Alignment) */}
                 {!isAnimating && (
                     <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[100] pointer-events-auto flex flex-col items-center gap-3">
-                        <div className="bg-black/40 backdrop-blur-2xl border border-white/10 rounded-2xl flex items-center shadow-2xl glass-container overflow-hidden"
+                        <div className="bg-black/40 backdrop-blur-2xl border border-white/10 rounded-lg flex items-center shadow-2xl glass-container overflow-hidden"
                             onMouseMove={handleGlassMouseMove}>
                             <div className="glass-content px-6 py-2.5 flex items-center gap-5">
                                 <div className="flex items-baseline gap-2">
@@ -1255,7 +1259,7 @@ export const TrackMap3D = ({ onToggleExpand, isAnimating = false }: { onToggleEx
                 {/* HUD: Minimap (Top Right) - Fixed 5:3 Smaller */}
                 {!isAnimating && (
                     <div className={`absolute ${isMapMaximized ? 'top-6 right-8' : 'top-4 right-4'} z-[100] w-[14rem] aspect-[5/3] transition-all duration-500 transform ${showMiniMap ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 -translate-y-4 scale-95 pointer-events-none'}`}>
-                        <div className={`w-full h-full glass-container rounded-xl overflow-hidden relative transition-all duration-300 ${showMiniMap ? 'pointer-events-auto' : 'pointer-events-none'}`}
+                        <div className={`w-full h-full glass-container rounded-md overflow-hidden relative transition-all duration-300 ${showMiniMap ? 'pointer-events-auto' : 'pointer-events-none'}`}
                             onMouseMove={handleGlassMouseMove}
                             style={{ '--glass-hover-scale': '1', '--glass-content-scale': '1' } as any}>
                             <div className="glass-content w-full h-full">
@@ -1350,7 +1354,7 @@ export const TrackMap3D = ({ onToggleExpand, isAnimating = false }: { onToggleEx
                                                     <div
                                                         className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-16 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] origin-bottom ${isSpeedOpen ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-2 pointer-events-none'}`}
                                                     >
-                                                        <div className="flex flex-col gap-1 p-1 bg-[#1a1a1e]/90 glass-container rounded-xl border border-white/10"
+                                                        <div className="flex flex-col gap-1 p-1 bg-[#1a1a1e]/90 glass-container rounded-md border border-white/10"
                                                             onMouseMove={handleGlassMouseMove}>
                                                             <div className="glass-content w-full h-full flex flex-col">
                                                                 {[4, 2, 1, 0.5].map(s => (
@@ -1414,7 +1418,7 @@ export const TrackMap3D = ({ onToggleExpand, isAnimating = false }: { onToggleEx
                                                                         if (isMapMaximized) setShowHudMenu(!showHudMenu);
                                                                         else setShowTelemetryOverlay(!showTelemetryOverlay);
                                                                     }}
-                                                                    className={`transition-all rounded-lg glass-container hover:scale-110 active:scale-95 border border-transparent ${showHudMenu ? 'text-blue-400 bg-blue-500/10 border-blue-500/20 shadow-[0_0_15px_rgba(37,99,235,0.1)]' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
+                                                                    className={`transition-all rounded-sm glass-container hover:scale-110 active:scale-95 border border-transparent ${showHudMenu ? 'text-blue-400 bg-blue-500/10 border-blue-500/20 shadow-[0_0_15px_rgba(37,99,235,0.1)]' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
                                                                 >
                                                                     <div className="glass-content px-2.5 py-1.5 flex items-center justify-center gap-1.5">
                                                                         <Activity size={16} />
@@ -1431,7 +1435,7 @@ export const TrackMap3D = ({ onToggleExpand, isAnimating = false }: { onToggleEx
                                                                         exit={{ opacity: 0, scale: 0.95, y: 10 }}
                                                                         className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-40 z-[1100]"
                                                                     >
-                                                                        <div className="flex flex-col gap-1 p-1 bg-[#1a1a1e]/90 glass-container rounded-xl border border-white/10"
+                                                                        <div className="flex flex-col gap-1 p-1 bg-[#1a1a1e]/90 glass-container rounded-md border border-white/10"
                                                                             onMouseMove={handleGlassMouseMove}>
                                                                             <div className="glass-content w-full h-full flex flex-col gap-0.5">
                                                                                 <button
@@ -1531,6 +1535,7 @@ export const TrackMap3D = ({ onToggleExpand, isAnimating = false }: { onToggleEx
                             trackCenterOffset={trackCenterOffset}
                             pcaRotation={isNaN(pcaRotation) ? 0 : pcaRotation}
                             resetKey={resetKey}
+                            flipY={track3DData?.flipY || false}
                         />
                         <group rotation={[0, 0, isNaN(pcaRotation) ? 0 : pcaRotation]}>
                             <group position={[-trackCenterOffset.x, -trackCenterOffset.y, 0]}>
@@ -1574,6 +1579,7 @@ export const TrackMap3D = ({ onToggleExpand, isAnimating = false }: { onToggleEx
                                     zScale={zScale}
                                     zBase={track3DData?.zBase || 0}
                                     trackPoints={fusedRacingLinePoints || track3DData?.baseMap}
+                                    flipY={track3DData?.flipY || false}
                                 />
                                 {/* Ghost/Reference Car */}
                                 {referenceTrack3DData && (
@@ -1586,6 +1592,7 @@ export const TrackMap3D = ({ onToggleExpand, isAnimating = false }: { onToggleEx
                                         zBase={referenceTrack3DData.zBase || 0}
                                         trackPoints={fusedReferenceRacingLinePoints || referenceTrack3DData.baseMap}
                                         isReference
+                                        flipY={referenceTrack3DData?.flipY || false}
                                     />
                                 )}
                             </group>
@@ -1655,7 +1662,7 @@ export const TrackMap3D = ({ onToggleExpand, isAnimating = false }: { onToggleEx
                                     className="pointer-events-auto flex flex-col gap-2 h-full w-full"
                                 >
                                     <div
-                                        className="relative w-full flex-1 flex flex-col bg-[#0a0a0c] overflow-hidden glass-container-static rounded-2xl"
+                                        className="relative w-full flex-1 flex flex-col bg-[#0a0a0c] overflow-hidden glass-container-static rounded-lg"
                                         onMouseMove={(e) => {
                                             e.stopPropagation();
                                             handleGlassMouseMove(e);
@@ -1758,7 +1765,7 @@ export const TrackMap3D = ({ onToggleExpand, isAnimating = false }: { onToggleEx
                             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                             className="absolute right-[20px] z-[2001] pointer-events-auto"
                         >
-                            <div className="glass-container rounded-xl shadow-xl overflow-hidden pointer-events-auto" onMouseMove={handleGlassMouseMove}>
+                            <div className="glass-container rounded-md shadow-xl overflow-hidden pointer-events-auto" onMouseMove={handleGlassMouseMove}>
                                 <div className="glass-content relative flex items-center p-1 w-44 h-8 bg-black/20">
                                     <div
                                         className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-blue-600 rounded-lg shadow-[0_0_15px_rgba(37,99,235,0.4)] transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] z-0"

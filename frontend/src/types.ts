@@ -18,6 +18,7 @@ export interface Session {
     driverName?: string;
     bestLapTime?: number;
     bestLapValid?: boolean;
+    game?: string; // 'LMU' | 'ACC'
 }
 
 export interface SessionMetadata {
@@ -84,6 +85,7 @@ export interface ChartConfig {
     order: number;
     height: number;
     unit?: string;
+    widthPct?: number;   // Optional container width as a % of the chart column (default: full width)
     wheelIndex?: number; // 0:FL, 1:FR, 2:RL, 3:RR
 }
 export interface ReferenceLap {

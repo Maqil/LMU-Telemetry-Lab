@@ -5,13 +5,14 @@ import { handleGlassMouseMove } from '../utils/glassEffect';
 import { Tooltip } from './ui/Tooltip';
 import { getBrandLogoPath, getClassColor } from '../utils/carHelpers';
 import { getCountryFlagPath } from '../utils/trackHelpers';
-import { Settings2, Car } from 'lucide-react';
+import { Settings2, Car, PanelLeftClose } from 'lucide-react';
 
 interface CarInfoCardProps {
     metadata: SessionMetadata;
     theme?: 'current' | 'reference';
 }
 
+// Condensed single-block car card: logo + name on one row, class + actions inline.
 const CarInfoCard: React.FC<CarInfoCardProps> = ({ metadata, theme = 'current' }) => {
     const isRef = theme === 'reference';
     const fetchSetup = useTelemetryStore(s => s.fetchSetup);
@@ -21,7 +22,6 @@ const CarInfoCard: React.FC<CarInfoCardProps> = ({ metadata, theme = 'current' }
     const accentColor = isRef ? 'text-amber-500' : 'text-blue-400';
     const hoverAccentColor = isRef ? 'group-hover:text-amber-400' : 'group-hover:text-blue-400';
     const borderColor = isRef ? 'group-hover:border-amber-500/40' : 'group-hover:border-blue-500/40';
-    const shadowColor = isRef ? 'shadow-[0_20px_40px_rgba(245,158,11,0.15)]' : 'shadow-[0_20px_40px_rgba(37,99,235,0.15)]';
 
     const [logoFailed, setLogoFailed] = React.useState(false);
 
@@ -31,83 +31,71 @@ const CarInfoCard: React.FC<CarInfoCardProps> = ({ metadata, theme = 'current' }
 
     return (
         <div
-            className={`flex flex-col bg-white/10 glass-container glass-expand-pixel p-4 pt-3 rounded-2xl border border-white/25 ${shadowColor} group hover:bg-white/15 transition-all duration-300 relative hover:scale-[1.02] hover:z-10`}
+            className={`flex items-center gap-2.5 bg-white/10 glass-container glass-expand-pixel px-3 py-2.5 rounded-md border border-white/25 group hover:bg-white/15 transition-all duration-300 relative`}
             onMouseMove={handleGlassMouseMove}
         >
-            <div className="glass-content">
-                {/* Dedicated Label Row */}
-                <div className="flex items-center justify-between mb-3 pb-2 border-b border-white/5">
-                    <div className="flex items-center gap-2">
-                        <div className={`w-1.5 h-1.5 rounded-full ${isRef ? 'bg-amber-500' : 'bg-blue-500'} animate-pulse shadow-[0_0_8px_rgba(0,0,0,0.5)]`} />
-                        <span className={`text-[9px] font-black uppercase tracking-[0.2em] ${accentColor} drop-shadow-sm`}>
-                            {isRef ? 'Reference Car' : 'Current Car'}
-                        </span>
-                        <Tooltip text="Calibrate Car Model" position="top">
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setShowCarSelection({
-                                        rawCarName: metadata.rawCarName || metadata.modelName,
-                                        currentModel: metadata.modelName,
-                                        carClass: metadata.carClass,
-                                        isRef
-                                    });
-                                }}
-                                className="p-1.5 text-blue-400 hover:text-white bg-blue-500/10 hover:bg-blue-500/25 border border-blue-500/30 hover:border-blue-500/50 rounded-lg transition-all duration-300 flex items-center justify-center shrink-0 cursor-pointer shadow-[0_0_10px_rgba(59,130,246,0.15)] active:scale-95"
-                            >
-                                <Settings2 size={12} className="transition-transform duration-500 hover:rotate-90" />
-                            </button>
-                        </Tooltip>
-                    </div>
-                    {!isRef && currentSessionId && (
-                        <button
-                            onClick={() => {
-                                fetchSetup(currentSessionId);
-                                setShowSetupView(true);
-                            }}
-                            className="px-3 py-1.5 rounded-xl text-[8px] font-black tracking-[0.15em] text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 transition-all border border-white/5 hover:border-blue-500/30 uppercase shadow-lg"
-                        >
-                            Car Setup
-                        </button>
+            <div className="glass-content flex items-center gap-2.5 w-full min-w-0">
+                {/* Brand logo */}
+                <div className={`w-8 h-8 flex-shrink-0 flex items-center justify-center bg-white/10 rounded-md border border-white/20 ${borderColor} transition-all p-1`}>
+                    {logoFailed ? (
+                        <Car size={12} className="text-gray-500" />
+                    ) : (
+                        <img
+                            src={getBrandLogoPath(metadata.modelName)}
+                            alt="Brand Logo"
+                            className="w-full h-full object-contain filter brightness-125 drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]"
+                            onError={() => setLogoFailed(true)}
+                        />
                     )}
                 </div>
 
-                <div className="flex items-center gap-3 mb-2">
-                    <div className={`w-10 h-10 flex items-center justify-center bg-white/10 rounded-xl border border-white/20 ${borderColor} transition-all p-1.5`}>
-                        {logoFailed ? (
-                            <div className="w-6 h-6 bg-gray-800 rounded-full border border-gray-700 flex items-center justify-center">
-                                <Car size={12} className="text-gray-500" />
-                            </div>
-                        ) : (
-                            <img
-                                src={getBrandLogoPath(metadata.modelName)}
-                                alt="Brand Logo"
-                                className="w-full h-full object-contain filter brightness-125 transition-all drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]"
-                                onError={() => setLogoFailed(true)}
-                            />
-                        )}
+                {/* Name + label */}
+                <div className="flex flex-col min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                        <div className={`w-1 h-1 rounded-full ${isRef ? 'bg-amber-500' : 'bg-blue-500'} animate-pulse`} />
+                        <span className={`text-[8px] font-black uppercase tracking-[0.2em] ${accentColor}`}>
+                            {isRef ? 'Reference Car' : 'Current Car'}
+                        </span>
                     </div>
-                    <div className="flex flex-col relative">
-                        <h2 className={`text-sm font-black italic tracking-widest text-white uppercase font-sans leading-tight ${hoverAccentColor} transition-colors`}>
-                            {metadata.modelName}
-                        </h2>
-                        {metadata.rawCarName && metadata.rawCarName.toLowerCase() !== metadata.modelName.toLowerCase() && (
-                            <span className="text-[11px] text-gray-400 font-mono tracking-tighter uppercase block mt-0.5 opacity-80 group-hover:text-white transition-colors">
-                                {metadata.rawCarName}
-                            </span>
-                        )}
-                    </div>
+                    <h2 className={`text-[12px] font-black italic tracking-wide text-white uppercase leading-tight truncate ${hoverAccentColor} transition-colors`}>
+                        {metadata.modelName}
+                    </h2>
                 </div>
-                <div className="flex items-center justify-between mt-2 pt-3 border-t border-white/5 relative">
-                    <div className={`px-2.5 py-1 rounded-lg text-[10px] font-black border leading-none tracking-[0.15em] shadow-sm uppercase ${getClassColor(metadata.carClass)}`}>
+
+                {/* Class badge + actions */}
+                <div className="flex items-center gap-1 flex-shrink-0">
+                    <span className={`px-1.5 py-0.5 rounded-sm text-[9px] font-black border leading-none tracking-[0.1em] uppercase ${getClassColor(metadata.carClass)}`}>
                         {metadata.carClass || 'CLASS'}
-                    </div>
-                    <div className="text-[11px] font-bold text-gray-400 capitalize flex items-center gap-1.5 group-hover:text-white transition-colors">
-                        <div className="w-5 h-5 rounded-full bg-white/5 border border-white/10 flex items-center justify-center">
-                            <svg className={`w-3 h-3 text-gray-500 ${hoverAccentColor} transition-colors`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-                        </div>
-                        {metadata.driverName}
-                    </div>
+                    </span>
+                    <Tooltip text="Calibrate Car Model" position="top">
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setShowCarSelection({
+                                    rawCarName: metadata.rawCarName || metadata.modelName,
+                                    currentModel: metadata.modelName,
+                                    carClass: metadata.carClass,
+                                    isRef
+                                });
+                            }}
+                            className="p-1 text-blue-400 hover:text-white bg-blue-500/10 hover:bg-blue-500/25 border border-blue-500/30 rounded-sm transition-all flex items-center justify-center shrink-0 active:scale-95"
+                        >
+                            <Settings2 size={11} />
+                        </button>
+                    </Tooltip>
+                    {!isRef && currentSessionId && (
+                        <Tooltip text="Car Setup" position="top">
+                            <button
+                                onClick={() => {
+                                    fetchSetup(currentSessionId);
+                                    setShowSetupView(true);
+                                }}
+                                className="p-1 text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 rounded-sm transition-all flex items-center justify-center shrink-0 active:scale-95"
+                            >
+                                <Car size={11} />
+                            </button>
+                        </Tooltip>
+                    )}
                 </div>
             </div>
         </div>
@@ -117,9 +105,18 @@ const CarInfoCard: React.FC<CarInfoCardProps> = ({ metadata, theme = 'current' }
 interface SessionInfoProps {
     sessionMetadata: SessionMetadata;
     referenceMetadata?: SessionMetadata | null;
+    onHide?: () => void;
 }
 
-export const SessionInfo: React.FC<SessionInfoProps> = ({ sessionMetadata, referenceMetadata }) => {
+// Compact stat cell used in the combined track block.
+const StatCell: React.FC<{ label: string; value: React.ReactNode; valueClass: string }> = ({ label, value, valueClass }) => (
+    <div className="flex flex-col gap-0.5 px-2.5 py-2 rounded-sm bg-white/5 border border-white/10 min-w-0">
+        <span className="font-black tracking-[0.12em] uppercase text-[8px] text-gray-500 leading-none truncate">{label}</span>
+        <span className={`font-black text-[12px] leading-none truncate ${valueClass}`}>{value}</span>
+    </div>
+);
+
+export const SessionInfo: React.FC<SessionInfoProps> = ({ sessionMetadata, referenceMetadata, onHide }) => {
     const telemetryData = useTelemetryStore(state => state.telemetryData);
     const cursorIndex = useTelemetryStore(state => state.cursorIndex);
     const selectedLapIdx = useTelemetryStore(state => state.selectedLapIdx);
@@ -163,55 +160,76 @@ export const SessionInfo: React.FC<SessionInfoProps> = ({ sessionMetadata, refer
                 <div className="h-[1px] flex-1 bg-white/10 relative overflow-hidden group/linkage">
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] animate-[sweep_3s_infinite]" />
                 </div>
+                {onHide && (
+                    <Tooltip text="HIDE PANEL" position="left">
+                        <button
+                            onClick={onHide}
+                            className="p-1.5 rounded-sm text-gray-500 hover:text-white hover:bg-white/10 border border-transparent hover:border-white/10 transition-all active:scale-95"
+                        >
+                            <PanelLeftClose size={15} />
+                        </button>
+                    </Tooltip>
+                )}
             </div>
 
-            <div className="flex flex-col gap-3 py-3">
-                {/* 0. Session Type */}
-                {sessionMetadata.sessionType && (
-                    <div
-                        className="bg-white/10 border border-white/25 glass-container glass-expand-pixel rounded-2xl p-4 text-center shadow-[0_15px_35px_rgba(0,0,0,0.4)] flex flex-col justify-center animate-in fade-in slide-in-from-top-2 duration-500 group transition-all"
-                        onMouseMove={handleGlassMouseMove}
-                    >
-                        <div className="glass-content">
-                            <span className="text-blue-400 font-black italic tracking-[0.25em] uppercase text-xl leading-none drop-shadow-[0_0_12px_rgba(59,130,246,0.3)] group-hover:text-blue-300 transition-colors">
-                                {sessionMetadata.sessionType}
-                            </span>
-                        </div>
-                    </div>
-                )}
-
-                {/* 1. Track Info */}
+            <div className="flex flex-col gap-2.5 py-2">
+                {/* Combined Track block: name + weather / temp / track time / session time */}
                 <div
-                    className="flex flex-col bg-white/10 glass-container glass-expand-pixel p-4 rounded-2xl border border-white/25 shadow-[0_20px_40px_rgba(0,0,0,0.4)] group hover:bg-white/15 transition-all duration-300 hover:scale-[1.02] hover:z-10"
+                    className="flex flex-col bg-white/10 glass-container glass-expand-pixel p-3 rounded-md border border-white/25 shadow-[0_15px_35px_rgba(0,0,0,0.4)] group hover:bg-white/15 transition-all duration-300"
                     onMouseMove={handleGlassMouseMove}
                 >
-                    <div className="glass-content flex items-center gap-3">
-                        <div className="flex flex-col gap-1 items-center">
+                    <div className="glass-content flex flex-col gap-2.5">
+                        {/* Track identity row */}
+                        <div className="flex items-center gap-2.5">
                             {getCountryFlagPath && sessionMetadata.country && (
-                                <div className="p-1 bg-white/10 rounded-xl border border-white/20 group-hover:border-blue-500/40 transition-all shadow-sm">
+                                <div className="p-1 bg-white/10 rounded-sm border border-white/20 group-hover:border-blue-500/40 transition-all shrink-0">
                                     <img
                                         src={getCountryFlagPath(sessionMetadata.country)}
                                         alt="Country Flag"
-                                        className="w-8 h-auto object-contain rounded-[1px]"
+                                        className="w-7 h-auto object-contain rounded-[1px]"
                                         onError={(e) => (e.currentTarget.style.display = 'none')}
                                     />
                                 </div>
                             )}
+                            <div className="flex flex-col min-w-0 flex-1">
+                                <h2 className="text-[13px] font-black italic tracking-widest text-white uppercase leading-tight truncate group-hover:text-blue-400 transition-colors">
+                                    {sessionMetadata.trackName}
+                                </h2>
+                                {(sessionMetadata.trackLayout || sessionMetadata.sessionType) && (
+                                    <span className="text-[10px] text-gray-400 font-mono tracking-tighter uppercase truncate opacity-80">
+                                        {[sessionMetadata.sessionType, sessionMetadata.trackLayout].filter(Boolean).join(' · ')}
+                                    </span>
+                                )}
+                            </div>
                         </div>
-                        <div className="flex flex-col">
-                            <h2 className="text-sm font-black italic tracking-widest text-white uppercase font-sans leading-tight group-hover:text-blue-400 transition-colors">
-                                {sessionMetadata.trackName}
-                            </h2>
-                            {sessionMetadata.trackLayout && (
-                                <span className="text-[11px] text-gray-400 font-mono tracking-tighter uppercase block mt-0.5 opacity-80 group-hover:text-white transition-colors">
-                                    {sessionMetadata.trackLayout}
-                                </span>
-                            )}
+
+                        {/* Stats grid */}
+                        <div className="grid grid-cols-2 gap-1.5 font-mono">
+                            <StatCell
+                                label="Weather"
+                                value={sessionMetadata.weather || "--"}
+                                valueClass="text-blue-300 uppercase tracking-tight"
+                            />
+                            <StatCell
+                                label="Track Temp"
+                                value={`${trackTempDisplay}°${tempUnit === 'c' ? 'C' : 'F'}`}
+                                valueClass="text-amber-500"
+                            />
+                            <StatCell
+                                label="Track Time"
+                                value={trackTimeDisplay}
+                                valueClass="text-blue-100"
+                            />
+                            <StatCell
+                                label="Session Time"
+                                value={sessionDurationDisplay}
+                                valueClass="text-indigo-400"
+                            />
                         </div>
                     </div>
                 </div>
 
-                {/* 2. Car Info Cards */}
+                {/* Condensed Car Info Cards */}
                 <div className="flex flex-col gap-2">
                     <CarInfoCard
                         metadata={sessionMetadata}
@@ -226,36 +244,6 @@ export const SessionInfo: React.FC<SessionInfoProps> = ({ sessionMetadata, refer
                             />
                         </div>
                     )}
-                </div>
-
-                {/* 3. Session Status indicators */}
-                <div className="flex flex-col gap-2 font-mono text-gray-400 mt-1">
-                    <div className="bg-white/10 glass-container glass-expand-pixel rounded-xl px-4 py-3 flex justify-between items-center border border-white/25 shadow-xl hover:bg-white/15 transition-all group" onMouseMove={handleGlassMouseMove}>
-                        <div className="glass-content flex justify-between items-center w-full">
-                            <span className="font-black tracking-[0.1em] uppercase text-[11px] text-gray-400 group-hover:text-white transition-colors">Weather</span>
-                            <Tooltip text={sessionMetadata.weather || "CLEAR"} position="top">
-                                <span className="text-blue-300 font-black text-xs uppercase tracking-tight drop-shadow-[0_0_8px_rgba(147,197,253,0.3)]">{sessionMetadata.weather || "--"}</span>
-                            </Tooltip>
-                        </div>
-                    </div>
-                    <div className="bg-white/10 glass-container glass-expand-pixel rounded-xl px-4 py-3 flex justify-between items-center border border-white/25 shadow-xl hover:bg-white/15 transition-all group" onMouseMove={handleGlassMouseMove}>
-                        <div className="glass-content flex justify-between items-center w-full">
-                            <span className="font-black tracking-[0.1em] uppercase text-[11px] text-gray-400 group-hover:text-white transition-colors">Track Temp</span>
-                            <span className="text-amber-500 font-black text-xs drop-shadow-[0_0_8px_rgba(245,158,11,0.3)]">{trackTempDisplay}°{tempUnit === 'c' ? 'C' : 'F'}</span>
-                        </div>
-                    </div>
-                    <div className="bg-white/10 glass-container glass-expand-pixel rounded-xl px-4 py-3 flex justify-between items-center border border-white/25 shadow-xl hover:bg-white/15 transition-all group" onMouseMove={handleGlassMouseMove}>
-                        <div className="glass-content flex justify-between items-center w-full">
-                            <span className="font-black tracking-[0.1em] uppercase text-[11px] text-gray-400 group-hover:text-white transition-colors">Track Time</span>
-                            <span className="text-blue-100 font-black text-xs drop-shadow-[0_0_8px_rgba(219,234,254,0.3)]">{trackTimeDisplay}</span>
-                        </div>
-                    </div>
-                    <div className="bg-white/10 glass-container glass-expand-pixel rounded-xl px-4 py-3 flex justify-between items-center border border-white/25 shadow-xl hover:bg-white/15 transition-all group" onMouseMove={handleGlassMouseMove}>
-                        <div className="glass-content flex justify-between items-center w-full">
-                            <span className="font-black tracking-[0.1em] uppercase text-[11px] text-gray-400 group-hover:text-white transition-colors">Session Time</span>
-                            <span className="text-indigo-400 font-black text-xs drop-shadow-[0_0_8px_rgba(129,140,248,0.3)]">{sessionDurationDisplay}</span>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>

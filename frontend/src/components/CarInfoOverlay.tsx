@@ -81,7 +81,7 @@ export const CarInfoOverlay = React.memo(({ sessionMetadata, referenceMetadata }
     };
 
     return (
-        <div className="pointer-events-auto flex flex-col overflow-hidden rounded-2xl glass-container-static group/carInfo transition-all duration-500 select-none w-fit" onMouseMove={handleGlassMouseMove}>
+        <div className="pointer-events-auto flex flex-col overflow-hidden rounded-lg glass-container-static group/carInfo transition-all duration-500 select-none w-fit" onMouseMove={handleGlassMouseMove}>
             <div className="flex flex-col divide-y divide-white/5">
                 {renderCarBlock(sessionMetadata, false)}
                 {referenceMetadata && renderCarBlock(referenceMetadata, true)}

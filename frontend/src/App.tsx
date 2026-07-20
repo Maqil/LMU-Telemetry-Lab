@@ -7,6 +7,7 @@ import { TelemetryChart } from './components/TelemetryChart';
 import { TrackMap } from './components/TrackMap';
 import { LapDetailsPanel } from './components/LapDetailsPanel';
 import { getBrandLogoPath, getClassColor } from './utils/carHelpers';
+import { getCountryFlagPath } from './utils/trackHelpers';
 import { ReferenceLapBrowser } from './components/ReferenceLapBrowser';
 import packageJson from '../package.json';
 import { AnalysisLapsWidget } from './components/AnalysisLapsWidget';
@@ -30,7 +31,6 @@ import {
   ArrowLeft,
   Settings,
   Users,
-  Database,
   ChevronDown,
   RefreshCcw,
   ChevronLeft,
@@ -38,7 +38,8 @@ import {
   Download,
   PackageCheck,
   Loader2,
-  Send
+  Send,
+  Trophy
 } from 'lucide-react';
 import {
   handleGlassMouseMove
@@ -54,7 +55,7 @@ const CategoryTab = memo(({ id, label, isActive }: { id: any, label: string, isA
     return (
         <button
             onClick={() => setActiveChartCategory(id)}
-            className={`relative z-10 px-8 h-full flex items-center justify-center text-[11px] font-black uppercase tracking-[0.1em] transition-colors duration-300 flex-1 min-w-[120px] ${
+            className={`relative z-10 px-5 h-full flex items-center justify-center text-[10px] font-black uppercase tracking-[0.1em] transition-colors duration-300 flex-1 min-w-[86px] ${
                 isActive ? 'text-white' : 'text-gray-500 hover:text-white'
             }`}
         >
@@ -608,17 +609,49 @@ function App() {
   useEffect(() => {
     localStorage.setItem('file_manager_open', showFileManager.toString());
   }, [showFileManager]);
-  const [isMapExpanded, setIsMapExpanded] = useState(false);
+  // Navbar "Analysis Laps" popover (moved out of the left sidebar)
+  const [showLapsPopover, setShowLapsPopover] = useState(false);
+  const lapsPopoverRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!showLapsPopover) return;
+    const onDown = (e: MouseEvent) => {
+      if (lapsPopoverRef.current && !lapsPopoverRef.current.contains(e.target as Node)) {
+        setShowLapsPopover(false);
+      }
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [showLapsPopover]);
 
-  // States for coordinated map animations
-  const [shouldRenderSidebarMap, setShouldRenderSidebarMap] = useState(true);
-  const [isAnimatingSidebarMap, setIsAnimatingSidebarMap] = useState(true);
+  // Navbar "Session Info" popover (session info boxes moved out of the left sidebar)
+  const [showSessionPopover, setShowSessionPopover] = useState(false);
+  const sessionPopoverRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!showSessionPopover) return;
+    const onDown = (e: MouseEvent) => {
+      if (sessionPopoverRef.current && !sessionPopoverRef.current.contains(e.target as Node)) {
+        setShowSessionPopover(false);
+      }
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [showSessionPopover]);
+
+  // Default to the centered/expanded map so sessions open with the big track map
+  // in the middle instead of docked in the right panel.
+  const [isMapExpanded, setIsMapExpanded] = useState(true);
+
+  // States for coordinated map animations.
+  // Initialized to a settled "expanded" layout so the first paint shows the
+  // centered map directly (no flash of the right-docked sidebar map).
+  const [shouldRenderSidebarMap, setShouldRenderSidebarMap] = useState(false);
+  const [isAnimatingSidebarMap, setIsAnimatingSidebarMap] = useState(false);
   const [isResizingSidebar, setIsResizingSidebar] = useState(false);
   // Remote showReferenceBrowser state moved to store
   const showReferenceBrowser = useTelemetryStore(state => state.showReferenceBrowser);
   const setShowReferenceBrowser = useTelemetryStore(state => state.setShowReferenceBrowser);
-  const [shouldRenderExpandedMap, setShouldRenderExpandedMap] = useState(false);
-  const [isAnimatingExpandedMap, setIsAnimatingExpandedMap] = useState(false);
+  const [shouldRenderExpandedMap, setShouldRenderExpandedMap] = useState(true);
+  const [isAnimatingExpandedMap, setIsAnimatingExpandedMap] = useState(true);
 
   // Global Reset Effect: Synchronize all components to the lap start after major transitions
   // This mirrors the "Map Expansion" reset but applies it to lap and session switches too.
@@ -634,7 +667,14 @@ function App() {
   }, [selectedLapIdx, telemetryData, isMapExpanded]);
 
   // Coordinated Map Transition Lifecycle
+  const didMountMapTransition = useRef(false);
   useEffect(() => {
+    // Skip the very first run: initial state already reflects the default
+    // (expanded/centered) layout, so there's nothing to animate on load.
+    if (!didMountMapTransition.current) {
+      didMountMapTransition.current = true;
+      return;
+    }
     setIsMapTransitioning(true);
     if (isMapExpanded) {
       // SIDEBAR -> EXPANDED (Staggered: Resizer package starts first)
@@ -786,7 +826,7 @@ function App() {
 
     return (
       <div
-        className={`glass-container-flat rounded-xl hover:bg-white/5 transition-all duration-300 ${compact ? 'ring-1 ring-white/5' : ''} ${highlighted ? 'bg-purple-500/10 ring-2 ring-purple-500/50 shadow-[0_0_12px_rgba(168,85,247,0.2)] border border-purple-500/20' : ''}`}
+        className={`glass-container-flat rounded-md hover:bg-white/5 transition-all duration-300 ${compact ? 'ring-1 ring-white/5' : ''} ${highlighted ? 'bg-purple-500/10 ring-2 ring-purple-500/50 shadow-[0_0_12px_rgba(168,85,247,0.2)] border border-purple-500/20' : ''}`}
         onMouseMove={(e) => handleGlassMouseMove(e, 0.2)}
       >
         <div className={`glass-content grid ${compact ? 'grid-cols-[20px_1fr_45px_1fr] gap-1 py-1.5 px-2' : 'grid-cols-[30px_1fr_50px_1fr] gap-2 py-2.5 px-4'} items-center whitespace-nowrap cursor-default`}>
@@ -826,7 +866,7 @@ function App() {
 
     return (
       <div
-        className="glass-container-flat rounded-xl hover:bg-white/5 transition-all duration-300 group/teleRow"
+        className="glass-container-flat rounded-md hover:bg-white/5 transition-all duration-300 group/teleRow"
         onMouseMove={(e) => handleGlassMouseMove(e, 0.2)}
       >
         <div className={`glass-content grid ${compact ? 'grid-cols-[14px_1fr_1fr] gap-2 py-1.5 px-2' : 'grid-cols-[18px_1fr_110px] gap-2 py-2.5 px-4'} items-center cursor-default`}>
@@ -999,8 +1039,8 @@ function App() {
           <CarSetupView />
         </div>
       )}
-      {/* Sidebar - Data Controls */}
-      {!isMapMaximized && (
+      {/* Sidebar - Data Controls (only in Data Sources view; session info now lives in the navbar popover) */}
+      {!isMapMaximized && (showFileManager || !currentSessionId) && (
         <div
           className={`h-full bg-[#111115] border-r border-[#1f1f26] flex flex-col flex-shrink-0 relative overflow-hidden group/sidebar transition-[width,opacity] duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]`}
           style={{
@@ -1012,108 +1052,28 @@ function App() {
             transition: isResizingSidebar ? 'none' : 'width 0.5s ease, opacity 0.5s ease'
           }}
         >
-          {(showFileManager || !currentSessionId) ? (
-            <div className="flex-1 overflow-hidden flex flex-col" style={{ transform: 'translateZ(0)', isolation: 'isolate' }}>
-              <div className="flex-1 overflow-y-scroll">
-                <FileManager onClose={() => setShowFileManager(false)} />
-              </div>
-                {currentSessionId && (
-                  <div className="mt-auto p-4 border-t border-white/5 bg-transparent">
-                    <button
-                      onClick={() => setShowFileManager(false)}
-                      className="w-full py-3 px-4 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 rounded-2xl border border-blue-500/30 shadow-[0_0_20px_rgba(37,99,235,0.2)] flex items-center justify-center font-black text-[10px] uppercase tracking-[0.2em] transition-all ring-1 ring-inset ring-blue-400/20 glass-container group"
-                      onMouseMove={handleGlassMouseMove}
-                    >
-                      <div className="glass-content flex items-center justify-center w-full">
-                        Return to Active Session
-                      </div>
-                    </button>
-                  </div>
-                )}
+          <div className="flex-1 overflow-hidden flex flex-col" style={{ transform: 'translateZ(0)', isolation: 'isolate' }}>
+            <div className="flex-1 overflow-y-scroll">
+              <FileManager onClose={() => setShowFileManager(false)} />
             </div>
-          ) : (
-            <>
-              {/* Scrollable Main Sidebar Content */}
-              <div className="flex-1 overflow-y-scroll custom-scrollbar flex flex-col min-h-0 pb-2 pl-4 pr-[10px]">
-                {/* Session Info (Top of Sidebar) */}
-                {sessionMetadata && (
-                  <SessionInfo
-                    sessionMetadata={sessionMetadata}
-                    referenceMetadata={referenceSessionMetadata}
-                  />
-                )}
-                {/* Lap Controls (Middle of Sidebar) */}
-                {laps.length > 0 && (
-                  <div className="mb-3 p-4 glass-container glass-expand-pixel rounded-2xl border border-white/25 flex flex-col gap-3 hover:shadow-[0_0_30px_rgba(255,255,255,0.05)] transition-all duration-300 group/analysis" onMouseMove={handleGlassMouseMove}>
-                    <div className="glass-content size-full flex flex-col gap-3">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-gray-500 text-[12px] font-black uppercase tracking-[0.2em] px-1 group-hover/analysis:text-white transition-colors">Analysis Laps</h3>
-                        {selectedLapIdx !== null && (
-                          <div className="flex items-center gap-1">
-                            <Tooltip text="SHARE TO DISCORD FORUM" position="bottom">
-                              <button
-                                onClick={() => setShowDiscordShare(true)}
-                                disabled={isListLoading}
-                                className="p-1.5 rounded-lg text-gray-500 hover:text-[#5865F2] hover:bg-white/10 border border-transparent hover:border-white/15 transition-all active:scale-90 glass-container"
-                                onMouseMove={(e) => handleGlassMouseMove(e, 0.2)}
-                              >
-                                <div className="glass-content">
-                                  <Send size={13} />
-                                </div>
-                              </button>
-                            </Tooltip>
-                            <Tooltip text="EXPORT LAP + SETUP (.DUCKDB + .SVM)" position="bottom">
-                              <button
-                                onClick={() => { if (!isListLoading) exportLapWithSetup(selectedLapIdx!); }}
-                                disabled={isListLoading}
-                                className="p-1.5 rounded-lg text-gray-500 hover:text-purple-400 hover:bg-white/10 border border-transparent hover:border-white/15 transition-all active:scale-90 glass-container"
-                                onMouseMove={(e) => handleGlassMouseMove(e, 0.2)}
-                              >
-                                <div className="glass-content">
-                                  {isListLoading ? <Loader2 size={13} className="animate-spin" /> : <PackageCheck size={13} />}
-                                </div>
-                              </button>
-                            </Tooltip>
-                            <Tooltip text="EXPORT CURRENT LAP AS .DUCKDB" position="bottom">
-                              <button
-                                onClick={() => { if (!isListLoading) exportLap(selectedLapIdx!); }}
-                                disabled={isListLoading}
-                                className="p-1.5 rounded-lg text-gray-500 hover:text-blue-400 hover:bg-white/10 border border-transparent hover:border-white/15 transition-all active:scale-90 glass-container"
-                                onMouseMove={(e) => handleGlassMouseMove(e, 0.2)}
-                              >
-                                <div className="glass-content">
-                                  {isListLoading ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
-                                </div>
-                              </button>
-                            </Tooltip>
-                          </div>
-                        )}
-                      </div>
-                      
-                      <AnalysisLapsWidget />
-                    </div>
-                  </div>
-                )}
-              </div>
-
+            {currentSessionId && (
               <div className="mt-auto p-4 border-t border-white/5 bg-transparent">
                 <button
-                  onClick={() => setShowFileManager(true)}
-                  className="w-full py-2.5 px-4 bg-white/5 hover:bg-white/10 text-gray-500 rounded-2xl border border-white/10 shadow-lg flex items-center justify-center gap-2 font-black text-[12px] uppercase tracking-[0.2em] transition-all hover:text-white ring-1 ring-inset ring-white/5 glass-container group"
+                  onClick={() => setShowFileManager(false)}
+                  className="w-full py-3 px-4 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 rounded-lg border border-blue-500/30 shadow-[0_0_20px_rgba(37,99,235,0.2)] flex items-center justify-center font-black text-[10px] uppercase tracking-[0.2em] transition-all ring-1 ring-inset ring-blue-400/20 glass-container group"
                   onMouseMove={handleGlassMouseMove}
                 >
-                  <div className="glass-content flex items-center justify-center gap-2 w-full">
-                    <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
-                    Data Sources
+                  <div className="glass-content flex items-center justify-center w-full">
+                    Return to Active Session
                   </div>
                 </button>
               </div>
-            </>
-          )}
+            )}
+          </div>
         </div>
       )}
 
-      {!isMapMaximized && (
+      {!isMapMaximized && (showFileManager || !currentSessionId) && (
         <Tooltip text={isLeftSidebarCollapsed ? "" : "DOUBLE-CLICK TO RESET"} position="right">
           <div
             className={`w-1.5 flex justify-center items-center group/sidebar-resizer relative z-50 h-full transition-all duration-300 ${isLeftSidebarCollapsed ? 'cursor-default' : 'cursor-col-resize'}`}
@@ -1146,31 +1106,215 @@ function App() {
       <div className="flex-1 flex flex-col bg-gray-900 min-w-0 relative">
         {/* Top Navbar */}
         {!isMapMaximized && (
-          <div className={`bg-[#111115] border-b border-[#1f1f26] flex items-center justify-between px-6 py-2 flex-shrink-0 h-14`}>
-            {/* Logo / Title */}
-            <div
-              className="flex items-center gap-3 px-3 py-1.5 rounded-xl transition-all duration-300 hover:bg-white/5 glass-container group/logo cursor-pointer"
-              onMouseMove={handleGlassMouseMove}
-              style={{ '--glass-hover-scale': '1', '--glass-content-scale': '1' } as any}
-            >
-              <div className="glass-content flex items-center gap-3">
-                <img
-                  src="/lmu_logo.png"
-                  alt="Logo"
-                  className="h-8 object-contain select-none group-hover/logo:drop-shadow-[0_0_8px_rgba(255,255,255,0.3)] transition-all"
-                />
-                <span className="text-gray-500 font-bold text-sm select-none">|</span>
-                <span className="text-gray-400 font-black text-xs uppercase tracking-[0.15em] select-none group-hover/logo:text-white transition-colors">v{packageJson.version}</span>
+          <div className={`bg-[#111115] border-b border-[#1f1f26] flex items-center justify-between px-6 py-2 flex-shrink-0 h-14 relative`}>
+            {/* Logo / Title + Session Info / Data Sources entry points */}
+            <div className="flex items-center gap-2">
+              <div
+                className="flex items-center gap-3 px-3 py-1.5 rounded-md transition-all duration-300 hover:bg-white/5 glass-container group/logo cursor-pointer"
+                onMouseMove={handleGlassMouseMove}
+                style={{ '--glass-hover-scale': '1', '--glass-content-scale': '1' } as any}
+              >
+                <div className="glass-content flex items-center gap-3">
+                  <div className="flex flex-col leading-none select-none">
+                    <span className="font-black text-lg tracking-tight group-hover/logo:drop-shadow-[0_0_8px_rgba(59,130,246,0.4)] transition-all">
+                      <span className="text-white">Apex</span>
+                      <span className="text-blue-500"> Lab</span>
+                    </span>
+                    <span className="text-gray-500 font-bold text-[8px] uppercase tracking-[0.25em] mt-0.5 group-hover/logo:text-gray-300 transition-colors">Sim Racing Telemetry</span>
+                  </div>
+                  <span className="text-gray-500 font-bold text-sm select-none">|</span>
+                  <span className="text-gray-400 font-black text-xs uppercase tracking-[0.15em] select-none group-hover/logo:text-white transition-colors">v{packageJson.version}</span>
+                </div>
               </div>
+
+              {/* Return to Data Sources button (sidebar entry point, since the sidebar is hidden in session view) */}
+              {currentSessionId && !showFileManager && (
+                <button
+                  onClick={() => { setShowFileManager(true); setLeftSidebarCollapsed(false); }}
+                  className="flex items-center gap-1.5 h-9 px-2.5 rounded-md border border-white/10 bg-[#1a1a1e]/60 text-gray-400 hover:text-white hover:border-white/20 glass-container transition-all group/data"
+                  onMouseMove={(e) => handleGlassMouseMove(e, 0.2)}
+                >
+                  <div className="glass-content flex items-center gap-1.5">
+                    <ArrowLeft size={14} className="group-hover/data:-translate-x-0.5 transition-transform" />
+                    <span className="text-[10px] font-black uppercase tracking-widest">Return to Data Sources</span>
+                  </div>
+                </button>
+              )}
+
+              {/* Session Info button + popover (flag + track name = first row of the first box) */}
+              {sessionMetadata && currentSessionId && !showFileManager && (
+                <div className="relative" ref={sessionPopoverRef}>
+                  <button
+                    onClick={() => setShowSessionPopover(v => !v)}
+                    className={`flex items-center gap-2 h-9 pl-2 pr-2.5 rounded-md border glass-container transition-all max-w-[220px] ${showSessionPopover ? 'border-blue-500/50 bg-blue-500/10 text-white' : 'border-white/10 bg-[#1a1a1e]/60 text-gray-300 hover:text-white hover:border-white/20'}`}
+                    onMouseMove={(e) => handleGlassMouseMove(e, 0.2)}
+                  >
+                    <div className="glass-content flex items-center gap-2 min-w-0">
+                      {getCountryFlagPath && sessionMetadata.country && (
+                        <img
+                          src={getCountryFlagPath(sessionMetadata.country)}
+                          alt="Flag"
+                          className="w-5 h-auto object-contain rounded-[1px] border border-white/15 shrink-0"
+                          onError={(e) => (e.currentTarget.style.display = 'none')}
+                        />
+                      )}
+                      <span className="text-[11px] font-black italic uppercase tracking-widest truncate">{sessionMetadata.trackName}</span>
+                      <ChevronDown size={12} className={`shrink-0 transition-transform duration-300 ${showSessionPopover ? 'rotate-180' : ''}`} />
+                    </div>
+                  </button>
+
+                  {showSessionPopover && (
+                    <div className="absolute left-0 top-full mt-2 w-[320px] z-[100] animate-in fade-in slide-in-from-top-2 duration-200">
+                      <div className="rounded-md glass-container-static border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.6)] px-4 pb-4 pt-1" onMouseMove={handleGlassMouseMove}>
+                        <SessionInfo
+                          sessionMetadata={sessionMetadata}
+                          referenceMetadata={referenceSessionMetadata}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
             </div>
+
+            {/* Center: Chart Category Tabs (Driver / Tyres / Dynamics / Handling / Systems) */}
+            {selectedLapIdx !== null && (
+              <div className="absolute left-1/2 -translate-x-1/2 z-[50] pointer-events-auto">
+                <div className="relative flex items-center px-2 py-1 bg-[#1a1a1e]/80 backdrop-blur-md rounded-full border border-white/10 h-9 shadow-[0_4px_12px_rgba(0,0,0,0.4)]" onMouseMove={handleGlassMouseMove}>
+                  <div className="relative flex items-center h-full">
+                    {(() => {
+                      const availableTabs = [
+                        { id: 'Driver', label: 'DRIVER' },
+                        { id: 'Tyres', label: 'TYRES' },
+                        { id: 'Dynamics', label: 'DYNAMICS' },
+                        { id: 'Handling', label: 'HANDLING' },
+                        { id: 'Systems', label: 'SYSTEMS' },
+                      ].filter(cat => {
+                        if (cat.id === 'Driver') return true;
+                        if (!telemetryData) return false;
+                        const configs = CATEGORY_CHART_CONFIGS[cat.id as any];
+                        return configs?.some(c => telemetryData[c.id] !== undefined);
+                      });
+
+                      const activeIndex = availableTabs.findIndex(t => t.id === activeChartCategory);
+
+                      return (
+                        <>
+                          <AnimatePresence>
+                            <motion.div
+                              layoutId="activeCategoryBlock"
+                              className="absolute bg-blue-600 rounded-full shadow-[0_0_12px_rgba(37,99,235,0.5)]"
+                              style={{
+                                height: 'calc(100% - 2px)',
+                                width: `calc(${100 / availableTabs.length}% - 4px)`,
+                                left: `calc(${(activeIndex / availableTabs.length) * 100}% + 2px)`,
+                                top: '1px'
+                              }}
+                              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                            />
+                          </AnimatePresence>
+
+                          {availableTabs.map((cat) => (
+                            <CategoryTab
+                              key={cat.id}
+                              id={cat.id as any}
+                              label={cat.label}
+                              isActive={activeChartCategory === cat.id}
+                            />
+                          ))}
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Right Side: Account / Profile Switcher */}
             <div className="flex items-center gap-3">
+              {/* Analysis Laps popover - NAVBAR INTEGRATION (moved from left sidebar) */}
+              {laps.length > 0 && (
+                <div className="relative mr-1" ref={lapsPopoverRef}>
+                  <Tooltip text="ANALYSIS LAPS" position="bottom">
+                    <button
+                      onClick={() => setShowLapsPopover(v => !v)}
+                      className={`relative flex items-center gap-1.5 px-2.5 bg-[#1a1a1e]/60 backdrop-blur-md rounded-md border h-8 glass-container transition-all ${showLapsPopover ? 'border-amber-500/50 text-white bg-amber-500/10' : 'border-white/10 text-gray-400 hover:text-white hover:border-white/20'}`}
+                      onMouseMove={(e) => handleGlassMouseMove(e, 0.2)}
+                    >
+                      <div className="glass-content flex items-center gap-1.5">
+                        <Trophy size={13} className="text-amber-500" />
+                        <span className="text-[10px] font-black uppercase tracking-widest">Laps</span>
+                        <ChevronDown size={12} className={`transition-transform duration-300 ${showLapsPopover ? 'rotate-180' : ''}`} />
+                      </div>
+                    </button>
+                  </Tooltip>
+
+                  {showLapsPopover && (
+                    <div className="absolute right-0 top-full mt-2 w-[340px] z-[100] animate-in fade-in slide-in-from-top-2 duration-200">
+                      <div className="flex flex-col overflow-hidden rounded-md glass-container-static border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.6)]" onMouseMove={handleGlassMouseMove}>
+                        {/* Header with export actions */}
+                        <div className="flex items-center justify-between gap-2 px-3 py-2.5 border-b border-white/10 bg-white/5 relative z-10">
+                          <div className="flex items-center gap-2">
+                            <Trophy size={13} className="text-amber-500" />
+                            <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#f0f0f0] leading-none">Analysis Laps</h2>
+                          </div>
+                          {selectedLapIdx !== null && (
+                            <div className="flex items-center gap-1">
+                              <Tooltip text="SHARE TO DISCORD FORUM" position="bottom">
+                                <button
+                                  onClick={() => setShowDiscordShare(true)}
+                                  disabled={isListLoading}
+                                  className="p-1.5 rounded-sm text-gray-500 hover:text-[#5865F2] hover:bg-white/10 border border-transparent hover:border-white/15 transition-all active:scale-90 glass-container"
+                                  onMouseMove={(e) => handleGlassMouseMove(e, 0.2)}
+                                >
+                                  <div className="glass-content">
+                                    <Send size={13} />
+                                  </div>
+                                </button>
+                              </Tooltip>
+                              <Tooltip text="EXPORT LAP + SETUP (.DUCKDB + .SVM)" position="bottom">
+                                <button
+                                  onClick={() => { if (!isListLoading) exportLapWithSetup(selectedLapIdx!); }}
+                                  disabled={isListLoading}
+                                  className="p-1.5 rounded-sm text-gray-500 hover:text-purple-400 hover:bg-white/10 border border-transparent hover:border-white/15 transition-all active:scale-90 glass-container"
+                                  onMouseMove={(e) => handleGlassMouseMove(e, 0.2)}
+                                >
+                                  <div className="glass-content">
+                                    {isListLoading ? <Loader2 size={13} className="animate-spin" /> : <PackageCheck size={13} />}
+                                  </div>
+                                </button>
+                              </Tooltip>
+                              <Tooltip text="EXPORT CURRENT LAP AS .DUCKDB" position="bottom">
+                                <button
+                                  onClick={() => { if (!isListLoading) exportLap(selectedLapIdx!); }}
+                                  disabled={isListLoading}
+                                  className="p-1.5 rounded-sm text-gray-500 hover:text-blue-400 hover:bg-white/10 border border-transparent hover:border-white/15 transition-all active:scale-90 glass-container"
+                                  onMouseMove={(e) => handleGlassMouseMove(e, 0.2)}
+                                >
+                                  <div className="glass-content">
+                                    {isListLoading ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
+                                  </div>
+                                </button>
+                              </Tooltip>
+                            </div>
+                          )}
+                        </div>
+                        {/* Widget */}
+                        <div className="p-4 max-h-[70vh] overflow-y-auto custom-scrollbar relative z-0">
+                          <AnalysisLapsWidget />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Toggles Group - Mini Sector and 2D/3D */}
               {selectedLapIdx !== null && (
                 <div className="flex items-center gap-1.5 mr-3">
                   {/* Mini Sector Quick Toggle - NAVBAR INTEGRATION */}
-                  <div className="relative flex items-center p-1 bg-[#1a1a1e]/60 backdrop-blur-md rounded-xl border border-white/10 glass-container h-8 w-28 overflow-hidden group/mini-toggle" onMouseMove={handleGlassMouseMove}>
+                  <div className="relative flex items-center p-1 bg-[#1a1a1e]/60 backdrop-blur-md rounded-md border border-white/10 glass-container h-8 w-28 overflow-hidden group/mini-toggle" onMouseMove={handleGlassMouseMove}>
                     {/* Sliding Indicator Pill */}
                     <div 
                       className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-blue-600 rounded-lg shadow-[0_0_15px_rgba(37,99,235,0.4)] transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] z-0"
@@ -1192,7 +1336,7 @@ function App() {
                   </div>
 
                   {/* 2D/3D Dimension Toggle - NAVBAR INTEGRATION */}
-                  <div className="relative flex items-center p-1 bg-[#1a1a1e]/60 backdrop-blur-md rounded-xl border border-white/10 glass-container h-8 w-28 overflow-hidden group/toggle" onMouseMove={handleGlassMouseMove}>
+                  <div className="relative flex items-center p-1 bg-[#1a1a1e]/60 backdrop-blur-md rounded-md border border-white/10 glass-container h-8 w-28 overflow-hidden group/toggle" onMouseMove={handleGlassMouseMove}>
                     {/* Sliding Indicator Pill */}
                     <div 
                       className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-blue-600 rounded-lg shadow-[0_0_15px_rgba(37,99,235,0.4)] transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] z-0"
@@ -1219,7 +1363,7 @@ function App() {
                 <div className="relative group/user">
                   <button
                     onClick={() => setShowLogin(true)}
-                    className="flex items-center gap-2.5 px-3.5 py-1.5 bg-white/5 hover:bg-white/10 glass-container rounded-2xl border border-white/10 transition-all duration-300"
+                    className="flex items-center gap-2.5 px-3.5 py-1.5 bg-white/5 hover:bg-white/10 glass-container rounded-lg border border-white/10 transition-all duration-300"
                     onMouseMove={(e) => handleGlassMouseMove(e, 0.2)}
                   >
                     <div className="glass-content flex items-center gap-2.5">
@@ -1250,7 +1394,7 @@ function App() {
 
               <Tooltip text="HARD RELOAD (F5)" position="bottom">
                 <button
-                  className="text-gray-500 hover:text-blue-400 transition-all glass-container p-2 rounded-xl border border-transparent hover:bg-white/5 active:scale-95 group/reload"
+                  className="text-gray-500 hover:text-blue-400 transition-all glass-container p-2 rounded-md border border-transparent hover:bg-white/5 active:scale-95 group/reload"
                   onMouseMove={(e) => handleGlassMouseMove(e, 0.2)}
                   onClick={handleReload}
                 >
@@ -1262,7 +1406,7 @@ function App() {
 
               <Tooltip text="SETTINGS" position="bottom">
                 <button
-                  className="text-gray-500 hover:text-white transition-all glass-container p-2 rounded-xl border border-transparent hover:bg-white/5 active:scale-95 group/settings"
+                  className="text-gray-500 hover:text-white transition-all glass-container p-2 rounded-md border border-transparent hover:bg-white/5 active:scale-95 group/settings"
                   onMouseMove={(e) => handleGlassMouseMove(e, 0.2)}
                   onClick={() => setShowSettings(true)}
                 >
@@ -1358,58 +1502,6 @@ function App() {
                       className="flex-1 min-w-0 flex flex-col p-4 gap-4 overflow-y-auto custom-scrollbar"
                       style={{ minWidth: MIN_CHART_WIDTH }}
                     >
-                      {/* Category Navigation Tabs - Extended Capsule Style */}
-                      <div className="sticky top-0 z-[100] flex justify-center pt-2 pb-1 -mx-4">
-                        <div className="relative flex items-center px-2 py-1 bg-[#1a1a1e]/80 backdrop-blur-3xl rounded-full border border-white/10 h-10 group/toggle shadow-[0_8px_20px_rgba(0,0,0,0.5)] pointer-events-auto" onMouseMove={handleGlassMouseMove}>
-                          <div className="relative flex items-center h-full">
-                            {(() => {
-                              const availableTabs = [
-                                { id: 'Driver', label: 'DRIVER' },
-                                { id: 'Tyres', label: 'TYRES' },
-                                { id: 'Dynamics', label: 'DYNAMICS' },
-                                { id: 'Handling', label: 'HANDLING' },
-                                { id: 'Systems', label: 'SYSTEMS' },
-                              ].filter(cat => {
-                                if (cat.id === 'Driver') return true;
-                                if (!telemetryData) return false;
-                                const configs = CATEGORY_CHART_CONFIGS[cat.id as any];
-                                return configs?.some(c => telemetryData[c.id] !== undefined);
-                              });
-
-                              const activeIndex = availableTabs.findIndex(t => t.id === activeChartCategory);
-
-                              return (
-                                <>
-                                  {/* Sliding Active Block with Layout Transition */}
-                                  <AnimatePresence>
-                                    <motion.div 
-                                      layoutId="activeCategoryBlock"
-                                      className="absolute bg-blue-600 rounded-full shadow-[0_0_12px_rgba(37,99,235,0.5)]"
-                                      style={{ 
-                                        height: 'calc(100% - 2px)',
-                                        width: `calc(${100 / availableTabs.length}% - 4px)`,
-                                        left: `calc(${(activeIndex / availableTabs.length) * 100}% + 2px)`,
-                                        top: '1px'
-                                      }}
-                                      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                                    />
-                                  </AnimatePresence>
-
-                                  {availableTabs.map((cat) => (
-                                    <CategoryTab 
-                                      key={cat.id} 
-                                      id={cat.id as any} 
-                                      label={cat.label}
-                                      isActive={activeChartCategory === cat.id}
-                                    />
-                                  ))}
-                                </>
-                              );
-                            })()}
-                          </div>
-                        </div>
-                      </div>
-
                       <div className="flex flex-col gap-2 min-w-0">
                         {chartConfigs
                           .filter(c => {
@@ -1429,20 +1521,31 @@ function App() {
                             return true;
                           })
                           .sort((a, b) => a.order - b.order)
-                          .map(config => (
-                            <TelemetryChart
-                              key={`${config.id}-${config.wheelIndex ?? 'none'}`}
-                              channel={config.id}
-                              alias={config.alias}
-                              color={config.color}
-                              height={config.height}
-                              syncKey="telemetry"
-                              unit={config.unit}
-                              wheelIndex={config.wheelIndex}
-                              isPlaying={isPlaying}
-                              showLapTime={false}
-                            />
-                          ))
+                          .map(config => {
+                            const chart = (
+                              <TelemetryChart
+                                channel={config.id}
+                                alias={config.alias}
+                                color={config.color}
+                                height={config.height}
+                                syncKey="telemetry"
+                                unit={config.unit}
+                                wheelIndex={config.wheelIndex}
+                                isPlaying={isPlaying}
+                                showLapTime={false}
+                              />
+                            );
+                            const key = `${config.id}-${config.wheelIndex ?? 'none'}`;
+                            // Charts with a widthPct render narrower so they don't span the full column.
+                            if (config.widthPct != null && config.widthPct < 100) {
+                              return (
+                                <div key={key} className="min-w-0" style={{ width: `${config.widthPct}%` }}>
+                                  {chart}
+                                </div>
+                              );
+                            }
+                            return <div key={key} className="min-w-0">{chart}</div>;
+                          })
                         }
                       </div>
                     </div>

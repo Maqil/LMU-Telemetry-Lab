@@ -112,7 +112,7 @@ export const SteeringWheelView = React.memo(({
 
     return (
         <div
-            className={`bg-white/10 glass-container-flat ${compact ? 'p-2 pt-6 rounded-xl' : 'p-4 pt-10 rounded-3xl'} border border-white/20 shadow-xl flex flex-col items-center relative group/steering hover:bg-white/15 transition-all duration-300 overflow-hidden`}
+            className={`bg-white/10 glass-container-flat ${compact ? 'p-2 pt-6 rounded-md' : 'p-4 pt-10 rounded-xl'} border border-white/20 shadow-xl flex flex-col items-center relative group/steering hover:bg-white/15 transition-all duration-300 overflow-hidden`}
             style={{ 
                 boxShadow: isRef ? `0 10px 25px rgba(0,0,0,0.4), inset 0 0 20px ${glowColor}` : undefined,
                 borderColor: isRef ? 'rgba(218, 165, 32, 0.3)' : undefined
@@ -130,7 +130,7 @@ export const SteeringWheelView = React.memo(({
                 {!isRef && !compact && (
                     <button
                         onClick={() => setShowPicker(!showPicker)}
-                        className={`p-1.5 rounded-lg border transition-all active:scale-90 flex items-center justify-center glass-container-flat hover:scale-110 group/strGear ${showPicker ? 'bg-blue-500/30 border-blue-400 text-blue-400' : 'border-white/10 text-gray-400 hover:text-white hover:bg-white/10'}`}
+                        className={`p-1.5 rounded-sm border transition-all active:scale-90 flex items-center justify-center glass-container-flat hover:scale-110 group/strGear ${showPicker ? 'bg-blue-500/30 border-blue-400 text-blue-400' : 'border-white/10 text-gray-400 hover:text-white hover:bg-white/10'}`}
                         onMouseMove={(e: any) => handleGlassMouseMove(e, 0.15)}
                     >
                         <Settings size={12} className="group-hover/strGear:rotate-180 transition-all duration-700" />

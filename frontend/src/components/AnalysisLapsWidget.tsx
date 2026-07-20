@@ -72,7 +72,7 @@ export const AnalysisLapsWidget: React.FC<AnalysisLapsWidgetProps> = ({ classNam
                                 key={stint}
                                 onClick={() => !disabled && fetchStint(stint)}
                                 disabled={isLoading || disabled}
-                                className={`flex flex-row items-center justify-between text-left px-3 py-2.5 rounded-xl border transition-all glass-container group/stint min-h-[44px] ${disabled ? 'opacity-50 cursor-default' : ''} ${selectedStint === stint
+                                className={`flex flex-row items-center justify-between text-left px-3 py-2.5 rounded-md border transition-all glass-container group/stint min-h-[44px] ${disabled ? 'opacity-50 cursor-default' : ''} ${selectedStint === stint
                                     ? 'bg-blue-600/30 border-blue-400 text-white shadow-[0_0_20px_rgba(37,99,235,0.2)]'
                                     : 'border-white/10 text-gray-400 hover:text-white hover:border-white/20 hover:bg-white/5'
                                     }`}

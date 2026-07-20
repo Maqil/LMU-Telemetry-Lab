@@ -132,7 +132,7 @@ export const LapSelect: React.FC<LapSelectProps> = ({
 
     return (
         <div className="flex flex-col w-full relative group/lapselect" ref={dropdownRef} onMouseMove={handleGlassMouseMove}>
-            <div className={`flex flex-col w-full glass-container-static border transition-all duration-300 relative ${isOpen ? `rounded-xl shadow-2xl ${borderColor}` : `rounded-xl border-white/15 hover:border-white/30`}`}>
+            <div className={`flex flex-col w-full glass-container-static border transition-all duration-300 relative ${isOpen ? `rounded-md shadow-2xl ${borderColor}` : `rounded-md border-white/15 hover:border-white/30`}`}>
                 <button
                     onClick={() => !disabled && setIsOpen(!isOpen)}
                     disabled={disabled}
@@ -160,7 +160,7 @@ export const LapSelect: React.FC<LapSelectProps> = ({
                                 >
                                 {showNone && (
                                     <button
-                                        className="w-full text-left px-3 py-2 text-sm text-gray-500 glass-container hover:bg-white/10 rounded-xl transition-all border border-transparent hover:border-white/10"
+                                        className="w-full text-left px-3 py-2 text-sm text-gray-500 glass-container hover:bg-white/10 rounded-md transition-all border border-transparent hover:border-white/10"
                                         onClick={() => { onChange(null); setIsOpen(false); }}
                                         onMouseMove={handleGlassMouseMove}
                                     >
@@ -174,7 +174,7 @@ export const LapSelect: React.FC<LapSelectProps> = ({
                                     return (
                                         <div key={l.lap} className="relative group/laprow">
                                             <button
-                                                className={`w-full text-left px-3 py-2 text-[13px] glass-container border rounded-xl transition-all group/lapitem
+                                                className={`w-full text-left px-3 py-2 text-[13px] glass-container border rounded-md transition-all group/lapitem
                                                     ${value === l.lap ? 'bg-blue-600/20 border-blue-400/50 text-blue-400' : 'border-white/5 text-gray-300 hover:border-white/20 hover:bg-white/5'}
                                                 `}
                                                 onClick={() => { onChange(l.lap); setIsOpen(false); }}

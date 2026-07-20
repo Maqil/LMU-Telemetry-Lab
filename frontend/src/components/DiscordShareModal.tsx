@@ -151,7 +151,7 @@ export const DiscordShareModal: React.FC<DiscordShareModalProps> = ({ isOpen, on
     return (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-300">
             <div 
-                className="w-full max-w-3xl bg-[#111115]/95 rounded-2xl border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col glass-container"
+                className="w-full max-w-3xl bg-[#111115]/95 rounded-lg border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col glass-container"
                 onMouseMove={handleGlassMouseMove}
             >
                 <div className="glass-content p-6 flex flex-col gap-4">

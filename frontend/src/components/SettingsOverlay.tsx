@@ -259,7 +259,7 @@ export const SettingsOverlay: React.FC = () => {
                                 <Gauge size={16} className="text-blue-400" />
                                 <span className="text-xs font-black uppercase tracking-widest">Speed</span>
                             </div>
-                            <div className="glass-container-flat bg-black/30 p-1.5 rounded-2xl flex border border-white/5 relative">
+                            <div className="glass-container-flat bg-black/30 p-1.5 rounded-lg flex border border-white/5 relative">
                                 {/* Sliding Indicator */}
                                 <div
                                     className="absolute top-1.5 bottom-1.5 w-[calc(50%-6px)] bg-white/10 backdrop-blur-md rounded-xl border border-white/10 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] shadow-inner"
@@ -283,7 +283,7 @@ export const SettingsOverlay: React.FC = () => {
                                 <Thermometer size={16} className="text-blue-400" />
                                 <span className="text-xs font-black uppercase tracking-widest">Temperature</span>
                             </div>
-                            <div className="glass-container-flat bg-black/30 p-1.5 rounded-2xl flex border border-white/5 relative">
+                            <div className="glass-container-flat bg-black/30 p-1.5 rounded-lg flex border border-white/5 relative">
                                 {/* Sliding Indicator */}
                                 <div
                                     className="absolute top-1.5 bottom-1.5 w-[calc(50%-6px)] bg-white/10 backdrop-blur-md rounded-xl border border-white/10 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] shadow-inner"
@@ -315,7 +315,7 @@ export const SettingsOverlay: React.FC = () => {
                                 className="glass-container bg-black/30 rounded-[2rem] border border-white/5 p-4 flex flex-col items-center gap-1"
                                 onMouseMove={(e) => handleGlassMouseMove(e, 0.1)}
                             >
-                                <div className="glass-content glass-container-flat bg-black/50 p-1.5 rounded-2xl flex border border-white/5 relative w-full">
+                                <div className="glass-content glass-container-flat bg-black/50 p-1.5 rounded-lg flex border border-white/5 relative w-full">
                                     <div
                                         className="absolute top-1.5 bottom-1.5 w-[calc(50%-6px)] bg-blue-500/20 backdrop-blur-md rounded-xl border border-blue-500/30 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] shadow-[0_0_15px_rgba(59,130,246,0.2)]"
                                         style={{ left: singleLapXAxisMode === 'distance' ? '6px' : 'calc(50%)' }}
@@ -394,7 +394,7 @@ export const SettingsOverlay: React.FC = () => {
                             className="glass-container bg-black/30 rounded-[2rem] border border-white/5 p-4 flex flex-col items-center gap-1"
                             onMouseMove={(e) => handleGlassMouseMove(e, 0.1)}
                         >
-                            <div className="glass-content glass-container-flat bg-black/50 p-1.5 rounded-2xl flex border border-white/5 relative w-full">
+                            <div className="glass-content glass-container-flat bg-black/50 p-1.5 rounded-lg flex border border-white/5 relative w-full">
                                 <div
                                     className="absolute top-1.5 bottom-1.5 w-[calc(50%-6px)] bg-blue-500/20 backdrop-blur-md rounded-xl border border-blue-500/30 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] shadow-[0_0_15px_rgba(59,130,246,0.2)]"
                                     style={{ left: !defaultShowMiniSectors ? '6px' : 'calc(50%)' }}
@@ -467,7 +467,7 @@ export const SettingsOverlay: React.FC = () => {
                                         setTempRotation('');
                                         setUserWheelRotation(null);
                                     }}
-                                    className="flex-1 h-[52px] text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-orange-400 hover:bg-orange-500/10 border border-white/5 rounded-2xl transition-all glass-container-flat"
+                                    className="flex-1 h-[52px] text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-orange-400 hover:bg-orange-500/10 border border-white/5 rounded-lg transition-all glass-container-flat"
                                     onMouseMove={(e) => handleGlassMouseMove(e, 0.1)}
                                 >
                                     Default
@@ -580,7 +580,7 @@ export const SettingsOverlay: React.FC = () => {
                                 </div>
 
                                 {/* Right Side: Sliding Switch */}
-                                <div className="glass-container-flat bg-black/50 p-1.5 rounded-2xl flex border border-white/5 relative w-[180px] h-[48px] shrink-0 items-center">
+                                <div className="glass-container-flat bg-black/50 p-1.5 rounded-lg flex border border-white/5 relative w-[180px] h-[48px] shrink-0 items-center">
                                     {/* Sliding Indicator */}
                                     <div
                                         className="absolute top-1.5 bottom-1.5 w-[calc(50%-6px)] bg-blue-500/20 backdrop-blur-md rounded-xl border border-blue-500/30 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] shadow-[0_0_15px_rgba(59,130,246,0.2)]"
@@ -642,7 +642,7 @@ export const SettingsOverlay: React.FC = () => {
                                 </div>
 
                                 {/* Right Side: Sliding Switch */}
-                                <div className="glass-container-flat bg-black/50 p-1.5 rounded-2xl flex border border-white/5 relative w-[180px] h-[48px] shrink-0 items-center">
+                                <div className="glass-container-flat bg-black/50 p-1.5 rounded-lg flex border border-white/5 relative w-[180px] h-[48px] shrink-0 items-center">
                                     {/* Sliding Indicator */}
                                     <div
                                         className="absolute top-1.5 bottom-1.5 w-[calc(50%-6px)] bg-blue-500/20 backdrop-blur-md rounded-xl border border-blue-500/30 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] shadow-[0_0_15px_rgba(59,130,246,0.2)]"
@@ -677,7 +677,7 @@ export const SettingsOverlay: React.FC = () => {
                                 <Tooltip text="Reset colors for this category" position="bottom">
                                     <button
                                         onClick={() => resetChartColors(activeSettingsCategory)}
-                                        className="p-2 text-gray-400 hover:text-orange-400 hover:bg-orange-500/10 transition-all rounded-xl flex items-center gap-2 px-3 border border-white/5 glass-container-flat"
+                                        className="p-2 text-gray-400 hover:text-orange-400 hover:bg-orange-500/10 transition-all rounded-md flex items-center gap-2 px-3 border border-white/5 glass-container-flat"
                                     >
                                         <RotateCcw size={14} />
                                         <span className="text-[10px] font-black uppercase tracking-wider">Reset Colors</span>
@@ -704,7 +704,7 @@ export const SettingsOverlay: React.FC = () => {
                                                 setActiveChartCategory(activeSettingsCategory as any);
                                             }
                                         }}
-                                        className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-all rounded-xl flex items-center gap-2 px-3 border border-white/5 glass-container-flat"
+                                        className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-all rounded-md flex items-center gap-2 px-3 border border-white/5 glass-container-flat"
                                     >
                                         <Layout size={14} />
                                         <span className="text-[10px] font-black uppercase tracking-wider">Reset Layout</span>

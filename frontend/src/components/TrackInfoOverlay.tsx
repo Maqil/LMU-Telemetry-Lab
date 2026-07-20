@@ -17,7 +17,7 @@ export const TrackInfoOverlay = React.memo(({ sessionMetadata, referenceMetadata
     // Use prop if provided, otherwise fallback to utility
     const resolveCountryFlag = propGetCountryFlagPath || getCountryFlagPath;
     return (
-        <div className="pointer-events-auto flex flex-col overflow-hidden rounded-2xl glass-container-static group/trackInfo transition-all duration-500 select-none min-w-[220px]" onMouseMove={handleGlassMouseMove}>
+        <div className="pointer-events-auto flex flex-col overflow-hidden rounded-lg glass-container-static group/trackInfo transition-all duration-500 select-none min-w-[220px]" onMouseMove={handleGlassMouseMove}>
             {/* Top Area: Track Name & Layout */}
             <div className="flex items-center gap-3 p-3 pb-2.5 border-b border-white/10 bg-white/5">
                 <div className="flex flex-col gap-1 items-center">

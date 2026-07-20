@@ -383,12 +383,12 @@ export interface TelemetryState {
 }
 
 const DEFAULT_CHARTS: ChartConfig[] = [
-    { id: 'Time Delta', alias: 'Delta', color: '#bf00ff', visible: true, order: 0, height: 100, unit: 's' },
-    { id: 'Ground Speed', alias: 'Speed', color: '#00aaff', visible: true, order: 1, height: 180, unit: 'km/h' },
-    { id: 'Throttle Pos', alias: 'Throttle', color: '#00ff00', visible: true, order: 2, height: 140, unit: '%' },
-    { id: 'Brake Pos', alias: 'Brake', color: '#ff0000', visible: true, order: 3, height: 140, unit: '%' },
-    { id: 'Gear', alias: 'Gear', color: '#ffaa00', visible: true, order: 4, height: 100 },
-    { id: 'Steering Angle', alias: 'Steering', color: '#ff00ff', visible: true, order: 5, height: 140, unit: 'deg' },
+    { id: 'Ground Speed', alias: 'Speed', color: '#00aaff', visible: true, order: 0, height: 180, unit: 'km/h' },
+    { id: 'Throttle Pos', alias: 'Throttle', color: '#00ff00', visible: true, order: 1, height: 140, unit: '%' },
+    { id: 'Brake Pos', alias: 'Brake', color: '#ff0000', visible: true, order: 2, height: 140, unit: '%' },
+    { id: 'Steering Angle', alias: 'Steering', color: '#ff00ff', visible: true, order: 3, height: 140, unit: 'deg' },
+    { id: 'Time Delta', alias: 'Delta', color: '#bf00ff', visible: true, order: 4, height: 100, unit: 's' },
+    { id: 'Gear', alias: 'Gear', color: '#ffaa00', visible: true, order: 5, height: 100 },
     { id: 'Engine RPM', alias: 'Engine RPM', color: '#ffff00', visible: true, order: 6, height: 140, unit: 'rpm' },
 ];
 
@@ -638,7 +638,7 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
     referenceTrack3DData: null,
     staticTrackBaseData: null,
     isProcessingTrack: false,
-    show3DLab: false,
+    show3DLab: true, // Default to the 3D track layout on session open
     customCarMappings: JSON.parse(localStorage.getItem('custom_car_mappings') || '{}'),
     showCarSelection: null,
     isLoading: false, // Unified loading state (derived from loadingCount > 0)

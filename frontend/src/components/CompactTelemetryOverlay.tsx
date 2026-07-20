@@ -214,7 +214,7 @@ export const CompactTelemetryOverlay = React.memo(({
                 MozOsxFontSmoothing: 'grayscale',
                 willChange: 'transform, left, top',
             }}
-            className={`${isVisible ? 'pointer-events-auto' : 'pointer-events-none'} flex items-center border ${editHudMode ? 'hud-edit-glow' : 'border-transparent'} rounded-xl p-2 px-3 gap-3 overflow-hidden glass-container-static group/teleOverlay ${isDragging || isResizing ? 'transition-none' : 'transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]'} select-none min-w-[280px] h-14`}
+            className={`${isVisible ? 'pointer-events-auto' : 'pointer-events-none'} flex items-center border ${editHudMode ? 'hud-edit-glow' : 'border-transparent'} rounded-md p-2 px-3 gap-3 overflow-hidden glass-container-static group/teleOverlay ${isDragging || isResizing ? 'transition-none' : 'transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]'} select-none min-w-[280px] h-14`}
         >
             {/* Sidebar label indicator */}
             <div className={`absolute left-0 top-0 bottom-0 w-6 flex items-center justify-center ${isRef ? 'bg-amber-500/20' : 'bg-blue-500/20'} border-r border-white/5`}>

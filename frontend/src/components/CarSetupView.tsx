@@ -35,7 +35,7 @@ const SetupSection: React.FC<{
     children: React.ReactNode;
 }> = ({ title, children }) => (
     <div 
-        className="glass-container glass-expand-pixel p-5 rounded-2xl border border-white/10 mb-5 hover:bg-white/5 transition-all duration-300 group/section"
+        className="glass-container glass-expand-pixel p-5 rounded-lg border border-white/10 mb-5 hover:bg-white/5 transition-all duration-300 group/section"
         onMouseMove={(e) => handleGlassMouseMove(e, 0.1)}
     >
         <div className="glass-content">

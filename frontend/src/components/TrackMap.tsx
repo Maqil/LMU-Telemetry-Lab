@@ -174,7 +174,7 @@ const TopCenterTelemetryHUD = React.memo(() => {
     }, [telemetryData, cursorIndex, smoothCursorIndex, isPlaying, laps, selectedLapIdx, sessionMetadata?.officialTrackLength]);
 
     return (
-        <div className="bg-black/40 backdrop-blur-2xl border border-white/10 rounded-2xl flex items-center shadow-2xl glass-container overflow-hidden"
+        <div className="bg-black/40 backdrop-blur-2xl border border-white/10 rounded-lg flex items-center shadow-2xl glass-container overflow-hidden"
             onMouseMove={handleGlassMouseMove}>
             <div className="glass-content px-6 py-2.5 flex items-center">
                 <div className="flex items-baseline gap-2">
@@ -3090,7 +3090,7 @@ export const TrackMap = React.memo(({ isExpanded = false, onToggleExpand, isMini
                                             <Tooltip text="SPEED" position="top">
                                                 <button
                                                     onClick={() => setIsSpeedOpen(!isSpeedOpen)}
-                                                    className={`bg-transparent border border-white/10 text-[10px] font-black rounded-lg transition-all min-w-[48px] glass-container hover:scale-110 active:scale-90 ${isSpeedOpen ? 'text-blue-400 bg-white/10 border-white/20' : 'text-gray-500 hover:text-white'}`}
+                                                    className={`bg-transparent border border-white/10 text-[10px] font-black rounded-sm transition-all min-w-[48px] glass-container hover:scale-110 active:scale-90 ${isSpeedOpen ? 'text-blue-400 bg-white/10 border-white/20' : 'text-gray-500 hover:text-white'}`}
                                                     onMouseMove={handleGlassMouseMove}
                                                 >
                                                     <div className="glass-content px-2.5 py-1.5 flex flex-col items-center justify-center">
@@ -3099,7 +3099,7 @@ export const TrackMap = React.memo(({ isExpanded = false, onToggleExpand, isMini
                                                 </button>
                                             </Tooltip>
                                             <div className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-16 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] origin-bottom ${isSpeedOpen ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-2 pointer-events-none'}`}>
-                                                <div className="flex flex-col gap-1 p-1 bg-[#1a1a1e]/90 glass-container rounded-xl border border-white/10" onMouseMove={handleGlassMouseMove}>
+                                                <div className="flex flex-col gap-1 p-1 bg-[#1a1a1e]/90 glass-container rounded-md border border-white/10" onMouseMove={handleGlassMouseMove}>
                                                     <div className="glass-content w-full h-full flex flex-col">
                                                         {[4, 2, 1, 0.5].map(s => (
                                                             <button
@@ -3136,18 +3136,18 @@ export const TrackMap = React.memo(({ isExpanded = false, onToggleExpand, isMini
                                         {(dimensions.width - (isMapMaximized ? 680 : 40)) > 600 && (
                                             <>
                                                 <Tooltip text="MINIMAP" position="top">
-                                                    <button onClick={() => setShowMiniMap(!showMiniMap)} className={`transition-all rounded-lg glass-container hover:scale-110 active:scale-95 border border-transparent ${showMiniMap ? 'text-blue-400 bg-blue-500/10 border-blue-500/20 shadow-[0_0_15px_rgba(37,99,235,0.1)]' : 'text-slate-500 hover:text-white hover:bg-white/5'}`} onMouseMove={handleGlassMouseMove}>
+                                                    <button onClick={() => setShowMiniMap(!showMiniMap)} className={`transition-all rounded-sm glass-container hover:scale-110 active:scale-95 border border-transparent ${showMiniMap ? 'text-blue-400 bg-blue-500/10 border-blue-500/20 shadow-[0_0_15px_rgba(37,99,235,0.1)]' : 'text-slate-500 hover:text-white hover:bg-white/5'}`} onMouseMove={handleGlassMouseMove}>
                                                         <div className="glass-content px-2.5 py-1.5 flex items-center justify-center"><MapIcon size={16} /></div>
                                                     </button>
                                                 </Tooltip>
                                                 <div className="relative" ref={hudMenuRef}>
                                                     <Tooltip text={isMapMaximized ? "HUD SETUP" : "OVERLAP"} position="top">
-                                                        <button onClick={() => isMapMaximized ? setShowHudMenu(!showHudMenu) : setShowTelemetryOverlay(!showTelemetryOverlay)} className={`transition-all rounded-lg glass-container hover:scale-110 active:scale-95 border border-transparent ${showTelemetryOverlay ? 'text-blue-400 bg-blue-500/10 border-blue-500/20 shadow-[0_0_15px_rgba(37,99,235,0.1)]' : 'text-slate-500 hover:text-white hover:bg-white/5'}`} onMouseMove={handleGlassMouseMove}>
+                                                        <button onClick={() => isMapMaximized ? setShowHudMenu(!showHudMenu) : setShowTelemetryOverlay(!showTelemetryOverlay)} className={`transition-all rounded-sm glass-container hover:scale-110 active:scale-95 border border-transparent ${showTelemetryOverlay ? 'text-blue-400 bg-blue-500/10 border-blue-500/20 shadow-[0_0_15px_rgba(37,99,235,0.1)]' : 'text-slate-500 hover:text-white hover:bg-white/5'}`} onMouseMove={handleGlassMouseMove}>
                                                             <div className="glass-content px-2.5 py-1.5 flex items-center justify-center gap-1.5"><Activity size={16} />{isMapMaximized && <ChevronDown size={12} className={`transition-transform duration-300 ${showHudMenu ? 'rotate-180' : ''}`} />}</div>
                                                         </button>
                                                     </Tooltip>
                                                     <div className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-40 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] origin-bottom z-[1100] ${isMapMaximized && showHudMenu ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-2 pointer-events-none'}`}>
-                                                        <div className="flex flex-col gap-1 p-1 bg-[#1a1a1e]/90 glass-container rounded-xl border border-white/10" onMouseMove={handleGlassMouseMove}>
+                                                        <div className="flex flex-col gap-1 p-1 bg-[#1a1a1e]/90 glass-container rounded-md border border-white/10" onMouseMove={handleGlassMouseMove}>
                                                             <div className="glass-content w-full h-full flex flex-col gap-0.5">
                                                                 <button onClick={() => setHudVisibility('overlap', !hudVisibility.overlap)} className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg transition-all border hover:scale-105 active:scale-90 group ${hudVisibility.overlap ? 'bg-blue-600/30 text-blue-400 border-blue-500/30 shadow-[0_0_15px_rgba(59,130,246,0.15)]' : 'text-slate-500 border-transparent hover:bg-white/5 hover:text-white'}`}><span className="text-[11px] font-bold">Telemetry Overlap</span></button>
                                                                 <div className="mx-2 my-1 border-t border-white/10" />
@@ -3159,9 +3159,9 @@ export const TrackMap = React.memo(({ isExpanded = false, onToggleExpand, isMini
                                                     </div>
                                                 </div>
                                                 <Tooltip text="RESET VIEW" position="top">
-                                                    <button onClick={() => fitTrack(true)} className="transition-all rounded-lg glass-container hover:scale-110 active:scale-90 text-slate-500 hover:text-white border border-transparent hover:bg-white/5" onMouseMove={handleGlassMouseMove}><div className="glass-content px-2.5 py-1.5 flex items-center justify-center"><RotateCcw size={16} /></div></button>
+                                                    <button onClick={() => fitTrack(true)} className="transition-all rounded-sm glass-container hover:scale-110 active:scale-90 text-slate-500 hover:text-white border border-transparent hover:bg-white/5" onMouseMove={handleGlassMouseMove}><div className="glass-content px-2.5 py-1.5 flex items-center justify-center"><RotateCcw size={16} /></div></button>
                                                 </Tooltip>
-                                                <div className="glass-container rounded-lg border border-transparent hover:bg-white/5 transition-all">
+                                                <div className="glass-container rounded-sm border border-transparent hover:bg-white/5 transition-all">
                                                     <div className="glass-content h-7 px-1 gap-0.5 flex items-center">
                                                         <Tooltip text="FIXED VIEW" position="top">
                                                             <button onClick={() => setCameraMode('static')} className={`p-1 px-2 rounded-md transition-all ${cameraMode === 'static' ? 'text-blue-400 bg-blue-500/20' : 'text-slate-500 hover:text-slate-300'}`}><ViewfinderIcon size={14} /></button>
@@ -3178,7 +3178,7 @@ export const TrackMap = React.memo(({ isExpanded = false, onToggleExpand, isMini
                                         )}
                                         {onToggleExpand && !isMapMaximized && (
                                             <Tooltip text="BACK TO SIDEBAR MAP" position="top">
-                                                <button onClick={onToggleExpand} className="transition-all rounded-lg glass-container hover:scale-110 active:scale-95 text-slate-500 hover:text-white border border-transparent hover:bg-white/5" onMouseMove={handleGlassMouseMove}><div className="glass-content px-2.5 py-1.5 flex items-center justify-center"><ChevronRight size={16} /></div></button>
+                                                <button onClick={onToggleExpand} className="transition-all rounded-sm glass-container hover:scale-110 active:scale-95 text-slate-500 hover:text-white border border-transparent hover:bg-white/5" onMouseMove={handleGlassMouseMove}><div className="glass-content px-2.5 py-1.5 flex items-center justify-center"><ChevronRight size={16} /></div></button>
                                             </Tooltip>
                                         )}
                                         <Tooltip text={isMapMaximized ? "RESTORE" : "MAXIMIZE"} position="top">
@@ -3188,10 +3188,10 @@ export const TrackMap = React.memo(({ isExpanded = false, onToggleExpand, isMini
                                 </>
                             ) : (
                                 <div className="flex items-center gap-2">
-                                    <button onClick={() => fitTrack(true)} className="text-gray-400 hover:text-white rounded-xl transition-all border border-transparent hover:bg-white/5 active:scale-90 glass-container" onMouseMove={handleGlassMouseMove}><div className="glass-content p-1.5"><RotateCcw size={14} /></div></button>
+                                    <button onClick={() => fitTrack(true)} className="text-gray-400 hover:text-white rounded-md transition-all border border-transparent hover:bg-white/5 active:scale-90 glass-container" onMouseMove={handleGlassMouseMove}><div className="glass-content p-1.5"><RotateCcw size={14} /></div></button>
                                     <div className="w-px h-3 bg-white/5 mx-0.5" />
                                     {onToggleExpand && (
-                                        <button onClick={onToggleExpand} className="text-gray-500 hover:text-white rounded-xl transition-all border border-transparent hover:bg-white/5 active:scale-90 glass-container" onMouseMove={handleGlassMouseMove}><div className="glass-content p-1.5"><Maximize2 size={14} /></div></button>
+                                        <button onClick={onToggleExpand} className="text-gray-500 hover:text-white rounded-md transition-all border border-transparent hover:bg-white/5 active:scale-90 glass-container" onMouseMove={handleGlassMouseMove}><div className="glass-content p-1.5"><Maximize2 size={14} /></div></button>
                                     )}
                                 </div>
                             )}
@@ -3205,7 +3205,7 @@ export const TrackMap = React.memo(({ isExpanded = false, onToggleExpand, isMini
     return (
         <div ref={containerRef}
             onMouseMove={handleGlassMouseMove}
-            className={`h-full flex flex-col min-h-[inherit] relative group/map transition-all duration-300 ${isMiniMap ? '' : 'glass-container-flat map-bg-unified'} hover:scale-100 overflow-hidden ${isMiniMap ? 'rounded-xl' : (isMapMaximized ? 'rounded-none glass-no-blur' : 'rounded-2xl')}`}
+            className={`h-full flex flex-col min-h-[inherit] relative group/map transition-all duration-300 ${isMiniMap ? '' : 'glass-container-flat map-bg-unified'} hover:scale-100 overflow-hidden ${isMiniMap ? 'rounded-md' : (isMapMaximized ? 'rounded-none glass-no-blur' : 'rounded-lg')}`}
             style={{
                 '--glass-hover-scale': '1',
                 '--glass-content-scale': '1'
@@ -3311,7 +3311,7 @@ export const TrackMap = React.memo(({ isExpanded = false, onToggleExpand, isMini
                             aspectRatio: '5/3'
                         }}
                     >
-                        <div className={`w-full h-full glass-container rounded-xl overflow-hidden relative transition-all duration-300 ${showMiniMap ? 'pointer-events-auto' : 'pointer-events-none'}`}
+                        <div className={`w-full h-full glass-container rounded-md overflow-hidden relative transition-all duration-300 ${showMiniMap ? 'pointer-events-auto' : 'pointer-events-none'}`}
                             onMouseMove={handleGlassMouseMove}
                             style={{ '--glass-hover-scale': '1', '--glass-content-scale': '1' } as any}>
                             <div className="glass-content w-full h-full">
@@ -3412,7 +3412,7 @@ export const TrackMap = React.memo(({ isExpanded = false, onToggleExpand, isMini
                                             className="pointer-events-auto flex flex-col gap-2 h-full w-full"
                                         >
                                             <div
-                                                className="flex-1 flex flex-col overflow-hidden rounded-2xl glass-container-static"
+                                                className="flex-1 flex flex-col overflow-hidden rounded-lg glass-container-static"
                                                 onMouseMove={(e) => {
                                                     e.stopPropagation();
                                                     handleGlassMouseMove(e);
@@ -3512,7 +3512,7 @@ export const TrackMap = React.memo(({ isExpanded = false, onToggleExpand, isMini
                                     transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                                     className="absolute right-[20px] z-[2001] pointer-events-auto"
                                 >
-                                    <div className="glass-container rounded-xl shadow-xl overflow-hidden pointer-events-auto" onMouseMove={handleGlassMouseMove}>
+                                    <div className="glass-container rounded-md shadow-xl overflow-hidden pointer-events-auto" onMouseMove={handleGlassMouseMove}>
                                         <div className="glass-content relative flex items-center p-1 w-44 h-8 bg-black/20">
                                             <div
                                                 className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-blue-600 rounded-lg shadow-[0_0_15px_rgba(37,99,235,0.4)] transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] z-0"

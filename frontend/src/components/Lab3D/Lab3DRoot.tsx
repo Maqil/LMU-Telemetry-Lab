@@ -114,7 +114,7 @@ export const Lab3DRoot = () => {
                     <div className="absolute left-6 top-6 bottom-6 w-80 flex flex-col gap-4 pointer-events-none z-10">
                         {/* Status Card - Now at Bottom Left */}
                         <div
-                            className="pointer-events-auto glass-container-flat p-5 rounded-2xl border border-white/10 animate-in fade-in slide-in-from-left-4 duration-500 mt-auto"
+                            className="pointer-events-auto glass-container-flat p-5 rounded-lg border border-white/10 animate-in fade-in slide-in-from-left-4 duration-500 mt-auto"
                             onMouseMove={(e) => handleGlassMouseMove(e, 0.2)}
                         >
                             <div className="flex items-center justify-between mb-4">
@@ -223,7 +223,7 @@ export const Lab3DRoot = () => {
                 {/* Processing/Loading Overlay */}
                 {isLoading && (
                     <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-[2px] pointer-events-auto animate-in fade-in duration-300">
-                        <div className="glass-container-flat px-8 py-6 rounded-3xl border border-white/10 flex flex-col items-center gap-4 shadow-2xl">
+                        <div className="glass-container-flat px-8 py-6 rounded-xl border border-white/10 flex flex-col items-center gap-4 shadow-2xl">
                             <div className="relative">
                                 <Loader2 size={32} className="text-blue-500 animate-spin" />
                                 <div className="absolute inset-0 blur-lg bg-blue-500/20 animate-pulse" />

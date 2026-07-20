@@ -14,6 +14,11 @@ import { getCountryFlagPath } from '../utils/trackHelpers';
 
 const DEFAULT_LMU_PATH = 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\Le Mans Ultimate\\UserData\\Telemetry';
 
+// Accepted import types: native LMU .duckdb, plus ACC MoTeC CSV exports (.csv).
+const IMPORT_EXTENSIONS = ['.duckdb', '.csv'];
+const isImportableFile = (name: string) =>
+    IMPORT_EXTENSIONS.some(ext => name.toLowerCase().endsWith(ext));
+
 interface FileManagerProps {
     onClose?: () => void;
 }
@@ -45,6 +50,7 @@ export const FileManager: React.FC<FileManagerProps> = ({ onClose }) => {
     const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
     const [groupingMode, setGroupingMode] = useState<'track' | 'class' | 'car' | 'all'>(() => (localStorage.getItem('file_manager_grouping') as any) || 'track');
+    const [gameFilter, setGameFilter] = useState<'all' | 'LMU' | 'ACC'>(() => (localStorage.getItem('file_manager_game') as any) || 'all');
     const [classSubModes, setClassSubModes] = useState<Record<string, 'track' | 'car'>>(() => JSON.parse(localStorage.getItem('file_manager_class_submodes') || '{}'));
     const containerRef = useRef<HTMLDivElement>(null);
     const [containerWidth, setContainerWidth] = useState(0);
@@ -75,6 +81,17 @@ export const FileManager: React.FC<FileManagerProps> = ({ onClose }) => {
     React.useEffect(() => {
         localStorage.setItem('file_manager_grouping', groupingMode);
     }, [groupingMode]);
+
+    React.useEffect(() => {
+        localStorage.setItem('file_manager_game', gameFilter);
+    }, [gameFilter]);
+
+    // Per-game session counts for the LMU/ACC switch badges.
+    const gameCounts = useMemo(() => ({
+        all: sessions.length,
+        LMU: sessions.filter(s => (s.game || 'LMU') === 'LMU').length,
+        ACC: sessions.filter(s => (s.game || 'LMU') === 'ACC').length,
+    }), [sessions]);
 
     React.useEffect(() => {
         localStorage.setItem('file_manager_class_submodes', JSON.stringify(classSubModes));
@@ -108,7 +125,7 @@ export const FileManager: React.FC<FileManagerProps> = ({ onClose }) => {
             let hasValidFile = true;
             if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
                 const filesArray = Array.from(e.dataTransfer.files);
-                hasValidFile = filesArray.some(file => file.name.toLowerCase().endsWith(".duckdb"));
+                hasValidFile = filesArray.some(file => isImportableFile(file.name));
             }
 
             // Only allow copy (upload) when dragging valid files over the dropzone container
@@ -183,13 +200,11 @@ export const FileManager: React.FC<FileManagerProps> = ({ onClose }) => {
             if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
                 console.log("[DEBUG] global window drop files count:", e.dataTransfer.files.length);
                 const rawFiles = Array.from(e.dataTransfer.files);
-                const files = rawFiles.filter(file => 
-                    file.name.toLowerCase().endsWith(".duckdb")
-                );
+                const files = rawFiles.filter(file => isImportableFile(file.name));
 
                 if (files.length === 0) {
-                    console.warn("[DEBUG] No valid .duckdb files in drop.");
-                    useTelemetryStore.setState({ error: "Only .duckdb files are supported for upload." });
+                    console.warn("[DEBUG] No valid telemetry files in drop.");
+                    useTelemetryStore.setState({ error: "Only .duckdb or ACC MoTeC .csv files are supported for upload." });
                     return;
                 }
 
@@ -463,10 +478,8 @@ export const FileManager: React.FC<FileManagerProps> = ({ onClose }) => {
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
             const rawFiles = Array.from(e.target.files);
-            const files = rawFiles.filter(file => 
-                file.name.toLowerCase().endsWith(".duckdb")
-            );
-            
+            const files = rawFiles.filter(file => isImportableFile(file.name));
+
             if (files.length === 0) return;
 
             useTelemetryStore.setState({ error: null });
@@ -558,10 +571,14 @@ export const FileManager: React.FC<FileManagerProps> = ({ onClose }) => {
     };
 
     const groupedData = useMemo(() => {
-        let filtered = sessions;
+        // Split by game first (LMU vs ACC), then apply search + grouping.
+        const gameScoped = gameFilter === 'all'
+            ? sessions
+            : sessions.filter(s => (s.game || 'LMU') === gameFilter);
+        let filtered = gameScoped;
         if (searchQuery) {
             const query = searchQuery.toLowerCase();
-            filtered = sessions.filter(s => {
+            filtered = gameScoped.filter(s => {
                 const meta = parseMetadata(s.id);
                 const trackFromId = meta?.circuit || "";
                 return (
@@ -653,7 +670,7 @@ export const FileManager: React.FC<FileManagerProps> = ({ onClose }) => {
         }).sort((a: any, b: any) => a.name.localeCompare(b.name));
 
         return result;
-    }, [sessions, searchQuery, groupingMode, classSubModes]);
+    }, [sessions, searchQuery, groupingMode, classSubModes, gameFilter]);
 
     return (
         <div 
@@ -675,13 +692,13 @@ export const FileManager: React.FC<FileManagerProps> = ({ onClose }) => {
                         <p className="text-gray-400 text-[9px] uppercase tracking-widest font-bold mt-0.5">Manage DuckDB Telemetry</p>
                     </div>
                     <Tooltip text="SHOW PATH HINT" position="left">
-                        <button onClick={() => setShowHint(!showHint)} className={`transition-all p-2 rounded-xl border active:scale-95 glass-container group ${showHint ? 'bg-blue-500/20 border-blue-500/30 text-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.2)]' : 'bg-white/5 border-white/5 text-gray-500 hover:text-gray-300 hover:bg-white/10 hover:border-white/20'}`} onMouseMove={handleGlassMouseMove}><div className="glass-content flex items-center justify-center"><Info size={16} /></div></button>
+                        <button onClick={() => setShowHint(!showHint)} className={`transition-all p-2 rounded-md border active:scale-95 glass-container group ${showHint ? 'bg-blue-500/20 border-blue-500/30 text-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.2)]' : 'bg-white/5 border-white/5 text-gray-500 hover:text-gray-300 hover:bg-white/10 hover:border-white/20'}`} onMouseMove={handleGlassMouseMove}><div className="glass-content flex items-center justify-center"><Info size={16} /></div></button>
                     </Tooltip>
                 </div>
                 <div className={`grid transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${isAnimatingHint ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
                     <div className="overflow-hidden p-1">
                         {shouldRenderHint && (
-                            <div className="text-[10px] text-gray-400 leading-relaxed my-3 mx-1 p-3 bg-white/5 glass-container rounded-xl border border-white/10 shadow-inner origin-top transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] group/hintbox" onMouseMove={handleGlassMouseMove} style={{ transform: isAnimatingHint ? 'scale(1) translateY(0)' : 'scale(0.9) translateY(-10px)' }}>
+                            <div className="text-[10px] text-gray-400 leading-relaxed my-3 mx-1 p-3 bg-white/5 glass-container rounded-md border border-white/10 shadow-inner origin-top transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] group/hintbox" onMouseMove={handleGlassMouseMove} style={{ transform: isAnimatingHint ? 'scale(1) translateY(0)' : 'scale(0.9) translateY(-10px)' }}>
                                 <div className="glass-content">
                                     <div className="flex items-center justify-between mb-1.5">
                                         <div className="flex items-center gap-2 text-gray-500 font-black uppercase tracking-tighter"><span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />Telemetry Path:</div>
@@ -704,7 +721,7 @@ export const FileManager: React.FC<FileManagerProps> = ({ onClose }) => {
             <div className="px-4 pt-1 pb-1">
                 <div 
                     ref={dropzoneRef} 
-                    className={`group relative glass-container telemetry-dropzone p-6 rounded-2xl flex flex-col items-center justify-center transition-all cursor-pointer ring-1 ring-inset border ${
+                    className={`group relative glass-container telemetry-dropzone p-6 rounded-lg flex flex-col items-center justify-center transition-all cursor-pointer ring-1 ring-inset border ${
                         isDragActive 
                             ? 'drag-active ring-blue-500 border-blue-500 bg-blue-500/10 shadow-[0_0_30px_rgba(59,130,246,0.2)] scale-[1.01]' 
                             : 'bg-white/5 border-white/10 ring-white/5 hover:bg-white/10 hover:border-white/30 hover:shadow-[0_0_30px_rgba(255,255,255,0.08)]'
@@ -713,7 +730,7 @@ export const FileManager: React.FC<FileManagerProps> = ({ onClose }) => {
                     onMouseMove={handleGlassMouseMove}
                 >
                     <div className="glass-content flex flex-col items-center justify-center w-full pointer-events-none">
-                        <input type="file" ref={fileInputRef} className="hidden" accept=".duckdb" multiple onChange={handleFileChange} />
+                        <input type="file" ref={fileInputRef} className="hidden" accept=".duckdb,.csv" multiple onChange={handleFileChange} />
                         <div className={`p-3 rounded-full border mb-3 transition-all duration-500 ${
                             isDragActive 
                                 ? 'bg-blue-500/30 border-blue-400 shadow-[0_0_20px_rgba(59,130,246,0.6)] scale-110' 
@@ -728,7 +745,7 @@ export const FileManager: React.FC<FileManagerProps> = ({ onClose }) => {
                         <span className="text-[12px] text-white font-black uppercase tracking-[0.15em] mb-1">Upload Telemetry</span>
                         <span className={`text-[9px] font-black uppercase tracking-widest transition-colors duration-300 ${
                             isDragActive ? 'text-blue-400 animate-pulse' : 'text-gray-400'
-                        }`}>Drop .duckdb file here</span>
+                        }`}>Drop .duckdb or ACC MoTeC .csv here</span>
                     </div>
                 </div>
             </div>
@@ -740,10 +757,30 @@ export const FileManager: React.FC<FileManagerProps> = ({ onClose }) => {
             )}
 
             <div className="px-4 pt-2 pb-2">
+                {/* Game switch: split LMU vs ACC laps */}
+                <div className="flex bg-white/5 p-1 rounded-xl border border-white/10 mb-3 relative">
+                    {(['all', 'LMU', 'ACC'] as const).map((g) => (
+                        <button
+                            key={g}
+                            onClick={() => setGameFilter(g)}
+                            className={`relative flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg transition-colors z-10 ${gameFilter === g ? 'text-white' : 'text-gray-400 hover:text-white'}`}
+                        >
+                            {gameFilter === g && (
+                                <motion.div
+                                    layoutId="activeGameTab"
+                                    className={`absolute inset-0 rounded-lg ${g === 'ACC' ? 'bg-amber-600 shadow-[0_0_15px_rgba(217,119,6,0.45)]' : g === 'LMU' ? 'bg-blue-600 shadow-[0_0_15px_rgba(37,99,235,0.45)]' : 'bg-white/15'}`}
+                                    transition={{ type: 'spring', bounce: 0, duration: 0.25 }}
+                                />
+                            )}
+                            <span className="relative z-20 text-[10px] font-black uppercase tracking-widest">{g === 'all' ? 'All' : g}</span>
+                            <span className="relative z-20 text-[9px] font-bold opacity-70">{gameCounts[g]}</span>
+                        </button>
+                    ))}
+                </div>
                 <div className="flex items-center justify-between mb-3 px-1">
                     <div className="flex items-center gap-2">
                         <span className="text-[12px] font-black text-white uppercase tracking-[0.2em]">Files</span>
-                        <span className="text-[11px] font-bold text-gray-400 bg-white/5 px-2.5 py-0.5 rounded-full border border-white/10 shadow-inner">{sessions.length}</span>
+                        <span className="text-[11px] font-bold text-gray-400 bg-white/5 px-2.5 py-0.5 rounded-full border border-white/10 shadow-inner">{gameCounts[gameFilter]}</span>
                         <div className="flex bg-white/5 p-1 rounded-xl border border-white/10 ml-2 relative">
                             {['track', 'class', 'car', 'all'].map((mode) => (
                                 <Tooltip key={mode} text={mode === 'all' ? "List all files by time" : `Group by ${mode.charAt(0).toUpperCase() + mode.slice(1)}`} position="bottom">
@@ -805,7 +842,7 @@ export const FileManager: React.FC<FileManagerProps> = ({ onClose }) => {
                                         <div
                                             key={s.id}
                                             data-session-id={s.id}
-                                            className={`group relative rounded-xl p-3 flex items-center justify-between transition-[transform,background-color,border-color] duration-300 border ring-1 ring-inset glass-container scroll-mt-20 min-w-0 w-full overflow-hidden ${isSelected
+                                            className={`group relative rounded-md p-3 flex items-center justify-between transition-[transform,background-color,border-color] duration-300 border ring-1 ring-inset glass-container scroll-mt-20 min-w-0 w-full overflow-hidden ${isSelected
                                                 ? (isExport ? 'active-session-shimmer active-session-cyan bg-cyan-600/20' : 'active-session-shimmer active-session-blue bg-blue-600/20')
                                                 : (newlyUploadedIds.has(s.id)
                                                     ? 'new-upload-highlight'
@@ -904,7 +941,7 @@ export const FileManager: React.FC<FileManagerProps> = ({ onClose }) => {
                                                 : [...prev, item.id]
                                         );
                                     }}
-                                    className={`w-full group relative rounded-2xl p-4 flex items-center justify-between transition-all border ring-1 ring-inset glass-container-flat ${isExpanded ? 'bg-blue-600/10 border-blue-500/30 ring-blue-500/20' : 'bg-white/[0.02] border-white/5 ring-white/5 hover:border-white/20'}`}
+                                    className={`w-full group relative rounded-lg p-4 flex items-center justify-between transition-all border ring-1 ring-inset glass-container-flat ${isExpanded ? 'bg-blue-600/10 border-blue-500/30 ring-blue-500/20' : 'bg-white/[0.02] border-white/5 ring-white/5 hover:border-white/20'}`}
                                     onMouseMove={handleGlassMouseMove}
                                 >
                                     <div className="glass-content flex items-center justify-between w-full text-left gap-4">
@@ -1031,7 +1068,7 @@ export const FileManager: React.FC<FileManagerProps> = ({ onClose }) => {
                             animate={{ scale: 1, opacity: 1, y: 0 }}
                             exit={{ scale: 0.95, opacity: 0, y: 10 }}
                             transition={{ type: "spring", duration: 0.3 }}
-                            className="bg-black/40 border border-red-500/20 rounded-2xl p-6 max-w-md w-full shadow-2xl relative overflow-hidden glass-container group/deleteModal"
+                            className="bg-black/40 border border-red-500/20 rounded-lg p-6 max-w-md w-full shadow-2xl relative overflow-hidden glass-container group/deleteModal"
                             onClick={(e) => e.stopPropagation()}
                             onMouseMove={(e) => handleGlassMouseMove(e, 0.15)}
                         >

@@ -119,7 +119,7 @@ export const ReferenceLapBrowser: React.FC<ReferenceLapBrowserProps> = ({ onClos
 
     return (
         <div className="fixed inset-0 z-[3100] flex items-center justify-center p-6 bg-black/80 backdrop-blur-xl animate-in fade-in duration-300">
-            <div className="bg-gray-950 border border-white/10 rounded-3xl w-full max-w-2xl flex flex-col max-h-[85vh] shadow-[0_0_50px_rgba(0,0,0,0.5)] overflow-hidden glass-container ring-1 ring-white/10">
+            <div className="bg-gray-950 border border-white/10 rounded-xl w-full max-w-2xl flex flex-col max-h-[85vh] shadow-[0_0_50px_rgba(0,0,0,0.5)] overflow-hidden glass-container ring-1 ring-white/10">
                 <div className="p-6 border-b border-white/5 flex items-center justify-between bg-white/5 relative z-10">
                     <div className="flex items-center gap-4">
                         <div className="p-3 bg-blue-500/10 rounded-2xl border border-blue-500/20">
@@ -171,7 +171,7 @@ export const ReferenceLapBrowser: React.FC<ReferenceLapBrowserProps> = ({ onClos
                                     {/* Session Header */}
                                     <button
                                         onClick={() => toggleSession(session.sessionId)}
-                                        className={`w-full flex flex-col p-4 rounded-2xl border transition-all glass-container-flat relative group ${isExpanded ? 'bg-blue-600/5 border-blue-500/30' : 'bg-white/[0.02] border-white/5 hover:border-white/20'}`}
+                                        className={`w-full flex flex-col p-4 rounded-lg border transition-all glass-container-flat relative group ${isExpanded ? 'bg-blue-600/5 border-blue-500/30' : 'bg-white/[0.02] border-white/5 hover:border-white/20'}`}
                                         onMouseMove={handleGlassMouseMove}
                                     >
                                         <div className="glass-content w-full">
@@ -216,7 +216,7 @@ export const ReferenceLapBrowser: React.FC<ReferenceLapBrowserProps> = ({ onClos
                                                     <div key={stintKey} className="flex flex-col gap-1">
                                                         <button
                                                             onClick={() => toggleStint(session.sessionId, Number(stintNum))}
-                                                            className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl border transition-all text-sm font-black uppercase tracking-widest glass-container-flat ${isStintExpanded ? 'text-blue-400 bg-blue-500/10 border-blue-500/20' : 'text-gray-400 hover:text-gray-200 border-transparent hover:bg-white/5'}`}
+                                                            className={`w-full flex items-center justify-between px-4 py-2.5 rounded-md border transition-all text-sm font-black uppercase tracking-widest glass-container-flat ${isStintExpanded ? 'text-blue-400 bg-blue-500/10 border-blue-500/20' : 'text-gray-400 hover:text-gray-200 border-transparent hover:bg-white/5'}`}
                                                             onMouseMove={handleGlassMouseMove}
                                                         >
                                                             <div className="glass-content flex items-center gap-3">
@@ -256,7 +256,7 @@ export const ReferenceLapBrowser: React.FC<ReferenceLapBrowserProps> = ({ onClos
                                                                                 selectReferenceLap(lap);
                                                                                 onClose();
                                                                             }}
-                                                                            className={`w-full group p-3 rounded-xl border transition-all flex items-center justify-between glass-container-flat ${borderClass}`}
+                                                                            className={`w-full group p-3 rounded-md border transition-all flex items-center justify-between glass-container-flat ${borderClass}`}
                                                                             onMouseMove={handleGlassMouseMove}
                                                                         >
                                                                             <div className="glass-content flex items-center gap-3">

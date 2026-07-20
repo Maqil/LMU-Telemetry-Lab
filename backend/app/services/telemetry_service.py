@@ -1,9 +1,11 @@
 
 import duckdb
-import pandas as pd
 import numpy as np
 import os
 import logging
+
+import pandas as pd
+
 from .car_lookup import get_car_info, parse_steer_lock
 
 logger = logging.getLogger(__name__)
@@ -956,7 +958,10 @@ class TelemetryService:
             
             if output_parquet:
                 logger.info(f"Saving to {output_parquet}")
-                df_final.to_parquet(output_parquet)
+                try:
+                    df_final.to_parquet(output_parquet)
+                except Exception as parquet_err:
+                    logger.warning(f"Parquet cache save failed: {parquet_err}")
                 
             return df_final
 

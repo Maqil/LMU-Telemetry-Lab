@@ -140,18 +140,24 @@ cd lmu-telemetry-lab
 
 # 2. Set up Python backend
 python -m venv .venv
+# Windows:
 .venv\Scripts\activate
+# Linux/macOS:
+source .venv/bin/activate
+
 pip install -r backend/requirements.txt
 
 # 3. Start the backend
 cd backend
-uvicorn main:app --reload
+uvicorn main:app --port 8000
 
 # 4. In another terminal, start the frontend
 cd frontend
 npm install
 npm run dev
 ```
+
+The backend runs on `http://localhost:8000` and the frontend on `http://localhost:5173`.
 
 ---
 

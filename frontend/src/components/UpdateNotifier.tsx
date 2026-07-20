@@ -127,7 +127,7 @@ export const UpdateNotifier = () => {
           className="fixed bottom-8 right-8 z-[10000] w-[380px] pointer-events-auto"
         >
           <div 
-            className="relative overflow-hidden rounded-3xl border border-blue-500/30 bg-[#0f0f13]/95 backdrop-blur-3xl shadow-[0_40px_100px_rgba(0,0,0,0.8),0_0_40px_rgba(59,130,246,0.15)] glass-container"
+            className="relative overflow-hidden rounded-xl border border-blue-500/30 bg-[#0f0f13]/95 backdrop-blur-3xl shadow-[0_40px_100px_rgba(0,0,0,0.8),0_0_40px_rgba(59,130,246,0.15)] glass-container"
             onMouseMove={(e) => handleGlassMouseMove(e, 0.2)}
           >
             {/* Animated Glow Background */}

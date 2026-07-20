@@ -359,5 +359,6 @@ def get_3d_track_data(db_path, lap_times, base_times, track_name=None, track_lay
         "trackSectors": track_sectors,
         "center": {"lat": float(c_lat), "lon": float(c_lon), "lonScale": float(lon_scale)},
         "zBase": z_base_abs,
+        "flipY": False,  # ACC now shares real-GPS chirality; no per-view flip needed
         "selectedLapInfo": {"lap": stint_range[0] if stint_range else lap_times[1]}
     })

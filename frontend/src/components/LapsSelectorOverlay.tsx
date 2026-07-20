@@ -7,7 +7,7 @@ import { AnalysisLapsWidget } from './AnalysisLapsWidget';
 
 export const LapsSelectorOverlay: React.FC = () => {
     return (
-        <div className="pointer-events-auto flex flex-col overflow-hidden rounded-2xl glass-container-static group/analysisHUD select-none w-[320px] min-h-[120px]" onMouseMove={handleGlassMouseMove}>
+        <div className="pointer-events-auto flex flex-col overflow-hidden rounded-lg glass-container-static group/analysisHUD select-none w-[320px] min-h-[120px]" onMouseMove={handleGlassMouseMove}>
             {/* Header Area */}
             <div className="flex items-center gap-2 p-3 pb-2.5 border-b border-white/10 bg-white/5 relative z-10">
                 <Trophy size={14} className="text-amber-500" />

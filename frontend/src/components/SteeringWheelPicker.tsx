@@ -87,7 +87,7 @@ export const SteeringWheelPicker: React.FC<SteeringWheelPickerProps> = ({
                         <div key={category} className="flex flex-col gap-1 font-mono">
                             <button
                                 onClick={() => toggleBrand(category)}
-                                className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl transition-all glass-container-flat ${isExpanded ? 'bg-blue-600/10 border-blue-500/30 text-blue-400' : 'text-gray-400 hover:text-white hover:bg-white/5 border-transparent'}`}
+                                className={`w-full flex items-center justify-between px-4 py-2.5 rounded-md transition-all glass-container-flat ${isExpanded ? 'bg-blue-600/10 border-blue-500/30 text-blue-400' : 'text-gray-400 hover:text-white hover:bg-white/5 border-transparent'}`}
                                 onMouseMove={(e) => handleGlassMouseMove(e, 0.2)}
                             >
                                 <div className="glass-content flex items-center">
@@ -104,7 +104,7 @@ export const SteeringWheelPicker: React.FC<SteeringWheelPickerProps> = ({
                                         <button
                                             key={wheel.path}
                                             onClick={() => onSelect(wheel.path)}
-                                            className={`w-full text-left px-3 py-2 text-[10px] font-bold rounded-lg transition-all flex items-center gap-3 glass-container-flat ${selectedWheel === wheel.path ? 'text-blue-400 bg-blue-600/20 border-blue-500/30' : 'text-gray-500 hover:text-white hover:bg-white/5 border-transparent'}`}
+                                            className={`w-full text-left px-3 py-2 text-[10px] font-bold rounded-sm transition-all flex items-center gap-3 glass-container-flat ${selectedWheel === wheel.path ? 'text-blue-400 bg-blue-600/20 border-blue-500/30' : 'text-gray-500 hover:text-white hover:bg-white/5 border-transparent'}`}
                                             onMouseMove={(e) => handleGlassMouseMove(e, 0.25)}
                                         >
                                             <div className="glass-content size-full flex items-center gap-3">
@@ -129,7 +129,7 @@ export const SteeringWheelPicker: React.FC<SteeringWheelPickerProps> = ({
                             <button
                                 key={wheel.path}
                                 onClick={() => onSelect(wheel.path)}
-                                className={`w-full text-left px-3 py-2 text-[10px] font-bold rounded-xl transition-all flex items-center gap-3 glass-container-flat ${selectedWheel === wheel.path ? 'text-blue-400 bg-blue-600/20 border-blue-500/30' : 'text-gray-400 hover:text-white hover:bg-white/5 border-transparent'}`}
+                                className={`w-full text-left px-3 py-2 text-[10px] font-bold rounded-md transition-all flex items-center gap-3 glass-container-flat ${selectedWheel === wheel.path ? 'text-blue-400 bg-blue-600/20 border-blue-500/30' : 'text-gray-400 hover:text-white hover:bg-white/5 border-transparent'}`}
                                 onMouseMove={(e) => handleGlassMouseMove(e, 0.25)}
                             >
                                 <div className="glass-content size-full flex items-center gap-3">
@@ -151,7 +151,7 @@ export const SteeringWheelPicker: React.FC<SteeringWheelPickerProps> = ({
                             <div key={w.id} className="group/item relative">
                                 <button
                                     onClick={() => onSelect(w.id)}
-                                    className={`w-full text-left px-3 py-2 text-[10px] font-bold rounded-xl transition-all flex items-center gap-3 glass-container-flat ${selectedWheel === w.id ? 'text-blue-400 bg-blue-600/20 border-blue-500/30' : 'text-gray-400 hover:text-white hover:bg-white/5 border-transparent'}`}
+                                    className={`w-full text-left px-3 py-2 text-[10px] font-bold rounded-md transition-all flex items-center gap-3 glass-container-flat ${selectedWheel === w.id ? 'text-blue-400 bg-blue-600/20 border-blue-500/30' : 'text-gray-400 hover:text-white hover:bg-white/5 border-transparent'}`}
                                     onMouseMove={(e) => handleGlassMouseMove(e, 0.25)}
                                 >
                                     <div className="glass-content size-full flex items-center gap-3 font-mono">
@@ -178,7 +178,7 @@ export const SteeringWheelPicker: React.FC<SteeringWheelPickerProps> = ({
                 <div className="flex flex-col gap-1 pb-1">
                     <button
                         onClick={() => onSelect(null)}
-                        className={`w-full text-left px-4 py-2.5 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl transition-all glass-container-flat flex items-center justify-between ${!selectedWheel ? 'text-blue-400 bg-blue-600/20 border-blue-500/30' : 'text-gray-500 hover:text-white hover:bg-white/5 border-transparent'}`}
+                        className={`w-full text-left px-4 py-2.5 text-[10px] font-black uppercase tracking-[0.2em] rounded-md transition-all glass-container-flat flex items-center justify-between ${!selectedWheel ? 'text-blue-400 bg-blue-600/20 border-blue-500/30' : 'text-gray-500 hover:text-white hover:bg-white/5 border-transparent'}`}
                         onMouseMove={(e) => handleGlassMouseMove(e, 0.25)}
                     >
                         <div className="glass-content flex items-center gap-2.5">
