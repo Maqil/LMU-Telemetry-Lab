@@ -13,7 +13,7 @@ function createWindow() {
             nodeIntegration: false,
             contextIsolation: true,
         },
-        title: "LMU Telemetry Lab",
+        title: "SIM Telemetry Lab",
     });
 
     // Prevent web page from changing the window title

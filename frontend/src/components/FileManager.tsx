@@ -14,8 +14,8 @@ import { getCountryFlagPath } from '../utils/trackHelpers';
 
 const DEFAULT_LMU_PATH = 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\Le Mans Ultimate\\UserData\\Telemetry';
 
-// Accepted import types: native LMU .duckdb, plus ACC MoTeC CSV exports (.csv).
-const IMPORT_EXTENSIONS = ['.duckdb', '.csv'];
+// Accepted import types: native LMU .duckdb, plus ACC MoTeC exports (.ld binary log / .csv).
+const IMPORT_EXTENSIONS = ['.duckdb', '.ld', '.csv'];
 const isImportableFile = (name: string) =>
     IMPORT_EXTENSIONS.some(ext => name.toLowerCase().endsWith(ext));
 
@@ -200,7 +200,7 @@ export const FileManager: React.FC<FileManagerProps> = ({ onClose }) => {
 
                 if (files.length === 0) {
                     console.warn("[DEBUG] No valid telemetry files in drop.");
-                    useTelemetryStore.setState({ error: "Only .duckdb or ACC MoTeC .csv files are supported for upload." });
+                    useTelemetryStore.setState({ error: "Only .duckdb or ACC MoTeC .ld / .csv files are supported for upload." });
                     return;
                 }
 
@@ -726,7 +726,7 @@ export const FileManager: React.FC<FileManagerProps> = ({ onClose }) => {
                     onMouseMove={handleGlassMouseMove}
                 >
                     <div className="glass-content flex flex-col items-center justify-center w-full pointer-events-none">
-                        <input type="file" ref={fileInputRef} className="hidden" accept=".duckdb,.csv" multiple onChange={handleFileChange} />
+                        <input type="file" ref={fileInputRef} className="hidden" accept=".duckdb,.ld,.csv" multiple onChange={handleFileChange} />
                         <div className={`p-3 rounded-full border mb-3 transition-all duration-500 ${
                             isDragActive 
                                 ? 'bg-blue-500/30 border-blue-400 shadow-[0_0_20px_rgba(59,130,246,0.6)] scale-110' 
@@ -741,7 +741,7 @@ export const FileManager: React.FC<FileManagerProps> = ({ onClose }) => {
                         <span className="text-[12px] text-white font-black uppercase tracking-[0.15em] mb-1">Upload Telemetry</span>
                         <span className={`text-[9px] font-black uppercase tracking-widest transition-colors duration-300 ${
                             isDragActive ? 'text-blue-400 animate-pulse' : 'text-gray-400'
-                        }`}>Drop .duckdb or ACC MoTeC .csv here</span>
+                        }`}>Drop .duckdb or ACC MoTeC .ld / .csv here</span>
                     </div>
                 </div>
             </div>

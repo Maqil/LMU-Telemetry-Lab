@@ -28,7 +28,7 @@ const translations = {
     description2: 'Unlock your true track potential with 3D track visualization and real-time data tracking.',
     downloadWin: 'Download for Windows',
     sponsor: 'Support on Ko-fi',
-    screenshotAlt: 'LMU Telemetry Lab Data Charts',
+    screenshotAlt: 'SIM Telemetry Lab Data Charts',
     featuresTitle: 'Features',
     featureTrackTitle: 'Immersive Track Analysis',
     featureTrackDesc: 'Switch seamlessly between 2D overhead views and 3D racing lines. Master your braking points and cornering trajectories with unparalleled clarity.',
@@ -49,7 +49,7 @@ const translations = {
     featureExportTitle: 'Seamless Export & Share',
     featureExportDesc: 'Export your telemetry files and car setups simultaneously with a single click. Share your data with friends, teammates, or the sim racing community to compare racing lines. Join our Discord server to exchange setups and discuss strategies with drivers worldwide!',
     joinDiscordBtn: 'Join Discord Community',
-    footer: '© 2026 LMU Telemetry Lab. Built with passion for sim racing.',
+    footer: '© 2026 SIM Telemetry Lab. Built with passion for sim racing.',
     langName: 'English',
     clickToSwitch: 'Click to switch cards',
     howToTitle: 'How to Record Telemetry',
@@ -70,7 +70,7 @@ const translations = {
     description2: '整合 3D 賽道可視化與即時數據追蹤，全面釋放你的賽道潛力。',
     downloadWin: '立即下載 Windows 版',
     sponsor: '贊助杯咖啡',
-    screenshotAlt: 'LMU Telemetry Lab 數據圖表',
+    screenshotAlt: 'SIM Telemetry Lab 數據圖表',
     featuresTitle: 'Features',
     featureTrackTitle: '沉浸式賽道分析',
     featureTrackDesc: '自由切換 2D 俯視與 3D 賽道路線。以無與倫比的清晰度掌握每個煞車點與過彎軌跡，將你的單圈成績推向極限。',
@@ -91,7 +91,7 @@ const translations = {
     featureExportTitle: '一鍵匯出與社群分享',
     featureExportDesc: '一鍵同時匯出你的單圈遙測與車輛設定檔！輕鬆與朋友、隊友或賽車社群分享，比對彼此的賽道路線與車輛調校。歡迎加入我們的 Discord 社群，與全球車手交流遙測檔案、分享調校心得並探討駕駛技巧！',
     joinDiscordBtn: '加入 Discord 社群',
-    footer: '© 2026 LMU Telemetry Lab. Built with passion for sim racing.',
+    footer: '© 2026 SIM Telemetry Lab. Built with passion for sim racing.',
     langName: '繁體中文',
     clickToSwitch: '點擊切換圖片',
     howToTitle: '如何紀錄遙測數據？',
@@ -133,7 +133,7 @@ const translations = {
     featureExportTitle: 'Exportar y Compartir Fácilmente',
     featureExportDesc: 'Exporte sus archivos de telemetría y configuraciones simultáneamente con un solo clic. Comparta sus datos con amigos o la comunidad. ¡Únase a nuestro servidor de Discord para intercambiar archivos y discutir estrategias!',
     joinDiscordBtn: 'Unirse a la Comunidad Discord',
-    footer: '© 2026 LMU Telemetry Lab. Creado con pasión por el sim racing.',
+    footer: '© 2026 SIM Telemetry Lab. Creado con pasión por el sim racing.',
     langName: 'Español',
     clickToSwitch: 'Haz clic para cambiar',
     howToTitle: 'Cómo registrar la telemetría',
@@ -175,7 +175,7 @@ const translations = {
     featureExportTitle: 'Esportazione e Condivisione Semplice',
     featureExportDesc: 'Esporta i file di telemetria e gli assetti contemporaneamente con un solo clic. Condividi i tuoi dati con amici o la community. Unisciti al nostro server Discord per scambiare file e discutere strategie!',
     joinDiscordBtn: 'Unisciti alla Community Discord',
-    footer: '© 2026 LMU Telemetry Lab. Creato con passione per il sim racing.',
+    footer: '© 2026 SIM Telemetry Lab. Creato con passione per il sim racing.',
     langName: 'Italiano',
     clickToSwitch: 'Clicca per cambiare',
     howToTitle: 'Come registrare la telemetria',
@@ -252,7 +252,7 @@ export const App: React.FC = () => {
         <div className="nav-content">
           <div className="nav-brand">
             <img src={logo} alt="Logo" className="nav-logo" />
-            <span className="nav-title">LMU Telemetry Lab</span>
+            <span className="nav-title">SIM Telemetry Lab</span>
           </div>
           
           <div className="nav-actions">
@@ -345,12 +345,12 @@ export const App: React.FC = () => {
           <div className="brand-header">
             <motion.img 
               src={logo} 
-              alt="LMU Telemetry Lab Logo" 
+              alt="SIM Telemetry Lab Logo" 
               className="brand-logo"
               whileHover={{ scale: 1.05, rotate: 5 }}
             />
             <div className="brand-title-group">
-              <h1 className="brand-title">LMU Telemetry Lab</h1>
+              <h1 className="brand-title">SIM Telemetry Lab</h1>
               <span className="version-badge">
                 {version === translations['en'].loading || version === translations['zh-TW'].loading || version === translations['es'].loading || version === translations['it'].loading ? t.loading : version}
               </span>

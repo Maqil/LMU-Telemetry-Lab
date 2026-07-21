@@ -7,6 +7,7 @@ This module reshapes ACC's MoTeC channels into that exact schema so ACC laps
 flow through the same backend/frontend pipeline as LMU laps.
 
 Accepted input:
+  * .ld   MoTeC binary log (ACC's native export -- the .ldx sidecar is not needed)
   * .csv  MoTeC CSV export (in MoTeC: File > Export > CSV)
 
 Public API:
@@ -23,9 +24,23 @@ import duckdb
 import numpy as np
 import pandas as pd
 
+from . import motec_ld
+
 logger = logging.getLogger(__name__)
 
-IMPORT_EXTENSIONS = (".csv",)
+IMPORT_EXTENSIONS = (".ld", ".csv")
+
+# ACC .ld channels each carry their own sample rate; these are treated as
+# stepped/discrete signals and resampled with nearest-neighbour (not linear)
+# so gear/flag values stay integral. Everything else is linearly interpolated.
+_LD_DISCRETE_CHANNELS = ("GEAR", "TC", "ABS")
+
+# A .ld reports raw SI-ish units (m/s, rad/s, ...) while the MoTeC *CSV* export
+# --- which the rest of this module was written against --- reports km/h, deg/s
+# etc. Normalise .ld channels to the CSV conventions so both paths feed the
+# reshape pipeline identically. Keyed off each channel's own reported unit.
+_MS = 3.6            # m/s -> km/h
+_RAD2DEG = 180.0 / np.pi
 G = 9.80665  # ACC exports G-forces in m/s^2; frontend wants G.
 
 # ACC MoTeC channel -> LMU pipeline table name (single `value` column)
@@ -39,6 +54,11 @@ CONTINUOUS_MAP = {
     "Distance":   "Lap Dist",       # m
 }
 GFORCE_MAP = {"G_LAT": "G Force Lat", "G_LON": "G Force Long"}  # /G below
+
+# ACC's steering sign is opposite to LMU's: a right-hand turn logs a negative
+# STEERANGLE, so the lap-analysis steering wheel spun the wrong way for ACC laps.
+# Negate it here so ACC matches LMU's convention (positive = right = wheel clockwise).
+_INVERT_SIGN_CHANNELS = ("STEERANGLE",)
 
 # 4-wheel groups (LF, RF, LR, RR) -> LMU table with value1..value4
 WHEEL_MAP = {
@@ -93,6 +113,95 @@ def load_motec_csv(path):
     return meta, cols
 
 
+def _dominant_duration(durations):
+    """Return the most common channel duration (in seconds).
+
+    Robust against a minority of channels logged over a different window than
+    the bulk of the telemetry. Durations are bucketed to 0.1s before voting.
+    """
+    from collections import Counter
+    buckets = Counter(round(d, 1) for d in durations)
+    return buckets.most_common(1)[0][0]
+
+
+def _normalize_ld_units(name, unit, data):
+    """Convert a .ld channel to the units the MoTeC-CSV pipeline expects.
+
+    Uses the channel's reported unit so files that already export km/h / deg/s
+    pass through untouched.
+    """
+    if name == "SPEED" and unit in ("m/s", "mps"):
+        return data * _MS
+    if name == "ROTY" and unit in ("rad/s", "rads", "rad"):
+        return data * _RAD2DEG
+    return data
+
+
+def load_motec_ld(path):
+    """Return (meta_header, channels) from a MoTeC .ld binary log.
+
+    Unlike the CSV export, a .ld has no explicit Time column and its channels
+    may be logged at different sample rates. We synthesise a uniform time base
+    at the highest channel frequency and resample every channel onto it, so the
+    result matches the shape `load_motec_csv` produces (a dict of equal-length
+    arrays plus a "Time" key) and flows through the identical reshape pipeline.
+    """
+    head, channs = motec_ld.read_ldfile(path)
+
+    # Collect (freq, unit, decoded samples) for every channel we can read.
+    raw = {}
+    for c in channs:
+        if not c.name or not c.freq:
+            continue
+        try:
+            data = np.asarray(c.data, dtype=float)
+        except Exception as e:  # unknown dtype / truncated data -> skip channel
+            logger.warning("Skipping .ld channel %s: %s", c.name, e)
+            continue
+        if data.size:
+            raw[c.name] = (float(c.freq), (c.unit or "").strip().lower(), data)
+
+    if not raw:
+        raise ValueError("No readable channels found in .ld file.")
+
+    # Uniform time grid. Sampling rate = the highest present. For the span we
+    # use the DOMINANT channel duration, not the max: ACC .ld files can carry a
+    # few auxiliary channels (engine/TIME) logged over a longer window than the
+    # motion channels, and stretching the grid to them would extrapolate speed/
+    # yaw flat for the excess time -- reconstructing a garbage runaway track.
+    ref_freq = max(freq for freq, _, _ in raw.values())
+    duration = _dominant_duration([len(data) / freq for freq, _, data in raw.values()])
+    n = int(round(duration * ref_freq)) + 1
+    time = np.arange(n, dtype=float) / ref_freq
+
+    channels = {"Time": time}
+    for name, (freq, unit, data) in raw.items():
+        src_t = np.arange(len(data), dtype=float) / freq
+        if name in _LD_DISCRETE_CHANNELS:
+            # Step signal: hold the last sample (nearest-previous) to keep values integral.
+            idx = np.clip(np.searchsorted(src_t, time, side="right") - 1, 0, len(data) - 1)
+            resampled = data[idx]
+        else:
+            resampled = np.interp(time, src_t, data)
+        channels[name] = _normalize_ld_units(name, unit, resampled)
+
+    # Prefer the richer event/venue metadata, falling back to the header fields
+    # (ACC populates the header venue/vehicle directly).
+    venue = ""
+    if head.event and head.event.venue and head.event.venue.name:
+        venue = head.event.venue.name
+    venue = venue or (head.venue or "")
+    vehicle = head.vehicleid or ""
+    if head.event and head.event.venue and head.event.venue.vehicle:
+        vehicle = head.event.venue.vehicle.id or vehicle
+
+    meta = {"Venue": venue, "Vehicle": vehicle, "Driver": head.driver or ""}
+    if head.datetime:
+        meta["Log Date"] = head.datetime.strftime("%Y-%m-%d")
+        meta["Log Time"] = head.datetime.strftime("%H:%M:%S")
+    return meta, channels
+
+
 def reconstruct_gps(time, speed_kmh, yaw_deg_s):
     """Reconstruct a GPS-like track path from speed + yaw rate (ACC has no GPS).
 
@@ -135,7 +244,10 @@ def _build_tables(meta, ch):
 
     for src, dst in CONTINUOUS_MAP.items():
         if src in ch:
-            tables[dst] = pd.DataFrame({"value": np.nan_to_num(ch[src]).astype(float)})
+            vals = np.nan_to_num(ch[src]).astype(float)
+            if src in _INVERT_SIGN_CHANNELS:
+                vals = -vals
+            tables[dst] = pd.DataFrame({"value": vals})
     for src, dst in GFORCE_MAP.items():
         if src in ch:
             tables[dst] = pd.DataFrame({"value": np.nan_to_num(ch[src]).astype(float) / G})
@@ -193,6 +305,8 @@ def convert_to_duckdb(src_path: str, output_dir: str = None, output_path: str = 
     ext = os.path.splitext(src_path)[1].lower()
     if ext == ".csv":
         meta, ch = load_motec_csv(src_path)
+    elif ext == ".ld":
+        meta, ch = load_motec_ld(src_path)
     else:
         raise ValueError(f"Unsupported import type: {ext}")
 

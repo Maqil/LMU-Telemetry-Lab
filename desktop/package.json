@@ -9,7 +9,7 @@
     },
     "build": {
         "appId": "com.lmu.telemetry.lab",
-        "productName": "LMU Telemetry Lab",
+        "productName": "SIM Telemetry Lab",
         "directories": {
             "output": "../dist-electron"
         },

@@ -755,7 +755,7 @@ export const TrackMap3D = ({ onToggleExpand, isAnimating = false }: { onToggleEx
     const zScale = useTelemetryStore(state => state.zScale);
     const [hoverInfo, setHoverInfo] = useState<{ p: any, pos: { x: number, y: number } } | null>(null);
     const [isHovering, setIsHovering] = useState(false);
-    const [viewMode, setViewMode] = useState<'free' | 'follow' | 'headingUp'>('free');
+    const [viewMode, setViewMode] = useState<'free' | 'follow' | 'headingUp'>('follow');
     const showMiniMap = useTelemetryStore(state => state.showMiniMap);
     const setShowMiniMap = useTelemetryStore(state => state.setShowMiniMap);
     const [resetKey, setResetKey] = useState(0);

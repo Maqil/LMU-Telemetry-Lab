@@ -27,7 +27,7 @@ logger.info("=== Application Starting ===")
 logger.info(f"Executable: {sys.executable}")
 logger.info(f"Log File: {log_file}")
 
-app = FastAPI(title="LMU Telemetry Lab API")
+app = FastAPI(title="SIM Telemetry Lab API")
 
 
 from app.api.endpoints import router as api_router

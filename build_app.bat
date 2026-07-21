@@ -4,7 +4,7 @@ setlocal enabledelayedexpansion
 :: 1. Initialize
 set APP_VERSION=1.5.0
 echo ===================================================
-echo [START] Building LMU Telemetry Lab v%APP_VERSION%
+echo [START] Building SIM Telemetry Lab v%APP_VERSION%
 echo ===================================================
 cd /d "%~dp0"
 echo [LOG] Current Path: %CD%
@@ -12,7 +12,7 @@ echo.
 
 :: 2. Cleanup
 echo [0/4] Cleaning up environment...
-taskkill /F /IM "LMU Telemetry Lab.exe" /T 2>nul
+taskkill /F /IM "SIM Telemetry Lab.exe" /T 2>nul
 taskkill /F /IM "lmu-telemetry-backend.exe" /T 2>nul
 
 echo [LOG] Checking port 8000...

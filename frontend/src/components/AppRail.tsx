@@ -19,17 +19,23 @@ interface RailItemProps {
     label: string;
     active: boolean;
     disabled?: boolean;
+    /** Keep the icon's original colour while disabled (skip the grayscale dim). */
+    keepColor?: boolean;
     onClick?: () => void;
     children: React.ReactNode;
 }
 
-const RailItem = ({ label, active, disabled, onClick, children }: RailItemProps) => (
+const RailItem = ({ label, active, disabled, keepColor, onClick, children }: RailItemProps) => {
+    const disabledClass = keepColor
+        ? 'opacity-60 cursor-not-allowed'
+        : 'opacity-30 cursor-not-allowed grayscale';
+    return (
     <Tooltip text={disabled ? `${label} (coming soon)` : label} position="right" delay={100}>
         <button
             onClick={disabled ? undefined : onClick}
             disabled={disabled}
             className={`relative w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 group
-                ${disabled ? 'opacity-30 cursor-not-allowed grayscale' : 'cursor-pointer hover:bg-white/[0.06]'}
+                ${disabled ? disabledClass : 'cursor-pointer hover:bg-white/[0.06]'}
                 ${active ? 'bg-blue-500/10' : ''}`}
         >
             {/* Left active indicator bar */}
@@ -41,7 +47,8 @@ const RailItem = ({ label, active, disabled, onClick, children }: RailItemProps)
             {children}
         </button>
     </Tooltip>
-);
+    );
+};
 
 interface AppRailProps {
     /** Whether the Data Sources (FileManager) view is currently open. */
@@ -69,7 +76,7 @@ export const AppRail = memo(({ showDataSources, onOpenDataSources }: AppRailProp
             {/* App logo */}
             <img
                 src="/lmu_logo.png"
-                alt="LMU Telemetry Lab"
+                alt="SIM Telemetry Lab"
                 className="w-9 h-9 object-contain mb-1 drop-shadow-[0_0_10px_rgba(59,130,246,0.35)]"
             />
 
@@ -83,15 +90,6 @@ export const AppRail = memo(({ showDataSources, onOpenDataSources }: AppRailProp
             <div className="w-7 h-px bg-white/10 my-1.5" />
 
             {/* Sims */}
-            <RailItem label="Assetto Corsa" active={false} disabled>
-                {/* ac.svg ships as black paths ??render it light so it reads on the dark rail. */}
-                <img
-                    src="/games/ac.svg"
-                    alt="Assetto Corsa"
-                    className="w-7 h-7 object-contain [filter:brightness(0)_invert(1)]"
-                />
-            </RailItem>
-
             <RailItem label="Assetto Corsa Competizione" active={accActive} onClick={() => selectGame('ACC')}>
                 <img
                     src="/games/acc.svg"
@@ -105,6 +103,15 @@ export const AppRail = memo(({ showDataSources, onOpenDataSources }: AppRailProp
                     src="/games/lmu.svg"
                     alt="Le Mans Ultimate"
                     className={`w-7 h-7 object-contain transition-all [filter:brightness(0)_invert(1)] ${lmuActive ? '' : 'opacity-75 group-hover:opacity-100'}`}
+                />
+            </RailItem>
+
+            <RailItem label="Assetto Corsa" active={false} disabled keepColor>
+                {/* Full-colour .ico ??no brightness/invert filter (that's only for the black SVGs). */}
+                <img
+                    src="/games/ac.ico"
+                    alt="Assetto Corsa"
+                    className="w-7 h-7 object-contain"
                 />
             </RailItem>
 

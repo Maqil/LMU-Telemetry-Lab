@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 CLI wrapper: convert an ACC MoTeC CSV export into a DuckDB file the
-LMU Telemetry Lab backend can read.
+SIM Telemetry Lab backend can read.
 
 The app's Import button does this automatically now (see backend acc_importer);
 this CLI is handy for batch conversion.

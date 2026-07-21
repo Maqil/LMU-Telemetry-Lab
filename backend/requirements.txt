@@ -1,0 +1,18 @@
+# LMU Telemetry Lab — backend dependencies
+# Install with:  pip install -r backend/requirements.txt
+
+# Web framework + ASGI server
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+pydantic>=2.6.0
+
+# File upload support for FastAPI (UploadFile / File)
+python-multipart>=0.0.9
+
+# Data / telemetry processing
+duckdb>=0.10.0
+pandas>=2.2.0
+numpy>=1.26.0
+
+# HTTP client (elevation service, Discord sharing, car lookup)
+requests>=2.31.0

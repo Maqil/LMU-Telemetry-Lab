@@ -324,10 +324,11 @@ async def pick_and_upload(req: OpenPathRequest, profile_id: Optional[str] = Quer
         # Open the native file picker with multi-select support
         file_paths = filedialog.askopenfilenames(
             initialdir=initial_dir,
-            title="Select Telemetry File(s) (.duckdb / ACC MoTeC .csv)",
+            title="Select Telemetry File(s) (.duckdb / ACC MoTeC .ld / .csv)",
             filetypes=[
-                ("Telemetry files", "*.duckdb *.csv"),
+                ("Telemetry files", "*.duckdb *.ld *.csv"),
                 ("DuckDB files", "*.duckdb"),
+                ("ACC MoTeC log", "*.ld"),
                 ("ACC MoTeC CSV", "*.csv"),
                 ("All files", "*.*"),
             ]
@@ -345,9 +346,16 @@ async def pick_and_upload(req: OpenPathRequest, profile_id: Optional[str] = Quer
         for path_item in file_paths:
             if not path_item:
                 continue
-            # ACC MoTeC exports are converted into the .duckdb schema; native
-            # .duckdb files are copied straight into the data directory.
-            if is_convertible(path_item) and not path_item.lower().endswith(".duckdb"):
+            lower_item = path_item.lower()
+            # ACC MoTeC exports (.ld / .csv) are converted into the .duckdb
+            # schema; native .duckdb files are copied straight into the data
+            # directory. Anything else (e.g. the .ldx lap-index sidecar, which
+            # is not needed) is skipped rather than copied in as junk.
+            if lower_item.endswith(".duckdb"):
+                filename = os.path.basename(path_item)
+                dest_path = os.path.join(data_dir, filename)
+                shutil.copy2(path_item, dest_path)
+            elif is_convertible(path_item):
                 try:
                     out_path = convert_to_duckdb(path_item, output_dir=data_dir)
                     filename = os.path.basename(out_path)
@@ -355,9 +363,8 @@ async def pick_and_upload(req: OpenPathRequest, profile_id: Optional[str] = Quer
                     logger.error(f"ACC import failed for {path_item}: {e}")
                     continue
             else:
-                filename = os.path.basename(path_item)
-                dest_path = os.path.join(data_dir, filename)
-                shutil.copy2(path_item, dest_path)
+                logger.info(f"Skipping unsupported file: {path_item}")
+                continue
             last_filename = filename
             imported_ids.append(filename)
             
@@ -533,8 +540,9 @@ async def list_sessions(profile_id: Optional[str] = Query("guest")):
 async def upload_session(file: UploadFile = File(...), profile_id: Optional[str] = Query("guest")):
     """Upload a session file.
 
-    Accepts a native LMU .duckdb file, or an ACC MoTeC CSV export (.csv)
-    which is converted to the .duckdb schema on the fly.
+    Accepts a native LMU .duckdb file, or an ACC MoTeC export -- either the
+    binary log (.ld) or a CSV export (.csv) -- which is converted to the
+    .duckdb schema on the fly.
     """
     from ..services.acc_importer import is_convertible, convert_to_duckdb
     import shutil, tempfile
@@ -575,7 +583,7 @@ async def upload_session(file: UploadFile = File(...), profile_id: Optional[str]
                 pass
 
     raise HTTPException(status_code=400,
-                        detail="Only .duckdb or ACC MoTeC .csv files are allowed")
+                        detail="Only .duckdb or ACC MoTeC .ld / .csv files are allowed")
 
 class RenameRequest(BaseModel):
     new_name: str

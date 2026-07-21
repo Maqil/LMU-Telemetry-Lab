@@ -34,8 +34,10 @@ fused_data_*/
 *.log
 /backend/backend_debug.log
 *.txt
+!backend/requirements.txt
 *.html
 !landing-page/index.html
+!frontend/index.html
 
 # ===========================
 # Data / Metadata JSON (root level)

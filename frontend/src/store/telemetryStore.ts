@@ -150,6 +150,7 @@ export interface TelemetryState {
         fastestLap?: number;
         selectedLapInfo?: any;
         zBase?: number;
+        flipY?: boolean;
     } | null;
     referenceTrack3DData: {
         baseMap: any[];
@@ -163,6 +164,7 @@ export interface TelemetryState {
         fastestLap?: number;
         selectedLapInfo?: any;
         zBase?: number;
+        flipY?: boolean;
     } | null;
     staticTrackBaseData: {
         baseMap: any[];

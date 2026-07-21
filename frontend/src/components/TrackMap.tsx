@@ -2350,6 +2350,11 @@ export const TrackMap = React.memo(({ isExpanded = false, onToggleExpand, isMini
             effRot = optimalRotation;
         }
 
+        // Guard: effK is a zoom scale and must be a positive, finite number.
+        // Cursor radii are drawn as `radius / effK`, so a non-positive or
+        // non-finite effK would pass a negative/NaN radius to arc() and throw.
+        if (!Number.isFinite(effK) || effK <= 0) return;
+
         // B. Begin Cursor Drawing
         canvas.width = width;
         canvas.height = height;
