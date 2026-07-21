@@ -302,6 +302,52 @@ export const apiClient = {
         return res.json();
     },
 
+    // --- Lap Video ---
+    async pickVideoFile(
+        path: string,
+        profileId: string = 'guest',
+        bounds?: { x: number, y: number, width: number, height: number }
+    ): Promise<{ status: string, path?: string, filename?: string }> {
+        const res = await fetch(`${API_BASE}/system/pick-video?profile_id=${profileId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path, ...bounds }),
+        });
+        if (!res.ok) throw new Error('Video picker failed');
+        return res.json();
+    },
+
+    async getSessionVideo(sessionId: string, profileId: string = 'guest'): Promise<import('../types').VideoAssociation> {
+        return this._fetchJson(`/sessions/${encodeURIComponent(sessionId)}/video?profile_id=${profileId}`);
+    },
+
+    async setSessionVideo(sessionId: string, videoPath: string, profileId: string = 'guest'): Promise<import('../types').VideoAssociation> {
+        return this._fetchJson(`/sessions/${encodeURIComponent(sessionId)}/video?profile_id=${profileId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ session_id: sessionId, video_path: videoPath }),
+        });
+    },
+
+    async setSessionVideoOffset(sessionId: string, lap: number, offset: number, profileId: string = 'guest'): Promise<import('../types').VideoAssociation> {
+        return this._fetchJson(`/sessions/${encodeURIComponent(sessionId)}/video/offset?profile_id=${profileId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ session_id: sessionId, lap, offset }),
+        });
+    },
+
+    async clearSessionVideo(sessionId: string, profileId: string = 'guest'): Promise<void> {
+        await this._fetchJson(`/sessions/${encodeURIComponent(sessionId)}/video?profile_id=${profileId}`, {
+            method: 'DELETE',
+        });
+    },
+
+    /** Same-origin stream URL (dev: vite proxy; packaged: Electron loads from :8000). */
+    getVideoStreamUrl(sessionId: string, profileId: string = 'guest'): string {
+        return `${API_BASE}/session-video/stream?session_id=${encodeURIComponent(sessionId)}&profile_id=${profileId}`;
+    },
+
     async getDiscordConfig(): Promise<{ is_configured: boolean; invite_url: string }> {
         return this._fetchJson('/discord/config');
     },

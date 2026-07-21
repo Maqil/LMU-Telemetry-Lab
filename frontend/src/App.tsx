@@ -28,8 +28,10 @@ import { UpdateNotifier } from './components/UpdateNotifier';
 import { CarSetupView } from './components/CarSetupView';
 import { DiscordShareModal } from './components/DiscordShareModal';
 import { AppRail } from './components/AppRail';
+import { VideoPanel } from './components/VideoPanel';
 import {
   ArrowLeft,
+  Film,
   Settings,
   Users,
   ChevronDown,
@@ -105,6 +107,8 @@ function App() {
   const isProcessingTrack = useTelemetryStore(state => state.isProcessingTrack);
   const show3DLab = useTelemetryStore(state => state.show3DLab);
   const setShow3DLab = useTelemetryStore(state => state.setShow3DLab);
+  const isVideoPanelOpen = useTelemetryStore(state => state.isVideoPanelOpen);
+  const toggleVideoPanel = useTelemetryStore(state => state.toggleVideoPanel);
   const showMiniSectors = useTelemetryStore(state => state.showMiniSectors);
   const setShowMiniSectors = useTelemetryStore(state => state.setShowMiniSectors);
   const isLeftSidebarCollapsed = useTelemetryStore(state => state.isLeftSidebarCollapsed);
@@ -1364,6 +1368,19 @@ function App() {
                       3D
                     </button>
                   </div>
+
+                  {/* Lap video panel toggle */}
+                  <Tooltip text="TOGGLE SYNCED LAP VIDEO" position="bottom">
+                    <button
+                      onClick={() => toggleVideoPanel()}
+                      className={`relative flex items-center justify-center h-8 w-8 rounded-md border glass-container transition-all ${isVideoPanelOpen ? 'border-blue-500/50 bg-blue-500/10 text-blue-400' : 'border-white/10 bg-[#1a1a1e]/60 text-gray-400 hover:text-white hover:border-white/20'}`}
+                      onMouseMove={(e) => handleGlassMouseMove(e, 0.2)}
+                    >
+                      <div className="glass-content flex items-center justify-center">
+                        <Film size={15} />
+                      </div>
+                    </button>
+                  </Tooltip>
                 </div>
               )}
 
@@ -1485,6 +1502,8 @@ function App() {
                             isAnimating={isMapTransitioning}
                           />
                         )}
+                        {/* Synced lap video overlay (floats inside the map section) */}
+                        {isVideoPanelOpen && <VideoPanel />}
                       </div>
                       {!isMapMaximized && (
                         <Tooltip text="DOUBLE-CLICK TO RESET" position="top">

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Session, Lap, TelemetryData, SessionMetadata, Profile, ChartConfig, CarSetupData } from '../types';
+import type { Session, Lap, TelemetryData, SessionMetadata, Profile, ChartConfig, CarSetupData, VideoAssociation } from '../types';
 import { apiClient } from '../api/client';
 
 // Helper for finding fractional index in a mapped channel array (Time, Distance)
@@ -184,6 +184,10 @@ export interface TelemetryState {
     smoothCursorIndex: number | null; // Float for interpolation
     cameraMode: 'static' | 'follow' | 'heading-up';
     followZoom: number;
+
+    // Lap video
+    videoAssociation: VideoAssociation | null;
+    isVideoPanelOpen: boolean;
 
     // Profile Management
     profiles: Profile[];
@@ -370,6 +374,12 @@ export interface TelemetryState {
     updateProfile: (profileId: string, name: string) => Promise<void>;
     deleteProfile: (profileId: string) => Promise<void>;
     setPlaybackTime: (time: number) => void;
+    // Lap video actions
+    toggleVideoPanel: () => void;
+    loadVideoAssociation: () => Promise<void>;
+    pickAndAssociateVideo: (bounds?: { x: number; y: number; width: number; height: number }) => Promise<void>;
+    setLapVideoOffset: (lap: number, offset: number) => Promise<void>;
+    clearVideoAssociation: () => Promise<void>;
     uploadAvatar: (profileId: string, file: File) => Promise<void>;
     syncReferenceIndex: () => void;
     syncFromElapsed: (elapsed: number) => void; // NEW: Decoupled time synchronization
@@ -656,6 +666,9 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
     smoothCursorIndex: null,
     cameraMode: 'static',
     followZoom: 50, // Default for the 1-100 range
+
+    videoAssociation: null,
+    isVideoPanelOpen: false,
 
     profiles: [],
     activeProfileId: null,
@@ -1657,6 +1670,10 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
                 smoothCursorIndex: startIdx,
             });
 
+            // Re-associate any saved lap video for this session (per-lap offset is read
+            // reactively by VideoPanel from perLapOffsets[selectedLapIdx]).
+            get().loadVideoAssociation();
+
             // 5. Fetch Reference 3D Track (Fastest Valid Lap)
             if (defaultLap) {
                 try {
@@ -2253,6 +2270,64 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
     setPlaybackTime: (time: number) => {
         set({ playbackElapsed: time });
         get().syncFromElapsed(time);
+    },
+
+    // --- Lap video ---
+    toggleVideoPanel: () => set(state => ({ isVideoPanelOpen: !state.isVideoPanelOpen })),
+
+    loadVideoAssociation: async () => {
+        const { currentSessionId, activeProfileId } = get();
+        if (!currentSessionId) { set({ videoAssociation: null }); return; }
+        try {
+            const assoc = await apiClient.getSessionVideo(currentSessionId, activeProfileId || 'guest');
+            set({ videoAssociation: (assoc && assoc.videoPath) ? assoc : null });
+        } catch (e) {
+            console.error('Failed to load video association:', e);
+            set({ videoAssociation: null });
+        }
+    },
+
+    pickAndAssociateVideo: async (bounds) => {
+        const { currentSessionId, activeProfileId } = get();
+        if (!currentSessionId) return;
+        const profileId = activeProfileId || 'guest';
+        try {
+            const picked = await apiClient.pickVideoFile('', profileId, bounds);
+            if (picked.status !== 'success' || !picked.path) return;
+            const assoc = await apiClient.setSessionVideo(currentSessionId, picked.path, profileId);
+            set({ videoAssociation: assoc });
+        } catch (e) {
+            console.error('Failed to pick/associate video:', e);
+            set({ error: (e as Error).message });
+        }
+    },
+
+    setLapVideoOffset: async (lap: number, offset: number) => {
+        const { currentSessionId, activeProfileId, videoAssociation } = get();
+        if (!currentSessionId || !videoAssociation) return;
+        // Optimistic update so the video re-aligns immediately.
+        set({
+            videoAssociation: {
+                ...videoAssociation,
+                perLapOffsets: { ...videoAssociation.perLapOffsets, [String(lap)]: offset },
+            },
+        });
+        try {
+            await apiClient.setSessionVideoOffset(currentSessionId, lap, offset, activeProfileId || 'guest');
+        } catch (e) {
+            console.error('Failed to save video offset:', e);
+        }
+    },
+
+    clearVideoAssociation: async () => {
+        const { currentSessionId, activeProfileId } = get();
+        if (!currentSessionId) return;
+        try {
+            await apiClient.clearSessionVideo(currentSessionId, activeProfileId || 'guest');
+        } catch (e) {
+            console.error('Failed to clear video association:', e);
+        }
+        set({ videoAssociation: null });
     }
 }));
 

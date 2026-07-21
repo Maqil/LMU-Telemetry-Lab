@@ -382,6 +382,119 @@ async def pick_and_upload(req: OpenPathRequest, profile_id: Optional[str] = Quer
         logger.error(f"Native file picker failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
+# ---------------------------------------------------------------------------
+# Lap video (MP4) association + streaming
+# ---------------------------------------------------------------------------
+
+class VideoAssociateRequest(BaseModel):
+    session_id: str
+    video_path: str
+
+
+class VideoOffsetRequest(BaseModel):
+    session_id: str
+    lap: int
+    offset: float
+
+
+@router.post("/system/pick-video")
+async def pick_video(req: OpenPathRequest, profile_id: Optional[str] = Query("guest")):
+    """Open a native picker for a video file; returns the chosen absolute path.
+
+    The file is NOT copied -- we keep the path and stream it via /session-video/stream.
+    """
+    import tkinter as tk
+    from tkinter import filedialog
+
+    try:
+        try:
+            from ctypes import windll
+            windll.shcore.SetProcessDpiAwareness(1)
+        except Exception:
+            try:
+                windll.user32.SetProcessDPIAware()
+            except Exception:
+                pass
+
+        root = tk.Tk()
+        root.withdraw()
+        if req.x is not None and req.y is not None and req.width is not None and req.height is not None:
+            root.geometry(f"+{req.x + (req.width // 2)}+{req.y + (req.height // 2)}")
+        root.attributes('-topmost', True)
+
+        initial_dir = req.path if (req.path and os.path.exists(req.path)) else None
+        video_path = filedialog.askopenfilename(
+            initialdir=initial_dir,
+            title="Select lap video",
+            filetypes=[
+                ("Video files", "*.mp4 *.mov *.m4v *.webm"),
+                ("All files", "*.*"),
+            ],
+        )
+        root.destroy()
+
+        if not video_path:
+            return {"status": "cancelled"}
+        return {"status": "success", "path": video_path, "filename": os.path.basename(video_path)}
+    except Exception as e:
+        logger.error(f"Video picker failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/sessions/{session_id}/video")
+async def get_session_video(session_id: str, profile_id: Optional[str] = Query("guest")):
+    from ..services import video_service
+    data_dir, _ = get_contextual_dirs(profile_id)
+    assoc = video_service.get_association(data_dir, session_id)
+    if not assoc:
+        return {"videoPath": None, "filename": None, "perLapOffsets": {}, "exists": False}
+    return assoc
+
+
+@router.post("/sessions/{session_id}/video")
+async def set_session_video(session_id: str, req: VideoAssociateRequest,
+                            profile_id: Optional[str] = Query("guest")):
+    from ..services import video_service
+    if not os.path.isfile(req.video_path):
+        raise HTTPException(status_code=400, detail="Video file not found on disk")
+    data_dir, _ = get_contextual_dirs(profile_id)
+    return video_service.set_video(data_dir, session_id, req.video_path)
+
+
+@router.put("/sessions/{session_id}/video/offset")
+async def set_session_video_offset(session_id: str, req: VideoOffsetRequest,
+                                   profile_id: Optional[str] = Query("guest")):
+    from ..services import video_service
+    data_dir, _ = get_contextual_dirs(profile_id)
+    return video_service.set_offset(data_dir, session_id, req.lap, req.offset)
+
+
+@router.delete("/sessions/{session_id}/video")
+async def delete_session_video(session_id: str, profile_id: Optional[str] = Query("guest")):
+    from ..services import video_service
+    data_dir, _ = get_contextual_dirs(profile_id)
+    video_service.remove(data_dir, session_id)
+    return {"status": "removed"}
+
+
+@router.get("/session-video/stream")
+async def stream_session_video(session_id: str, profile_id: Optional[str] = Query("guest")):
+    """Stream the video associated with a session. Starlette's FileResponse honours
+    the Range header (206 Partial Content), which is what enables <video> seeking."""
+    import mimetypes
+    from ..services import video_service
+    data_dir, _ = get_contextual_dirs(profile_id)
+    assoc = video_service.get_association(data_dir, session_id)
+    if not assoc or not assoc.get("videoPath"):
+        raise HTTPException(status_code=404, detail="No video associated with this session")
+    path = assoc["videoPath"]
+    if not os.path.isfile(path):
+        raise HTTPException(status_code=404, detail="Video file is missing (moved or deleted)")
+    media_type = mimetypes.guess_type(path)[0] or "video/mp4"
+    return FileResponse(path, media_type=media_type)
+
+
 @router.post("/profiles/{profile_id}/avatar")
 async def upload_profile_avatar(profile_id: str, file: UploadFile = File(...)):
     # Create profile-specific avatar dir

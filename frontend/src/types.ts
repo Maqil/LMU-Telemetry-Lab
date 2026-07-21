@@ -1,4 +1,12 @@
 
+export interface VideoAssociation {
+    videoPath: string | null;
+    filename?: string | null;
+    /** Per-lap sync offset (seconds). video.currentTime = offset + playbackElapsed. Keyed by lap number. */
+    perLapOffsets: Record<string, number>;
+    exists?: boolean;
+}
+
 export interface Session {
     id: string;
     path: string;
