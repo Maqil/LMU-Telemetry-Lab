@@ -50,7 +50,7 @@ export const FileManager: React.FC<FileManagerProps> = ({ onClose }) => {
     const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
     const [groupingMode, setGroupingMode] = useState<'track' | 'class' | 'car' | 'all'>(() => (localStorage.getItem('file_manager_grouping') as any) || 'track');
-    const [gameFilter, setGameFilter] = useState<'all' | 'LMU' | 'ACC'>(() => (localStorage.getItem('file_manager_game') as any) || 'all');
+    const gameFilter = useTelemetryStore(state => state.gameFilter);
     const [classSubModes, setClassSubModes] = useState<Record<string, 'track' | 'car'>>(() => JSON.parse(localStorage.getItem('file_manager_class_submodes') || '{}'));
     const containerRef = useRef<HTMLDivElement>(null);
     const [containerWidth, setContainerWidth] = useState(0);
@@ -81,10 +81,6 @@ export const FileManager: React.FC<FileManagerProps> = ({ onClose }) => {
     React.useEffect(() => {
         localStorage.setItem('file_manager_grouping', groupingMode);
     }, [groupingMode]);
-
-    React.useEffect(() => {
-        localStorage.setItem('file_manager_game', gameFilter);
-    }, [gameFilter]);
 
     // Per-game session counts for the LMU/ACC switch badges.
     const gameCounts = useMemo(() => ({
@@ -757,26 +753,7 @@ export const FileManager: React.FC<FileManagerProps> = ({ onClose }) => {
             )}
 
             <div className="px-4 pt-2 pb-2">
-                {/* Game switch: split LMU vs ACC laps */}
-                <div className="flex bg-white/5 p-1 rounded-xl border border-white/10 mb-3 relative">
-                    {(['all', 'LMU', 'ACC'] as const).map((g) => (
-                        <button
-                            key={g}
-                            onClick={() => setGameFilter(g)}
-                            className={`relative flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg transition-colors z-10 ${gameFilter === g ? 'text-white' : 'text-gray-400 hover:text-white'}`}
-                        >
-                            {gameFilter === g && (
-                                <motion.div
-                                    layoutId="activeGameTab"
-                                    className={`absolute inset-0 rounded-lg ${g === 'ACC' ? 'bg-amber-600 shadow-[0_0_15px_rgba(217,119,6,0.45)]' : g === 'LMU' ? 'bg-blue-600 shadow-[0_0_15px_rgba(37,99,235,0.45)]' : 'bg-white/15'}`}
-                                    transition={{ type: 'spring', bounce: 0, duration: 0.25 }}
-                                />
-                            )}
-                            <span className="relative z-20 text-[10px] font-black uppercase tracking-widest">{g === 'all' ? 'All' : g}</span>
-                            <span className="relative z-20 text-[9px] font-bold opacity-70">{gameCounts[g]}</span>
-                        </button>
-                    ))}
-                </div>
+                {/* Game filter is driven by the left navigation rail (AppRail). */}
                 <div className="flex items-center justify-between mb-3 px-1">
                     <div className="flex items-center gap-2">
                         <span className="text-[12px] font-black text-white uppercase tracking-[0.2em]">Files</span>

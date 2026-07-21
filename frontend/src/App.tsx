@@ -27,6 +27,7 @@ import { Lab3DRoot } from './components/Lab3D/Lab3DRoot';
 import { UpdateNotifier } from './components/UpdateNotifier';
 import { CarSetupView } from './components/CarSetupView';
 import { DiscordShareModal } from './components/DiscordShareModal';
+import { AppRail } from './components/AppRail';
 import {
   ArrowLeft,
   Settings,
@@ -1038,6 +1039,13 @@ function App() {
         <div className="absolute inset-0 z-[100]">
           <CarSetupView />
         </div>
+      )}
+      {/* Fixed left navigation rail (Home + per-sim selectors) */}
+      {!isMapMaximized && (
+        <AppRail
+          showDataSources={showFileManager || !currentSessionId}
+          onOpenDataSources={() => setShowFileManager(true)}
+        />
       )}
       {/* Sidebar - Data Controls (only in Data Sources view; session info now lives in the navbar popover) */}
       {!isMapMaximized && (showFileManager || !currentSessionId) && (

@@ -214,6 +214,7 @@ export interface TelemetryState {
     isLeftSidebarCollapsed: boolean;
     isRightPanelCollapsed: boolean;
     dashboardSyncMode: 'distance' | 'time';
+    gameFilter: 'all' | 'LMU' | 'ACC';
 
     showTelemetryOverlay: boolean; // NEW
     selectedWheel: string | null;  // NEW
@@ -295,6 +296,7 @@ export interface TelemetryState {
     setShowReferenceBrowser: (show: boolean) => void;
     setLeftSidebarCollapsed: (collapsed: boolean) => void;
     setRightPanelCollapsed: (collapsed: boolean) => void;
+    setGameFilter: (game: 'all' | 'LMU' | 'ACC') => void;
     setSingleLapXAxisMode: (mode: 'distance' | 'time') => void; // NEW
     setMapMarkerType: (type: 'arrow' | 'dot') => void; // NEW
     fetchSetup: (sessionId: string) => Promise<void>;
@@ -670,6 +672,7 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
 
     isLeftSidebarCollapsed: localStorage.getItem('left_sidebar_collapsed') === 'true',
     isRightPanelCollapsed: localStorage.getItem('right_panel_collapsed') === 'true',
+    gameFilter: (localStorage.getItem('file_manager_game') as any) || 'all',
     dashboardSyncMode: (localStorage.getItem('dashboard_sync_mode') as 'distance' | 'time') || 'distance',
     userWheelRotation: null, // Initialized in setProfile/fetchProfiles
     showTelemetryOverlay: true,
@@ -1206,6 +1209,10 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
     setRightPanelCollapsed: (collapsed) => {
         localStorage.setItem('right_panel_collapsed', String(collapsed));
         set({ isRightPanelCollapsed: collapsed });
+    },
+    setGameFilter: (game) => {
+        localStorage.setItem('file_manager_game', game);
+        set({ gameFilter: game });
     },
     setSingleLapXAxisMode: (mode) => {
         localStorage.setItem('singleLapXAxisMode', mode);
