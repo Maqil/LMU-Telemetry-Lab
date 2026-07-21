@@ -1184,6 +1184,16 @@ export const TelemetryChart = React.memo<TelemetryChartProps>(({
         // --- 3. Dynamic Series Config for uPlot ---
         const uSeries: uPlot.Series[] = [{}]; // X-Axis
 
+        // Bigger + smoother lines apply ONLY to the Driver tab; every other tab keeps
+        // its original rendering. Within Driver, smooth (spline) continuous channels but
+        // keep straight segments for stepped/pulse channels (Gear, TC, ABS) and Time Delta.
+        const isDriverTab = activeChartCategory === 'Driver';
+        const isStepChannel = channel === 'Gear'
+            || (activeChartCategory === 'Systems' && (channel === 'TC' || channel === 'ABS'));
+        const smoothPaths = (isDriverTab && !isStepChannel && channel !== 'Time Delta')
+            ? (uPlot.paths as any).spline?.()
+            : undefined;
+        const LINE_WIDTH = 1.5;
 
         // Current Lap Series
         currentSeries.forEach((s, i) => {
@@ -1192,6 +1202,7 @@ export const TelemetryChart = React.memo<TelemetryChartProps>(({
             uSeries.push({
                 label: info.label,
                 stroke: channel === 'Time Delta' ? '#22c55e' : info.stroke,
+                width: isDriverTab ? LINE_WIDTH : undefined,
                 paths: channel === 'Time Delta'
                     ? (u: uPlot, seriesIdx: number, idx0: number, idx1: number) => {
                         const { ctx } = u;
@@ -1271,7 +1282,7 @@ export const TelemetryChart = React.memo<TelemetryChartProps>(({
                         ctx.restore();
                         return null;
                     }
-                    : undefined,
+                    : smoothPaths,
                 points: isElectronics ? {
                     show: true,
                     filter: (u: uPlot, seriesIdx: number) => {
@@ -1302,8 +1313,9 @@ export const TelemetryChart = React.memo<TelemetryChartProps>(({
             uSeries.push({
                 label: `Ref ${info.label}`,
                 stroke: 'rgba(218, 165, 32, 0.6)', // Golden with opacity
-                width: isElectronics ? 2 : 2,
+                width: isDriverTab ? LINE_WIDTH : 2,
                 dash: [5, 5],
+                paths: smoothPaths,
                 points: isElectronics ? {
                     show: true,
                     filter: (u: uPlot, seriesIdx: number) => {

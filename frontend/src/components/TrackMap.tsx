@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useMemo, useState, useCallback, memo } from 'react';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { useTelemetryStore, type TelemetryState } from '../store/telemetryStore';
+import { MapDimensionToggle } from './MapDimensionToggle';
 import type { Lap, ReferenceLap } from '../types';
 import { Tooltip } from './ui/Tooltip';
 import { handleGlassMouseMove } from '../utils/glassEffect';
@@ -3220,6 +3221,7 @@ export const TrackMap = React.memo(({ isExpanded = false, onToggleExpand, isMini
                 {!isMiniMap && !isAnimating && (
                     <div className="absolute top-4 left-4 z-20 pointer-events-auto flex flex-row items-center gap-3 select-none">
                         <h3 className="text-gray-500 text-[12px] font-black uppercase tracking-[0.2em] drop-shadow-md transition-all duration-300 group-hover/map:text-white group-hover/map:drop-shadow-[0_0_10px_rgba(255,255,255,0.8)] cursor-default">Track Map</h3>
+                        <MapDimensionToggle />
                         {(selectedSegIdx !== null || selectedSectorIdx !== null) && (
                             <button
                                 onClick={(e) => {

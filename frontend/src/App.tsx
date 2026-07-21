@@ -642,21 +642,21 @@ function App() {
     return () => document.removeEventListener('mousedown', onDown);
   }, [showSessionPopover]);
 
-  // Default to the centered/expanded map so sessions open with the big track map
-  // in the middle instead of docked in the right panel.
-  const [isMapExpanded, setIsMapExpanded] = useState(true);
+  // Default to the side-by-side layout: charts on the left, map docked in the
+  // right panel. The expand toggle can still pop the map to a full-width top view.
+  const [isMapExpanded, setIsMapExpanded] = useState(false);
 
   // States for coordinated map animations.
-  // Initialized to a settled "expanded" layout so the first paint shows the
-  // centered map directly (no flash of the right-docked sidebar map).
-  const [shouldRenderSidebarMap, setShouldRenderSidebarMap] = useState(false);
-  const [isAnimatingSidebarMap, setIsAnimatingSidebarMap] = useState(false);
+  // Initialized to a settled "sidebar" (side-by-side) layout so the first paint
+  // shows the right-docked map directly (no flash of the expanded top map).
+  const [shouldRenderSidebarMap, setShouldRenderSidebarMap] = useState(true);
+  const [isAnimatingSidebarMap, setIsAnimatingSidebarMap] = useState(true);
   const [isResizingSidebar, setIsResizingSidebar] = useState(false);
   // Remote showReferenceBrowser state moved to store
   const showReferenceBrowser = useTelemetryStore(state => state.showReferenceBrowser);
   const setShowReferenceBrowser = useTelemetryStore(state => state.setShowReferenceBrowser);
-  const [shouldRenderExpandedMap, setShouldRenderExpandedMap] = useState(true);
-  const [isAnimatingExpandedMap, setIsAnimatingExpandedMap] = useState(true);
+  const [shouldRenderExpandedMap, setShouldRenderExpandedMap] = useState(false);
+  const [isAnimatingExpandedMap, setIsAnimatingExpandedMap] = useState(false);
 
   // Global Reset Effect: Synchronize all components to the lap start after major transitions
   // This mirrors the "Map Expansion" reset but applies it to lap and session switches too.
@@ -675,7 +675,7 @@ function App() {
   const didMountMapTransition = useRef(false);
   useEffect(() => {
     // Skip the very first run: initial state already reflects the default
-    // (expanded/centered) layout, so there's nothing to animate on load.
+    // (side-by-side/sidebar) layout, so there's nothing to animate on load.
     if (!didMountMapTransition.current) {
       didMountMapTransition.current = true;
       return;
@@ -703,24 +703,18 @@ function App() {
 
 
 
-  // Force map to expanded view when 3D mode is activated
-  useEffect(() => {
-    if (show3DLab && !isMapExpanded) {
-      setIsMapExpanded(true);
-    }
-  }, [show3DLab, isMapExpanded]);
+  // (3D no longer forces the expanded view — the map renders 3D in the right panel too.)
 
   const [isSwitchingDimension, setIsSwitchingDimension] = useState(false);
   const dimensionSwitchTimer = useRef<number | null>(null);
 
-  // Trigger loading state for 2D/3D Dimension switching
+  // Trigger loading state for 2D/3D Dimension switching (in either placement)
   useEffect(() => {
-    // Only trigger if we are already in expanded mode (to avoid double loading when first maximizing)
-    if (isMapExpanded) {
+    if (selectedLapIdx !== null) {
       setIsSwitchingDimension(true);
       dimensionSwitchTimer.current = Date.now();
     }
-  }, [show3DLab, isMapExpanded]); // Dependency on show3DLab
+  }, [show3DLab, isMapExpanded, selectedLapIdx]); // Dependency on show3DLab
 
   // Dynamic clear loading state based on actual backend data completion
   useEffect(() => {
@@ -752,12 +746,13 @@ function App() {
 
   // Default Layout Constants
   const DEFAULT_SIDEBAR_WIDTH = 320;
-  const DEFAULT_MAP_WIDTH = 350;
+  const DEFAULT_MAP_WIDTH = 540;
   const MAX_SIDEBAR_WIDTH = 500;
   const MAX_MAP_WIDTH = 600;
   const MIN_CHART_WIDTH = 520;
   const DEFAULT_TRACK_MAP_HEIGHT = 320;
   const DEFAULT_EXPANDED_MAP_HEIGHT = 400;
+  const LAP_DETAILS_HEIGHT = 300; // Fixed, non-resizable bottom section
 
   // Sidebar / Map Resizing
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
@@ -1121,7 +1116,7 @@ function App() {
           <div className={`bg-[#111115] border-b border-[#1f1f26] flex items-center justify-between px-6 py-2 flex-shrink-0 h-14 relative`}>
             {/* Logo / Title + Session Info / Data Sources entry points */}
             <div className="flex items-center gap-2">
-              <div
+              {/* <div
                 className="flex items-center gap-3 px-3 py-1.5 rounded-md transition-all duration-300 hover:bg-white/5 glass-container group/logo cursor-pointer"
                 onMouseMove={handleGlassMouseMove}
                 style={{ '--glass-hover-scale': '1', '--glass-content-scale': '1' } as any}
@@ -1132,12 +1127,11 @@ function App() {
                       <span className="text-white">Apex</span>
                       <span className="text-blue-500"> Lab</span>
                     </span>
-                    <span className="text-gray-500 font-bold text-[8px] uppercase tracking-[0.25em] mt-0.5 group-hover/logo:text-gray-300 transition-colors">Sim Racing Telemetry</span>
                   </div>
                   <span className="text-gray-500 font-bold text-sm select-none">|</span>
                   <span className="text-gray-400 font-black text-xs uppercase tracking-[0.15em] select-none group-hover/logo:text-white transition-colors">v{packageJson.version}</span>
                 </div>
-              </div>
+              </div> */}
 
               {/* Return to Data Sources button (sidebar entry point, since the sidebar is hidden in session view) */}
               {currentSessionId && !showFileManager && (
@@ -1148,7 +1142,6 @@ function App() {
                 >
                   <div className="glass-content flex items-center gap-1.5">
                     <ArrowLeft size={14} className="group-hover/data:-translate-x-0.5 transition-transform" />
-                    <span className="text-[10px] font-black uppercase tracking-widest">Return to Data Sources</span>
                   </div>
                 </button>
               )}
@@ -1188,12 +1181,10 @@ function App() {
                 </div>
               )}
 
-            </div>
-
-            {/* Center: Chart Category Tabs (Driver / Tyres / Dynamics / Handling / Systems) */}
-            {selectedLapIdx !== null && (
-              <div className="absolute left-1/2 -translate-x-1/2 z-[50] pointer-events-auto">
-                <div className="relative flex items-center px-2 py-1 bg-[#1a1a1e]/80 backdrop-blur-md rounded-full border border-white/10 h-9 shadow-[0_4px_12px_rgba(0,0,0,0.4)]" onMouseMove={handleGlassMouseMove}>
+              {/* Chart Category Tabs — placed right after the track button */}
+              {selectedLapIdx !== null && (
+                <div className="pointer-events-auto">
+                  <div className="relative flex items-center px-2 py-1 bg-[#1a1a1e]/80 backdrop-blur-md rounded-full border border-white/10 h-9 shadow-[0_4px_12px_rgba(0,0,0,0.4)]" onMouseMove={handleGlassMouseMove}>
                   <div className="relative flex items-center h-full">
                     {(() => {
                       const availableTabs = [
@@ -1241,7 +1232,8 @@ function App() {
                   </div>
                 </div>
               </div>
-            )}
+              )}
+            </div>
 
             {/* Right Side: Account / Profile Switcher */}
             <div className="flex items-center gap-3">
@@ -1347,28 +1339,6 @@ function App() {
                     </button>
                   </div>
 
-                  {/* 2D/3D Dimension Toggle - NAVBAR INTEGRATION */}
-                  <div className="relative flex items-center p-1 bg-[#1a1a1e]/60 backdrop-blur-md rounded-md border border-white/10 glass-container h-8 w-28 overflow-hidden group/toggle" onMouseMove={handleGlassMouseMove}>
-                    {/* Sliding Indicator Pill */}
-                    <div 
-                      className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-blue-600 rounded-lg shadow-[0_0_15px_rgba(37,99,235,0.4)] transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] z-0"
-                      style={{ left: !show3DLab ? '4px' : 'calc(50%)' }}
-                    />
-                    
-                    <button
-                      onClick={() => setShow3DLab(false)}
-                      className={`relative z-10 flex-1 h-full flex items-center justify-center text-[10px] font-black uppercase tracking-widest transition-colors duration-300 ${!show3DLab ? 'text-white' : 'text-gray-500 hover:text-gray-300'}`}
-                    >
-                      2D
-                    </button>
-                    <button
-                      onClick={() => setShow3DLab(true)}
-                      className={`relative z-10 flex-1 h-full flex items-center justify-center text-[10px] font-black uppercase tracking-widest transition-colors duration-300 ${show3DLab ? 'text-white' : 'text-gray-500 hover:text-gray-300'}`}
-                    >
-                      3D
-                    </button>
-                  </div>
-
                   {/* Lap video panel toggle */}
                   <Tooltip text="TOGGLE SYNCED LAP VIDEO" position="bottom">
                     <button
@@ -1445,8 +1415,9 @@ function App() {
         )}
 
         {/* Main Content Area Body */}
-        <div className="flex-1 flex flex-row min-h-0 relative">
-          <div className="flex-1 flex flex-row min-h-0 min-w-0">
+        <div className="flex-1 flex flex-col min-h-0 relative overflow-y-auto overflow-x-hidden custom-scrollbar">
+          {/* Top region: telemetry + map fill the full viewport height; scroll down for Lap Details */}
+          <div className="h-full flex-shrink-0 flex flex-row min-h-0 min-w-0">
             {/* Telemetry Charts Area */}
             <div className="flex-1 flex flex-col min-w-0 relative">
               {isLoading && (
@@ -1502,8 +1473,10 @@ function App() {
                             isAnimating={isMapTransitioning}
                           />
                         )}
-                        {/* Synced lap video overlay (floats inside the map section) */}
-                        {isVideoPanelOpen && <VideoPanel />}
+                        {/* Synced lap video overlay (expanded-map placement). Gated on
+                            isMapExpanded so it never co-mounts with the right-panel one
+                            during the expand/collapse transition. */}
+                        {isMapExpanded && isVideoPanelOpen && <VideoPanel />}
                       </div>
                       {!isMapMaximized && (
                         <Tooltip text="DOUBLE-CLICK TO RESET" position="top">
@@ -1586,8 +1559,8 @@ function App() {
               )}
             </div>
 
-              {/* Right: Map & Stats */}
-              {selectedLapIdx !== null && (
+              {/* Right: Map (side-by-side placement) */}
+              {selectedLapIdx !== null && !isMapExpanded && (
                 <>
                   {!isMapMaximized && (
                     <Tooltip text={isRightPanelCollapsed ? "" : "DOUBLE-CLICK TO RESET"} position="left">
@@ -1624,11 +1597,10 @@ function App() {
                     </Tooltip>
                   )}
 
-                  {!isMapMaximized && (
                     <div
                       ref={rightPanelRef}
-                      className={`border-l border-gray-800 bg-gray-950 flex flex-col transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] overflow-hidden`}
-                      style={{
+                      className={`bg-gray-950 flex flex-col overflow-hidden ${isMapMaximized ? 'fixed inset-0 z-[2000] p-0' : 'border-l border-gray-800 transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]'}`}
+                      style={isMapMaximized ? undefined : {
                         width: isRightPanelCollapsed ? 0 : mapWidth,
                         minWidth: isRightPanelCollapsed ? 0 : DEFAULT_MAP_WIDTH,
                         maxWidth: isRightPanelCollapsed ? 0 : MAX_MAP_WIDTH,
@@ -1637,76 +1609,65 @@ function App() {
                         transition: isDraggingMap ? 'none' : undefined
                       }}
                     >
-                      <div
-                        className={`flex flex-col relative flex-shrink-0 origin-top px-4 overflow-hidden p-2 min-h-0 ${shouldRenderSidebarMap ? 'my-3' : 'my-0'} ${isResizingTrackMap ? '' : 'transition-all duration-400 ease-[cubic-bezier(0.34,1.56,0.64,1)]'}`}
-                        style={{
-                          height: isAnimatingSidebarMap ? trackMapHeight + 52 : 0,
-                          opacity: isAnimatingSidebarMap ? 1 : 0,
-                          transform: isAnimatingSidebarMap ? 'scale(1) translateY(0)' : 'scale(0.95) translateY(-10px)',
-                          willChange: 'transform, opacity, height',
-                          transition: isResizingTrackMap ? 'none' : undefined
-                        }}
-                      >
-                        {shouldRenderSidebarMap && (
-                          <>
-                            <div className="flex-1 relative min-h-0 overflow-hidden">
-                              {/* Loading Overlay for Sidebar Map Transitions */}
-                              <MapTransitionOverlay isVisible={isSwitchingDimension || isMapTransitioning} />
-                              <TrackMap
-                                key={`sidebar-${currentSessionId}`}
-                                isExpanded={false}
-                                onToggleExpand={() => {
-                                  setIsMapTransitioning(true);
-                                  setIsMapExpanded(true);
-                                }}
-                                isMiniMap={false}
-                                allowRotation={false}
-                                isAnimating={!isAnimatingSidebarMap || isMapTransitioning}
-                              />
-                            </div>
-                            <Tooltip text="DOUBLE-CLICK TO RESET" position="top">
-                              <div
-                                className="w-full h-2 pt-4 pb-0 flex justify-center items-center cursor-row-resize group/sidebar-resizer relative z-50"
-                                onMouseDown={() => setIsResizingTrackMap(true)}
-                                onDoubleClick={() => setTrackMapHeight(DEFAULT_TRACK_MAP_HEIGHT)}
-                              >
-                                <div className="h-1.5 w-24 bg-white/10 backdrop-blur-3xl rounded-full transition-all duration-300 border border-white/20 group-hover/sidebar-resizer:w-36 group-hover/sidebar-resizer:bg-blue-500 group-hover/sidebar-resizer:scale-110 relative overflow-hidden">
-                                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent translate-x-[-100%] group-hover/sidebar-resizer:translate-x-[100%] transition-transform duration-1000" />
-                                </div>
-                              </div>
-                            </Tooltip>
-                          </>
-                        )}
-                      </div>
-
-                      <div className="pl-4 pr-[10px] pt-4 pb-4 flex-1 overflow-y-auto custom-scrollbar min-h-0 bg-transparent flex flex-col gap-3">
-                        <div className="flex items-center gap-3">
-                          <h3 className="text-gray-500 text-[12px] font-black uppercase tracking-[0.2em] px-1 whitespace-nowrap">Lap Details</h3>
-                          <div className="h-[1px] flex-1 bg-white/10 relative overflow-hidden group/linkage">
-                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] animate-[sweep_3s_infinite]" />
-                          </div>
-                        </div>
-
-                        {selectedLapIdx !== null ? (
-                          <LapDetailsPanel
-                            telemetryMaxStats={telemetryMaxStats}
-                            lineBounds={lineBounds}
-                            miniSectors={miniSectors}
-                            currentLapMiniSectorTimes={currentLapMiniSectorTimes}
-                            refLapMiniSectorTimes={refLapMiniSectorTimes}
-                            sessionMiniSectorBests={sessionMiniSectorBests}
-                            allLapsMiniSectorTimes={allLapsMiniSectorTimes}
-                            sessionBests={sessionBests}
+                      {/* Map fills the right panel; renders 3D or 2D. Video overlay floats inside. */}
+                      <div className={`flex-1 relative min-h-0 overflow-hidden ${isMapMaximized ? 'p-0' : 'p-2'}`}>
+                        <MapTransitionOverlay isVisible={isSwitchingDimension || isMapTransitioning} />
+                        {show3DLab ? (
+                          <TrackMap3D
+                            key={`sidebar-3d-${currentSessionId}`}
+                            onToggleExpand={() => {
+                              setIsMapTransitioning(true);
+                              setIsMapExpanded(true);
+                            }}
+                            isAnimating={isMapTransitioning}
                           />
                         ) : (
-                          <div className="text-gray-500 text-sm italic border-t border-gray-800 pt-4">Select a lap to view details</div>
+                          <TrackMap
+                            key={`sidebar-${currentSessionId}`}
+                            isExpanded={false}
+                            onToggleExpand={() => {
+                              setIsMapTransitioning(true);
+                              setIsMapExpanded(true);
+                            }}
+                            isMiniMap={false}
+                            allowRotation={false}
+                            isAnimating={isMapTransitioning}
+                          />
                         )}
+                        {isVideoPanelOpen && <VideoPanel />}
                       </div>
                     </div>
-                )}
               </>
             )}
           </div>
+
+          {/* ===== Bottom: fixed, non-resizable Lap Details section ===== */}
+          {selectedLapIdx !== null && !isMapMaximized && (
+            <div
+              className="w-full border-t border-gray-800 bg-gray-950 flex flex-col overflow-hidden flex-shrink-0"
+              style={{ height: LAP_DETAILS_HEIGHT }}
+            >
+              <div className="flex items-center gap-3 px-4 pt-3 pb-1 flex-shrink-0">
+                <h3 className="text-gray-500 text-[12px] font-black uppercase tracking-[0.2em] px-1 whitespace-nowrap">Lap Details</h3>
+                <div className="h-[1px] flex-1 bg-white/10 relative overflow-hidden group/linkage">
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] animate-[sweep_3s_infinite]" />
+                </div>
+              </div>
+              <div className="flex-1 overflow-auto custom-scrollbar min-h-0 px-4 pb-4">
+                <LapDetailsPanel
+                  horizontal
+                  telemetryMaxStats={telemetryMaxStats}
+                  lineBounds={lineBounds}
+                  miniSectors={miniSectors}
+                  currentLapMiniSectorTimes={currentLapMiniSectorTimes}
+                  refLapMiniSectorTimes={refLapMiniSectorTimes}
+                  sessionMiniSectorBests={sessionMiniSectorBests}
+                  allLapsMiniSectorTimes={allLapsMiniSectorTimes}
+                  sessionBests={sessionBests}
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Global Error Banner */}

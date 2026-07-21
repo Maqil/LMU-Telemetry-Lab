@@ -4,6 +4,8 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Text, PerspectiveCamera, Float, Stars, Bounds, Center, Line, Edges, Billboard } from '@react-three/drei';
 import * as THREE from 'three';
 import { useTelemetryStore } from '../store/telemetryStore';
+import { MapDimensionToggle } from './MapDimensionToggle';
+import { MapSteeringOverlay } from './MapSteeringOverlay';
 import { Layers, MousePointer2, Move3d, RotateCcw, Play, Pause, Compass, Target, Navigation, Maximize2, Minimize2, Activity, ChevronRight, Check, ChevronDown } from 'lucide-react';
 import { handleGlassMouseMove } from '../utils/glassEffect';
 import { Tooltip } from './ui/Tooltip';
@@ -447,20 +449,21 @@ const Car = ({ telemetryData, cursorIndex, smoothCursorIndex, isPlaying, center,
         const shape = new THREE.Shape();
         // Shifted Y coordinates so the pivot origin (0,0) is halfway between the tip and the geometric center.
         // Original tip was 0, center was -11.5 (23/2). Midpoint is -5.75.
-        // So we add 5.75 to all original Y values.
-        shape.moveTo(0, 5.75);       // Tip
-        shape.lineTo(8, -17.25);     // Bottom Right 
-        shape.lineTo(0, -12.25);     // Inner Bottom Dip
-        shape.lineTo(-8, -17.25);    // Bottom Left
-        shape.lineTo(0, 5.75);
+        // So we add 5.75 to all original Y values. Scaled down (S) to match the small dot marker.
+        const S = 0.45;
+        shape.moveTo(0 * S, 5.75 * S);       // Tip
+        shape.lineTo(8 * S, -17.25 * S);     // Bottom Right
+        shape.lineTo(0 * S, -12.25 * S);     // Inner Bottom Dip
+        shape.lineTo(-8 * S, -17.25 * S);    // Bottom Left
+        shape.lineTo(0 * S, 5.75 * S);
         return shape;
     }, []);
 
     const extrudeSettings = useMemo(() => ({
-        depth: 5.0,
+        depth: 1.2,          // flatter: much less Z-thickness (was 5.0)
         bevelEnabled: true,
-        bevelThickness: 1.2,
-        bevelSize: 0.8,
+        bevelThickness: 0.3,
+        bevelSize: 0.3,
         bevelSegments: 2
     }), []);
 
@@ -487,7 +490,7 @@ const Car = ({ telemetryData, cursorIndex, smoothCursorIndex, isPlaying, center,
                 </mesh>
             ) : (
                 <mesh rotation={[Math.PI / 2, 0, 0]}>
-                    <cylinderGeometry args={[10, 10, 4.0, 32]} />
+                    <cylinderGeometry args={[4, 4, 4.0, 32]} />
                     <meshBasicMaterial
                         color={carColor}
                         transparent={isReference}
@@ -506,7 +509,7 @@ const Car = ({ telemetryData, cursorIndex, smoothCursorIndex, isPlaying, center,
                 {mapMarkerType === 'arrow' ? (
                     <extrudeGeometry args={[arrowShape, extrudeSettings]} />
                 ) : (
-                    <cylinderGeometry args={[10, 10, 4.0, 32]} />
+                    <cylinderGeometry args={[4, 4, 4.0, 32]} />
                 )}
                 <meshBasicMaterial
                     color={carColor}
@@ -1200,9 +1203,10 @@ export const TrackMap3D = ({ onToggleExpand, isAnimating = false }: { onToggleEx
 
                 {/* Title & Z-Scale Overlay */}
                 <div className={`absolute top-5 left-5 z-[200] flex pointer-events-auto transition-all duration-300 ${isMapMaximized ? 'flex-row items-center gap-6' : 'flex-col items-start gap-1'}`}>
-                    <h3 className="text-gray-500 text-[12px] font-black uppercase tracking-[0.2em] drop-shadow-md transition-all duration-300 group-hover/map:text-white group-hover/map:drop-shadow-[0_0_10px_rgba(255,255,255,0.8)] cursor-default">
-                        3D Track Map
-                    </h3>
+
+                    {/* 2D/3D dimension toggle (sits above the Z Scale slider).
+                        In maximized mode the top-center MaximizedDimensionToggle handles this. */}
+                    {!isMapMaximized && <MapDimensionToggle />}
 
                     {/* Z-Scale Horizontal Slider */}
                     <div className={`flex items-center gap-3 h-4 ${isMapMaximized ? 'pl-4 border-l border-white/10' : ''}`} onMouseDown={(e) => e.stopPropagation()}>
@@ -1266,6 +1270,13 @@ export const TrackMap3D = ({ onToggleExpand, isAnimating = false }: { onToggleEx
                                 <TrackMap key="minimap-overlay" isMiniMap={true} />
                             </div>
                         </div>
+                    </div>
+                )}
+
+                {/* HUD: Steering wheel — below the minimap when docked, bottom-right when maximized */}
+                {!isAnimating && (
+                    <div className={`absolute ${isMapMaximized ? 'bottom-8 left-8' : 'top-[10rem] right-4'} z-[100] pointer-events-none`}>
+                        <MapSteeringOverlay />
                     </div>
                 )}
 
@@ -1397,8 +1408,9 @@ export const TrackMap3D = ({ onToggleExpand, isAnimating = false }: { onToggleEx
 
                                             {/* Right: Feature Group with Divider (Responsive) */}
                                             <div className="flex items-center gap-3 pl-4 border-l border-white/10 shrink-0 pr-2">
-                                                {/* Feature buttons Group - Ported from 2D logic: All hide if space < 600px */}
-                                                {barWidth > 600 && (
+                                                {/* Feature buttons Group - hide only when the bar is very narrow so the
+                                                    camera modes (Free/Follow/Heading) stay available in the side-by-side map */}
+                                                {barWidth > 440 && (
                                                     <>
                                                         {/* 1. MiniMap */}
                                                         <Tooltip text="MINIMAP" position="top">
@@ -1410,7 +1422,8 @@ export const TrackMap3D = ({ onToggleExpand, isAnimating = false }: { onToggleEx
                                                             </button>
                                                         </Tooltip>
 
-                                                        {/* 2. HUD Setup */}
+                                                        {/* 2. HUD Setup — only in maximized (overlap HUD is always shown in the docked map) */}
+                                                        {isMapMaximized && (
                                                         <div className="relative" ref={hudMenuRef}>
                                                             <Tooltip text={isMapMaximized ? "HUD SETUP" : "OVERLAP"} position="top">
                                                                 <button
@@ -1460,6 +1473,7 @@ export const TrackMap3D = ({ onToggleExpand, isAnimating = false }: { onToggleEx
                                                                 )}
                                                             </AnimatePresence>
                                                         </div>
+                                                        )}
 
                                                         {/* 3. Reset View */}
                                                         <Tooltip text="RESET VIEW" position="top">
@@ -1617,7 +1631,7 @@ export const TrackMap3D = ({ onToggleExpand, isAnimating = false }: { onToggleEx
                 {/* 1. Telemetry Overlap HUD */}
                 {!isAnimating && (
                     <div
-                        className={`absolute inset-0 pointer-events-none transition-all duration-500 transform z-[150] ${(isMapMaximized ? hudVisibility.overlap : showTelemetryOverlay)
+                        className={`absolute inset-0 pointer-events-none transition-all duration-500 transform z-[150] ${(isMapMaximized ? hudVisibility.overlap : true)
                             ? 'opacity-100 scale-100 translate-y-0'
                             : 'opacity-0 scale-95 -translate-y-4 pointer-events-none'
                             }`}

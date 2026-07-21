@@ -10,14 +10,17 @@ interface SteeringWheelViewProps {
     carModel?: string;
     theme?: 'current' | 'reference';
     compact?: boolean;
+    /** Transparent overlay mode: no card/header/lock text, just a larger wheel + angle. */
+    bare?: boolean;
 }
 
-export const SteeringWheelView = React.memo(({ 
-    data, 
-    cursorIndex, 
-    carModel, 
-    theme = 'current', 
-    compact = false 
+export const SteeringWheelView = React.memo(({
+    data,
+    cursorIndex,
+    carModel,
+    theme = 'current',
+    compact = false,
+    bare = false
 }: SteeringWheelViewProps) => {
     const sessionMetadata = useTelemetryStore(state => state.sessionMetadata);
     const referenceSessionMetadata = useTelemetryStore(state => state.referenceSessionMetadata);
@@ -112,13 +115,16 @@ export const SteeringWheelView = React.memo(({
 
     return (
         <div
-            className={`bg-white/10 glass-container-flat ${compact ? 'p-2 pt-6 rounded-md' : 'p-4 pt-10 rounded-xl'} border border-white/20 shadow-xl flex flex-col items-center relative group/steering hover:bg-white/15 transition-all duration-300 overflow-hidden`}
-            style={{ 
+            className={bare
+                ? 'flex flex-col items-center relative group/steering'
+                : `bg-white/10 glass-container-flat ${compact ? 'p-2 pt-6 rounded-md' : 'p-4 pt-10 rounded-xl'} border border-white/20 shadow-xl flex flex-col items-center relative group/steering hover:bg-white/15 transition-all duration-300 overflow-hidden h-full`}
+            style={bare ? undefined : {
                 boxShadow: isRef ? `0 10px 25px rgba(0,0,0,0.4), inset 0 0 20px ${glowColor}` : undefined,
                 borderColor: isRef ? 'rgba(218, 165, 32, 0.3)' : undefined
             }}
             onMouseMove={(e: any) => handleGlassMouseMove(e, 0.12)}
         >
+            {!bare && (
             <div className={`absolute top-0 left-0 w-full flex items-center justify-between ${compact ? 'p-2' : 'p-3'}`}>
                 <div className="flex items-center gap-1.5">
                     <div className={`w-1.5 h-1.5 rounded-full ${isRef ? 'bg-amber-400 animate-pulse' : 'bg-blue-400'}`} />
@@ -137,6 +143,7 @@ export const SteeringWheelView = React.memo(({
                     </button>
                 )}
             </div>
+            )}
 
             <div className="glass-content w-full flex flex-col items-center">
                 {/* Expanding Flow Menu */}
@@ -160,9 +167,11 @@ export const SteeringWheelView = React.memo(({
                 )}
 
                 <div
-                    className={`relative ${compact ? 'w-24 h-24 rounded-[1.5rem]' : 'w-36 h-36 rounded-[2.5rem]'} flex items-center justify-center py-2 bg-black/30 border border-white/10 mb-2 glass-container-flat group/wheelFrame hover:bg-white/10 transition-all duration-300`}
+                    className={bare
+                        ? 'relative w-40 h-40 flex items-center justify-center mb-1'
+                        : `relative ${compact ? 'w-24 h-24 rounded-[1.5rem]' : 'w-36 h-36 rounded-[2.5rem]'} flex items-center justify-center py-2 bg-black/30 border border-white/10 mb-2 glass-container-flat group/wheelFrame hover:bg-white/10 transition-all duration-300`}
                 >
-                    <div className="glass-content size-full flex items-center justify-center p-3">
+                    <div className={`glass-content size-full flex items-center justify-center ${bare ? 'p-1' : 'p-3'}`}>
                         <div
                             className="w-full h-full transition-transform duration-75 linear"
                             style={{ transform: `rotateZ(${angle}deg)` }}
@@ -179,11 +188,11 @@ export const SteeringWheelView = React.memo(({
                     </div>
                 </div>
 
-                <div className={`${compact ? 'text-[12px]' : 'text-[16px]'} font-mono font-black text-white drop-shadow-[0_0_12px_rgba(255,255,255,0.3)] tracking-tight`}>
+                <div className={`${bare ? 'text-[15px]' : (compact ? 'text-[12px]' : 'text-[16px]')} font-mono font-black ${isRef ? 'text-amber-400' : 'text-white'} drop-shadow-[0_0_12px_rgba(255,255,255,0.3)] tracking-tight`}>
                     {angle ? angle.toFixed(1) : "0.0"}°
                 </div>
 
-                {(() => {
+                {!bare && (() => {
                     const meta = isRef ? referenceSessionMetadata : sessionMetadata;
                     const lockStr = userWheelRotation !== null && !isRef ? `${userWheelRotation}°` : meta?.steeringLockString;
                     if (!lockStr) return null;

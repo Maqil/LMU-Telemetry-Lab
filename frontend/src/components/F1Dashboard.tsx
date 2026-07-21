@@ -81,7 +81,7 @@ export const F1Dashboard = React.memo(({ data, cursorIndex, theme = 'current', c
     };
 
     return (
-        <div className={`bg-white/10 glass-container-flat ${compact ? 'p-1 pt-6 rounded-md' : 'p-4 pt-10 rounded-lg'} border border-white/20 shadow-xl overflow-hidden hover:bg-white/15 transition-all w-full flex flex-col items-center relative group/f1dashv2`} 
+        <div className={`bg-white/10 glass-container-flat ${compact ? 'p-1 pt-6 rounded-md' : 'p-4 pt-10 rounded-lg'} border border-white/20 shadow-xl overflow-hidden hover:bg-white/15 transition-all w-full h-full flex flex-col items-center relative group/f1dashv2`}
             style={{ 
                 boxShadow: isRef ? `0 10px 25px rgba(0,0,0,0.4), inset 0 0 20px ${glowColor}` : undefined,
                 borderColor: isRef ? 'rgba(218, 165, 32, 0.3)' : undefined

@@ -2,7 +2,6 @@ import React, { useRef } from "react";
 import { useTelemetryStore } from "../store/telemetryStore";
 import { GForceRadar } from "./GForceRadar";
 import { F1Dashboard } from "./F1Dashboard";
-import { SteeringWheelView } from "./SteeringWheelView";
 import { handleGlassMouseMove } from "../utils/glassEffect";
 
 // ── inline helpers (previously in App.tsx) ────────────────────────────────────
@@ -282,7 +281,7 @@ const TyreDashboard = React.memo(
     const glowColor = isRef ? "rgba(218, 165, 32, 0.4)" : undefined;
     return (
       <div
-        className={`bg-white/10 glass-container-flat ${compact ? "p-2 pt-6 rounded-md" : "p-4 pt-10 rounded-lg"} border border-white/25 shadow-xl transition-all duration-300 relative group/tyres overflow-hidden ${className}`}
+        className={`bg-white/10 glass-container-flat ${compact ? "p-2 pt-6 rounded-md" : "p-4 pt-10 rounded-lg"} border border-white/25 shadow-xl transition-all duration-300 relative group/tyres overflow-hidden h-full ${className}`}
         style={{
           boxShadow: isRef ? `0 10px 25px rgba(0,0,0,0.4), inset 0 0 20px ${glowColor}` : undefined,
           borderColor: isRef ? "rgba(218, 165, 32, 0.3)" : undefined
@@ -351,7 +350,7 @@ const FuelDashboard = React.memo(
     const glowColor = isRef ? "rgba(218, 165, 32, 0.4)" : undefined;
     return (
       <div
-        className={`bg-white/10 glass-container-flat ${compact ? "p-1.5 pt-6 rounded-md" : "p-4 pt-10 rounded-lg"} border border-white/25 shadow-xl transition-all duration-300 relative group/fuel overflow-hidden ${className}`}
+        className={`bg-white/10 glass-container-flat ${compact ? "p-1.5 pt-6 rounded-md" : "p-4 pt-10 rounded-lg"} border border-white/25 shadow-xl transition-all duration-300 relative group/fuel overflow-hidden h-full ${className}`}
         style={{
           boxShadow: isRef ? `0 10px 25px rgba(0,0,0,0.4), inset 0 0 20px ${glowColor}` : undefined,
           borderColor: isRef ? "rgba(218, 165, 32, 0.3)" : undefined
@@ -414,6 +413,8 @@ interface LapDetailsPanelProps {
   sessionMiniSectorBests: any;
   allLapsMiniSectorTimes: any;
   sessionBests: any;
+  /** Lay the cards out in a row (for the wide bottom bar) instead of a vertical column. */
+  horizontal?: boolean;
 }
 
 export const LapDetailsPanel = React.memo(
@@ -425,7 +426,8 @@ export const LapDetailsPanel = React.memo(
     refLapMiniSectorTimes,
     sessionMiniSectorBests,
     allLapsMiniSectorTimes,
-    sessionBests
+    sessionBests,
+    horizontal = false
   }: LapDetailsPanelProps) => {
     // ── High-frequency subscriptions with rAF throttle ──────────────────────
     // Use a ref + rAF to throttle cursor re-renders to 60fps max
@@ -579,18 +581,22 @@ export const LapDetailsPanel = React.memo(
 
     const showLiveTelemetryRef = hasRef || autoCompareIdx !== null;
     const isComparingToTheoreticalBest = !hasRef && autoCompareIdx !== null;
+    // In the wide bottom bar (horizontal), render every card in its compact form
+    // so they line up short and tidy instead of stacking full-size.
+    const cardsCompact = hasRef || horizontal;
+    const telemetryCompact = showLiveTelemetryRef || horizontal;
 
     return (
-      <div className="min-w-max flex flex-col gap-3">
-        <div className={hasRef ? "grid grid-cols-2 gap-3" : "flex flex-col gap-3"}>
+      <div className={horizontal ? "flex flex-row flex-wrap items-stretch gap-3" : "min-w-max flex flex-col gap-3"}>
+        <div className={horizontal ? "contents" : (hasRef ? "grid grid-cols-2 gap-3" : "flex flex-col gap-3")}>
           {/* Lap Time Card */}
           <div
-            className={`bg-white/10 glass-container-flat ${hasRef ? "p-2 pt-6" : "p-4 pt-10"} rounded-lg border border-white/25 shadow-xl hover:bg-white/15 transition-all relative group/laptime`}
+            className={`bg-white/10 glass-container-flat ${cardsCompact ? "p-2 pt-6" : "p-4 pt-10"} rounded-lg border border-white/25 shadow-xl hover:bg-white/15 transition-all relative group/laptime ${horizontal ? "h-full" : ""}`}
             onMouseMove={handleGlassMouseMove}
           >
-            <div className={`absolute top-0 left-0 flex items-center gap-2 ${hasRef ? "p-2" : "p-4"}`}>
+            <div className={`absolute top-0 left-0 flex items-center gap-2 ${cardsCompact ? "p-2" : "p-4"}`}>
               <span
-                className={`${hasRef ? "text-[8px]" : "text-[10px]"} font-black uppercase tracking-[0.2em] text-gray-500 group-hover/laptime:text-white transition-colors`}
+                className={`${cardsCompact ? "text-[8px]" : "text-[10px]"} font-black uppercase tracking-[0.2em] text-gray-500 group-hover/laptime:text-white transition-colors`}
               >
                 Lap Time
               </span>
@@ -884,14 +890,14 @@ export const LapDetailsPanel = React.memo(
           </div>
 
           {/* Live Telemetry Card */}
-          <div className="flex flex-col gap-3">
+          <div className={`flex flex-col gap-3 ${horizontal ? "h-full" : ""}`}>
             <div
-              className={`bg-white/10 glass-container-flat ${showLiveTelemetryRef ? "p-2 pt-6" : "p-4 pt-10"} rounded-lg border border-white/25 shadow-xl hover:bg-white/15 transition-all relative group/telemetry`}
+              className={`bg-white/10 glass-container-flat ${telemetryCompact ? "p-2 pt-6" : "p-4 pt-10"} rounded-lg border border-white/25 shadow-xl hover:bg-white/15 transition-all relative group/telemetry ${horizontal ? "h-full" : ""}`}
               onMouseMove={handleGlassMouseMove}
             >
-              <div className={`absolute top-0 left-0 w-full flex items-center justify-between ${showLiveTelemetryRef ? "p-2" : "p-4"} mix-blend-screen`}>
+              <div className={`absolute top-0 left-0 w-full flex items-center justify-between ${telemetryCompact ? "p-2" : "p-4"} mix-blend-screen`}>
                 <span
-                  className={`${showLiveTelemetryRef ? "text-[8px]" : "text-[10px]"} font-black uppercase tracking-[0.2em] text-gray-500 group-hover/telemetry:text-white transition-colors`}
+                  className={`${telemetryCompact ? "text-[8px]" : "text-[10px]"} font-black uppercase tracking-[0.2em] text-gray-500 group-hover/telemetry:text-white transition-colors`}
                 >
                   {isComparingToTheoreticalBest ? "Live Telemetry (vs Best)" : "Live Telemetry"}
                 </span>
@@ -900,7 +906,7 @@ export const LapDetailsPanel = React.memo(
                 <div className="flex flex-col gap-1.5">
                   <LiveTelemetryRow
                     icon={({ size, className }: any) => (
-                      <img src="/speed.png" width={showLiveTelemetryRef ? 10 : size} height={showLiveTelemetryRef ? 10 : size} className={className} alt="S" />
+                      <img src="/speed.png" width={telemetryCompact ? 10 : size} height={telemetryCompact ? 10 : size} className={className} alt="S" />
                     )}
                     label="Speed"
                     color={chartConfigs.find((c: any) => c.id === "Ground Speed" || c.id === "Speed")?.color || "#00aaff"}
@@ -908,7 +914,7 @@ export const LapDetailsPanel = React.memo(
                     max={speedUnit === "kmh" ? maxSpeed : maxSpeed * 0.621371}
                     val={getVal("Ground Speed", activeCursorIdx)}
                     refVal={hasRef ? getVal("Ground Speed", refIdx, true) : getVal("Ground Speed", autoCompareIdx, false)}
-                    compact={showLiveTelemetryRef}
+                    compact={telemetryCompact}
                   />
                   {/* <LiveTelemetryRow
                     icon={({ size, className }: any) => (
@@ -940,14 +946,14 @@ export const LapDetailsPanel = React.memo(
                   /> */}
                   <LiveTelemetryRow
                     icon={({ size, className }: any) => (
-                      <img src="/gear.png" width={showLiveTelemetryRef ? 10 : size} height={showLiveTelemetryRef ? 10 : size} className={className} alt="G" />
+                      <img src="/gear.png" width={telemetryCompact ? 10 : size} height={telemetryCompact ? 10 : size} className={className} alt="G" />
                     )}
                     label="Gear"
                     color={chartConfigs.find((c: any) => c.id === "Gear")?.color || "#ffaa00"}
                     max={maxGear}
                     val={getVal("Gear", activeCursorIdx)}
                     refVal={hasRef ? getVal("Gear", refIdx, true) : getVal("Gear", autoCompareIdx, false)}
-                    compact={showLiveTelemetryRef}
+                    compact={telemetryCompact}
                   />
                 </div>
               </div>
@@ -1016,13 +1022,8 @@ export const LapDetailsPanel = React.memo(
         )} */}
 
         <div className={hasRef ? "grid grid-cols-2 gap-3" : "flex flex-col gap-3"}>
-          <F1Dashboard data={telemetryData} cursorIndex={activeCursorIdx} theme="current" compact={hasRef} />
-          {hasRef && <F1Dashboard data={refData} cursorIndex={refIdx} theme="reference" compact={hasRef} />}
-        </div>
-
-        <div className={hasRef ? "grid grid-cols-2 gap-3" : "flex flex-col gap-3"}>
-          <SteeringWheelView data={telemetryData} cursorIndex={activeCursorIdx} carModel={sessionMetadata?.modelName} theme="current" compact={hasRef} />
-          {hasRef && <SteeringWheelView data={refData} cursorIndex={refIdx} carModel={refMeta?.modelName} theme="reference" compact={hasRef} />}
+          <F1Dashboard data={telemetryData} cursorIndex={activeCursorIdx} theme="current" compact={cardsCompact} />
+          {hasRef && <F1Dashboard data={refData} cursorIndex={refIdx} theme="reference" compact={cardsCompact} />}
         </div>
 
         <div className={hasRef ? "grid grid-cols-2 gap-3" : "flex flex-col gap-3"}>
@@ -1032,7 +1033,7 @@ export const LapDetailsPanel = React.memo(
             carClass={sessionMetadata?.carClass}
             tyreCompoundMax={sessionMetadata?.tyreCompoundMax}
             theme="current"
-            compact={hasRef}
+            compact={cardsCompact}
           />
           {hasRef && (
             <TyreDashboard
@@ -1041,14 +1042,14 @@ export const LapDetailsPanel = React.memo(
               carClass={refMeta?.carClass}
               tyreCompoundMax={refMeta?.tyreCompoundMax}
               theme="reference"
-              compact={hasRef}
+              compact={cardsCompact}
             />
           )}
         </div>
 
         <div className={hasRef ? "grid grid-cols-2 gap-3" : "flex flex-col gap-3"}>
-          <FuelDashboard data={telemetryData} cursorIndex={activeCursorIdx} fuelCapacity={sessionMetadata?.fuelCapacity} theme="current" compact={hasRef} />
-          {hasRef && <FuelDashboard data={refData} cursorIndex={refIdx} fuelCapacity={refMeta?.fuelCapacity} theme="reference" compact={hasRef} />}
+          <FuelDashboard data={telemetryData} cursorIndex={activeCursorIdx} fuelCapacity={sessionMetadata?.fuelCapacity} theme="current" compact={cardsCompact} />
+          {hasRef && <FuelDashboard data={refData} cursorIndex={refIdx} fuelCapacity={refMeta?.fuelCapacity} theme="reference" compact={cardsCompact} />}
         </div>
       </div>
     );

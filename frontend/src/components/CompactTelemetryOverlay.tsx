@@ -274,22 +274,6 @@ export const CompactTelemetryOverlay = React.memo(({
                 </div>
             </div>
 
-            {/* Small Steering Wheel */}
-            <div className="w-10 h-10 relative flex items-center justify-center bg-black/20 rounded-full border border-white/5 p-0.5">
-                <div
-                    className="w-full h-full transition-transform duration-75 linear"
-                    style={{ transform: `rotateZ(${steerAngle}deg)` }}
-                >
-                    <img
-                        src={wheelSrc}
-                        alt="wheel"
-                        className="w-full h-full object-contain filter brightness-125 drop-shadow-lg"
-                        onError={(e) => {
-                            (e.target as HTMLImageElement).src = '/steering wheel/Cars/PORSCHE 963_2024.png';
-                        }}
-                    />
-                </div>
-            </div>
             {/* Resize Handle */}
             {editHudMode && (
                 <div
