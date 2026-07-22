@@ -25,6 +25,44 @@ export const getBrandLogoPath = (modelName: string) => {
     if (lower.includes('ginetta')) return '/logos/ginetta.png';
     if (lower.includes('ligier')) return '/logos/ligier.png';
 
+    // ACC short model names (no brand word in the string) -> brand logo
+    // BMW: M2 CS, M4 GT3/GT4, M6 GT3
+    if (/\bm[2468]\b/.test(lower)) return '/logos/bmw.png';
+    // McLaren: 720S, 650S, 570S
+    if (lower.includes('720s') || lower.includes('650s') || lower.includes('570s')) return '/logos/mclaren.png';
+    // Ferrari: 296, 488, 458, 812
+    if (lower.includes('296') || lower.includes('488') || lower.includes('458') || lower.includes('812')) return '/logos/ferrari.png';
+    // Lamborghini
+    if (lower.includes('huracan')) return '/logos/lamborghini.png';
+    // Porsche: 911, 992, 991, Cayman, 718, 963
+    if (lower.includes('911') || lower.includes('992') || lower.includes('991') || lower.includes('cayman') || lower.includes('718') || lower.includes('963')) return '/logos/porsche.png';
+    // Aston Martin
+    if (lower.includes('vantage') || lower.includes('amr') || lower.includes('valkyrie')) return '/logos/aston_martin.png';
+    // Mercedes-AMG (AMG already handled above, keep GT variants)
+    if (lower.includes('amg')) return '/logos/mercedes.png';
+    // Lexus RC F
+    if (lower.includes('rc f') || lower.includes('rcf')) return '/logos/lexus.png';
+    // Chevrolet Camaro -> corvette bowtie logo (only Chevy logo available)
+    if (lower.includes('camaro')) return '/logos/corvette.png';
+    // Alpine A110
+    if (lower.includes('a110') || lower.includes('a424')) return '/logos/alpine.png';
+    // Ginetta G55/G61
+    if (/\bg\d{2}\b/.test(lower)) return '/logos/ginetta.png';
+    // Audi R8 LMS
+    if (lower.includes('audi') || /\br8\b/.test(lower)) return '/logos/audi.png';
+    // Honda / Acura NSX
+    if (lower.includes('honda') || lower.includes('acura') || lower.includes('nsx')) return '/logos/honda.png';
+    // Nissan GT-R Nismo
+    if (lower.includes('nissan') || lower.includes('gt-r') || lower.includes('nismo')) return '/logos/nissan.png';
+    // Bentley Continental
+    if (lower.includes('bentley') || lower.includes('continental')) return '/logos/bentley.png';
+    // Jaguar (Emil Frey G3)
+    if (lower.includes('jaguar')) return '/logos/jaguar.png';
+    // KTM X-Bow
+    if (lower.includes('ktm') || lower.includes('x-bow') || lower.includes('xbow')) return '/logos/ktm.png';
+    // Maserati MC20
+    if (lower.includes('maserati') || lower.includes('mc20')) return '/logos/maserati.png';
+
     // Fallback: use first word
     const brand = lower.split(' ')[0];
     return `/logos/${brand}.png`;

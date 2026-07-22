@@ -851,7 +851,7 @@ export const FileManager: React.FC<FileManagerProps> = ({ onClose }) => {
                                                     }}
                                                 >
                                                     <div className="relative flex-shrink-0 w-8 h-8 flex items-center justify-center">
-                                                        {getBrandLogoPath(s.carModel || "") ? <img src={getBrandLogoPath(s.carModel || "")} className="w-7 h-7 object-contain" /> : <div className="p-1.5 rounded-lg bg-white/5"><img src="/LeMansUltimateLogo.png" className="w-4 h-4 object-contain opacity-20" /></div>}
+                                                        {getBrandLogoPath(s.carModel || "") ? <img src={getBrandLogoPath(s.carModel || "")} className="w-7 h-7 object-contain" onError={(e) => (e.currentTarget.style.display = 'none')} /> : <div className="p-1.5 rounded-lg bg-white/5"><img src="/LeMansUltimateLogo.png" className="w-4 h-4 object-contain opacity-20" /></div>}
                                                         {getCountryFlagPath(s.country) && <div className="absolute -bottom-1 -right-1 w-4 h-2.5 rounded-sm overflow-hidden border border-black/40 shadow-lg"><img src={getCountryFlagPath(s.country)!} className="w-full h-full object-cover" /></div>}
                                                     </div>
                                                     <div className="flex flex-col min-w-0 flex-1">

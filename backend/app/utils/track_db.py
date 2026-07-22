@@ -808,4 +808,113 @@ TRACK_REGISTRY = {
             },
         }
     },
+    # --- ACC circuits (country/flag resolution; no elevation ref_points yet) ---
+    "Nürburgring": {
+        "display_name": "Nürburgring",
+        "aliases": ["nurburgring", "Nurburgring", "Nürburgring GP", "Nürburgring Grand-Prix-Strecke", "Nurburgring GP"],
+        "country": "Germany",
+        "layouts": {},
+    },
+    "Nürburgring Nordschleife": {
+        "display_name": "Nordschleife",
+        "aliases": ["nurburgring_24h", "Nordschleife", "Nürburgring Nordschleife", "Nurburgring Nordschleife", "Nürburgring 24h"],
+        "country": "Germany",
+        "layouts": {},
+    },
+    "Misano": {
+        "display_name": "Misano",
+        "aliases": ["misano", "Misano World Circuit", "Misano World Circuit Marco Simoncelli"],
+        "country": "Italy",
+        "layouts": {},
+    },
+    "Kyalami": {
+        "display_name": "Kyalami",
+        "aliases": ["kyalami", "Kyalami Grand Prix Circuit"],
+        "country": "South Africa",
+        "layouts": {},
+    },
+    "Mount Panorama": {
+        "display_name": "Mount Panorama",
+        "aliases": ["mount_panorama", "Bathurst", "Mount Panorama Circuit"],
+        "country": "Australia",
+        "layouts": {},
+    },
+    "Brands Hatch": {
+        "display_name": "Brands Hatch",
+        "aliases": ["brands_hatch", "Brands Hatch GP"],
+        "country": "United Kingdom",
+        "layouts": {},
+    },
+    "Hungaroring": {
+        "display_name": "Hungaroring",
+        "aliases": ["hungaroring", "Hungaroring Circuit"],
+        "country": "Hungary",
+        "layouts": {},
+    },
+    "Zandvoort": {
+        "display_name": "Zandvoort",
+        "aliases": ["zandvoort", "Circuit Zandvoort", "CM.com Circuit Zandvoort"],
+        "country": "Netherlands",
+        "layouts": {},
+    },
+    "Zolder": {
+        "display_name": "Zolder",
+        "aliases": ["zolder", "Circuit Zolder"],
+        "country": "Belgium",
+        "layouts": {},
+    },
+    "Suzuka": {
+        "display_name": "Suzuka",
+        "aliases": ["suzuka", "Suzuka Circuit", "Suzuka International Racing Course"],
+        "country": "Japan",
+        "layouts": {},
+    },
+    "Laguna Seca": {
+        "display_name": "Laguna Seca",
+        "aliases": ["laguna_seca", "WeatherTech Raceway Laguna Seca", "Mazda Raceway Laguna Seca"],
+        "country": "United States",
+        "layouts": {},
+    },
+    "Indianapolis": {
+        "display_name": "Indianapolis",
+        "aliases": ["indianapolis", "Indianapolis Motor Speedway"],
+        "country": "United States",
+        "layouts": {},
+    },
+    "Watkins Glen": {
+        "display_name": "Watkins Glen",
+        "aliases": ["watkins_glen", "Watkins Glen International"],
+        "country": "United States",
+        "layouts": {},
+    },
+    "Donington": {
+        "display_name": "Donington Park",
+        "aliases": ["donington", "Donington Park"],
+        "country": "United Kingdom",
+        "layouts": {},
+    },
+    "Oulton Park": {
+        "display_name": "Oulton Park",
+        "aliases": ["oulton_park", "Oulton Park Circuit"],
+        "country": "United Kingdom",
+        "layouts": {},
+    },
+    "Snetterton": {
+        "display_name": "Snetterton",
+        "aliases": ["snetterton", "Snetterton Circuit", "Snetterton 300"],
+        "country": "United Kingdom",
+        "layouts": {},
+    },
+    "Valencia": {
+        "display_name": "Valencia",
+        "aliases": ["valencia", "Circuit Ricardo Tormo", "Circuit Ricardo Tormo Valencia"],
+        "country": "Spain",
+        "layouts": {},
+    },
+    "Red Bull Ring": {
+        "display_name": "Red Bull Ring",
+        "aliases": ["red_bull_ring", "Spielberg", "A1-Ring", "Österreichring", "Red Bull Ring Spielberg"],
+        "country": "Austria",
+        "layouts": {},
+    },
 }
