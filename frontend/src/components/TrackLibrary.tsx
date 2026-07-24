@@ -1,8 +1,9 @@
-import { memo, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
     ArrowLeft, Search, Upload, Loader2, Timer, Trash2, MapPin, Layers, Car,
     ChevronDown, CalendarDays, CheckSquare, Square, MinusSquare, X, AlertTriangle,
+    RefreshCw,
 } from 'lucide-react';
 import { useTelemetryStore } from '../store/telemetryStore';
 import type { Session } from '../types';
@@ -10,6 +11,8 @@ import { handleGlassMouseMove } from '../utils/glassEffect';
 import { getBrandLogoPath, getClassColor } from '../utils/carHelpers';
 import { getCountryFlagPath, getTrackImagePath, matchTrack, ACC_TRACK_ROSTER } from '../utils/trackHelpers';
 import { Tooltip } from './ui/Tooltip';
+import { AccSyncControl } from './AccSyncControl';
+import { LmuSyncControl } from './LmuSyncControl';
 
 /**
  * Full-page track / session browser for a single sim.
@@ -123,6 +126,13 @@ const SessionRow = ({ s, onOpen, onDelete, selectMode, selected, onToggleSelect 
                     </span>
                     {s.carClass && (
                         <span className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded border flex-shrink-0 ${getClassColor(s.carClass)}`}>{s.carClass}</span>
+                    )}
+                    {s.source === 'sync' && (
+                        <Tooltip text="AUTO-SYNCED FROM GAME" position="top">
+                            <span className="flex items-center gap-1 text-[7px] font-black uppercase px-1.5 py-0.5 rounded border border-emerald-500/30 bg-emerald-500/10 text-emerald-300/90 flex-shrink-0">
+                                <RefreshCw size={8} /> Sync
+                            </span>
+                        </Tooltip>
                     )}
                 </div>
                 <div className="flex items-center gap-2 mt-1">
@@ -280,6 +290,10 @@ export const TrackLibrary = memo(({ game, onBack, onOpenSession }: TrackLibraryP
     const isListLoading = useTelemetryStore(state => state.isListLoading);
 
     const [searchQuery, setSearchQuery] = useState('');
+    const [sourceFilter, setSourceFilter] = useState<'all' | 'sync' | 'manual'>('all');
+    // Default: only driven tracks. Toggling "Driven" reveals the rest of the
+    // (undriven) roster too.
+    const [showUndriven, setShowUndriven] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const [expandedKey, setExpandedKey] = useState<string | null>(null);
     const [selectMode, setSelectMode] = useState(false);
@@ -291,7 +305,9 @@ export const TrackLibrary = memo(({ game, onBack, onOpenSession }: TrackLibraryP
     const meta = GAME_META[game];
 
     const rows = useMemo<TrackRow[]>(() => {
-        const scoped = sessions.filter(s => (s.game || 'LMU') === game);
+        const scoped = sessions.filter(s =>
+            (s.game || 'LMU') === game &&
+            (sourceFilter === 'all' || (s.source || 'manual') === sourceFilter));
         const q = searchQuery.trim().toLowerCase();
 
         const map = new Map<string, TrackRow>();
@@ -304,8 +320,10 @@ export const TrackLibrary = memo(({ game, onBack, onOpenSession }: TrackLibraryP
             return row;
         };
 
-        // Seed the full ACC roster so every track shows (even with 0 sessions).
-        if (game === 'ACC') {
+        // When "Driven" is toggled off, also seed the full ACC roster so the
+        // undriven tracks (0 sessions) show. Skipped when filtering by source --
+        // a roster track has no sessions of either provenance.
+        if (game === 'ACC' && showUndriven && sourceFilter === 'all') {
             ACC_TRACK_ROSTER.forEach(t => ensure(t.key, t.name, t.country, `/acc-tracks/${t.key}.svg`));
         }
 
@@ -355,10 +373,30 @@ export const TrackLibrary = memo(({ game, onBack, onOpenSession }: TrackLibraryP
         });
 
         return list;
-    }, [sessions, game, searchQuery]);
+    }, [sessions, game, searchQuery, sourceFilter, showUndriven]);
 
     const totalSessions = useMemo(() => sessions.filter(s => (s.game || 'LMU') === game).length, [sessions, game]);
     const recordedTracks = useMemo(() => rows.filter(r => r.sessions.length > 0).length, [rows]);
+
+    // Provenance counts (per game) for the Synced / Manual filter.
+    const sourceCounts = useMemo(() => {
+        let sync = 0, manual = 0;
+        sessions.forEach(s => {
+            if ((s.game || 'LMU') !== game) return;
+            if ((s.source || 'manual') === 'sync') sync++; else manual++;
+        });
+        return { all: sync + manual, sync, manual };
+    }, [sessions, game]);
+
+    // The Synced/Manual split shows once a sim has at least one synced session
+    // (both ACC and LMU support game-folder sync).
+    const showSourceFilter = sourceCounts.sync > 0;
+
+    // Reset to "All" whenever the filter is no longer available (game switch,
+    // or the last synced session was removed) so we never show an empty list.
+    useEffect(() => {
+        if (!showSourceFilter && sourceFilter !== 'all') setSourceFilter('all');
+    }, [showSourceFilter, sourceFilter]);
 
     // Flat list of every session id currently visible (respects search filter).
     const visibleIds = useMemo(() => rows.flatMap(r => r.sessions.map(s => s.id)), [rows]);
@@ -435,10 +473,37 @@ export const TrackLibrary = memo(({ game, onBack, onOpenSession }: TrackLibraryP
                         <h1 className="text-2xl md:text-3xl font-black uppercase tracking-tight text-white leading-none">{meta.name}</h1>
                         <p className="text-[11px] text-gray-500 font-bold uppercase tracking-widest mt-1">Track Library</p>
                     </div>
+
+                    {/* Game-folder sync lives beside the sim title. */}
+                    <div className="ml-auto flex items-center">
+                        {game === 'ACC' && <AccSyncControl />}
+                        {game === 'LMU' && <LmuSyncControl />}
+                    </div>
                 </div>
 
                 {/* Toolbar */}
                 <div className="flex items-center gap-3 mt-6 mb-6">
+                    {selectMode ? (
+                        <Tooltip text={allSelected ? 'DESELECT ALL' : 'SELECT ALL'} position="bottom">
+                            <button
+                                onClick={toggleSelectAll}
+                                disabled={visibleIds.length === 0}
+                                className="flex items-center justify-center w-10 h-10 rounded-xl bg-[#16161c] border border-white/10 text-gray-300 hover:text-white hover:border-white/20 transition-all disabled:opacity-40"
+                            >
+                                {allSelected ? <CheckSquare size={16} className="text-blue-400" /> : <Square size={16} />}
+                            </button>
+                        </Tooltip>
+                    ) : (
+                        <Tooltip text="SELECT" position="bottom">
+                            <button
+                                onClick={() => setSelectMode(true)}
+                                disabled={totalSessions === 0}
+                                className="flex items-center justify-center w-10 h-10 rounded-xl bg-[#16161c] border border-white/10 text-gray-300 hover:text-white hover:border-white/20 transition-all disabled:opacity-40"
+                            >
+                                <CheckSquare size={16} />
+                            </button>
+                        </Tooltip>
+                    )}
                     <div className="relative flex-1 max-w-md">
                         <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
                         <input
@@ -449,27 +514,53 @@ export const TrackLibrary = memo(({ game, onBack, onOpenSession }: TrackLibraryP
                         />
                     </div>
 
-                    <div className="hidden md:flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-gray-500">
-                        <span className="flex items-center gap-1.5 px-3 h-10 rounded-xl bg-[#16161c] border border-white/10">
-                            <MapPin size={12} className="text-blue-400" /> {recordedTracks} Driven
-                        </span>
-                        <span className="flex items-center gap-1.5 px-3 h-10 rounded-xl bg-[#16161c] border border-white/10">
-                            <Layers size={12} className="text-blue-400" /> {totalSessions} Sessions
-                        </span>
-                    </div>
+                    {/* Source filter: All / Synced / Manual (ACC only) */}
+                    {showSourceFilter && (
+                        <div className="flex items-center h-10 p-1 rounded-xl bg-[#16161c] border border-white/10">
+                            {([
+                                { key: 'all', label: 'All', count: sourceCounts.all, icon: Layers },
+                                { key: 'sync', label: 'Synced', count: sourceCounts.sync, icon: RefreshCw },
+                                { key: 'manual', label: 'Manual', count: sourceCounts.manual, icon: Upload },
+                            ] as const).map(opt => {
+                                const active = sourceFilter === opt.key;
+                                const Icon = opt.icon;
+                                return (
+                                    <button
+                                        key={opt.key}
+                                        onClick={() => setSourceFilter(opt.key)}
+                                        className={`flex items-center gap-1.5 h-8 px-3 rounded-lg font-black text-[10px] uppercase tracking-widest transition-all ${
+                                            active
+                                                ? 'bg-blue-600/25 text-blue-200 border border-blue-500/40'
+                                                : 'text-gray-500 hover:text-gray-200 border border-transparent'
+                                        }`}
+                                    >
+                                        <Icon size={12} className={opt.key === 'sync' && active ? 'text-blue-300' : undefined} />
+                                        {opt.label}
+                                        <span className={`text-[9px] ${active ? 'text-blue-300/70' : 'text-gray-600'}`}>{opt.count}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
+
+                    <Tooltip text={showUndriven ? 'SHOWING ALL TRACKS' : 'SHOW ALL TRACKS'} position="bottom">
+                        <button
+                            onClick={() => setShowUndriven(v => !v)}
+                            className={`hidden lg:flex items-center gap-1.5 px-3 h-10 rounded-xl border font-black text-[10px] uppercase tracking-widest transition-all ${
+                                !showUndriven
+                                    ? 'bg-blue-600/25 border-blue-500/40 text-blue-200'
+                                    : 'bg-[#16161c] border-white/10 text-gray-500 hover:text-gray-200 hover:border-white/20'
+                            }`}
+                        >
+                            <MapPin size={12} className={!showUndriven ? 'text-blue-300' : 'text-blue-400'} /> {recordedTracks} Driven
+                        </button>
+                    </Tooltip>
 
                     <input ref={fileInputRef} type="file" multiple accept=".duckdb,.ld,.csv" className="hidden" onChange={(e) => handleFiles(e.target.files)} />
 
+                    <div className="flex items-center gap-2 ml-auto">
                     {selectMode ? (
-                        <div className="flex items-center gap-2 ml-auto">
-                            <button
-                                onClick={toggleSelectAll}
-                                disabled={visibleIds.length === 0}
-                                className="flex items-center gap-2 h-10 px-4 rounded-xl bg-[#16161c] border border-white/10 text-gray-300 hover:text-white hover:border-white/20 transition-all font-black text-[10px] uppercase tracking-widest disabled:opacity-40"
-                            >
-                                {allSelected ? <CheckSquare size={14} className="text-blue-400" /> : <Square size={14} />}
-                                {allSelected ? 'Deselect All' : 'Select All'}
-                            </button>
+                        <div className="flex items-center gap-2">
                             <button
                                 onClick={() => setConfirmOpen(true)}
                                 disabled={selectedCount === 0}
@@ -488,15 +579,7 @@ export const TrackLibrary = memo(({ game, onBack, onOpenSession }: TrackLibraryP
                             </Tooltip>
                         </div>
                     ) : (
-                        <div className="flex items-center gap-2 ml-auto">
-                            <button
-                                onClick={() => setSelectMode(true)}
-                                disabled={totalSessions === 0}
-                                className="flex items-center gap-2 h-10 px-4 rounded-xl bg-[#16161c] border border-white/10 text-gray-300 hover:text-white hover:border-white/20 transition-all font-black text-[10px] uppercase tracking-widest disabled:opacity-40"
-                            >
-                                <CheckSquare size={14} />
-                                Select
-                            </button>
+                        <div className="flex items-center gap-2">
                             <button
                                 onClick={() => fileInputRef.current?.click()}
                                 disabled={isUploading}
@@ -510,6 +593,7 @@ export const TrackLibrary = memo(({ game, onBack, onOpenSession }: TrackLibraryP
                             </button>
                         </div>
                     )}
+                    </div>
                 </div>
 
                 {/* Track list */}
@@ -523,9 +607,13 @@ export const TrackLibrary = memo(({ game, onBack, onOpenSession }: TrackLibraryP
                         <div className="w-16 h-16 rounded-2xl bg-[#16161c] border border-white/10 flex items-center justify-center mb-4">
                             <MapPin size={26} className="text-gray-600" />
                         </div>
-                        <p className="text-lg font-black text-gray-300 uppercase tracking-tight">{searchQuery ? 'No matches found' : 'No sessions yet'}</p>
+                        <p className="text-lg font-black text-gray-300 uppercase tracking-tight">
+                            {searchQuery ? 'No matches found' : sourceFilter !== 'all' ? `No ${sourceFilter === 'sync' ? 'auto-synced' : 'manually uploaded'} sessions` : 'No sessions yet'}
+                        </p>
                         <p className="text-sm text-gray-500 mt-1 max-w-sm">
-                            {searchQuery ? 'Try a different search term.' : `Upload a ${game} telemetry file to start building your library.`}
+                            {searchQuery ? 'Try a different search term.'
+                                : sourceFilter !== 'all' ? 'Switch the filter back to All to see your other sessions.'
+                                : `Upload a ${game} telemetry file to start building your library.`}
                         </p>
                     </div>
                 ) : (

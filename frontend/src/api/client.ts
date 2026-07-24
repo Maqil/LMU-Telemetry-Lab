@@ -1,5 +1,5 @@
 
-import type { Session, Lap, TelemetryData, Profile } from '../types';
+import type { Session, Lap, TelemetryData, Profile, AccSyncState, LmuSyncState } from '../types';
 
 const API_BASE = '/api/v1';
 
@@ -270,6 +270,76 @@ export const apiClient = {
     async getSteeringWheels(): Promise<{ categories: Record<string, { name: string, path: string }[]> }> {
         const res = await fetch(`${API_BASE}/steering-wheels`);
         if (!res.ok) throw new Error('Failed to fetch steering wheels');
+        return res.json();
+    },
+
+    // --- ACC Game-Directory Sync ---
+    async getAccSyncStatus(profileId: string = 'guest'): Promise<AccSyncState> {
+        const res = await fetch(`${API_BASE}/sync/acc/status?profile_id=${profileId}`);
+        if (!res.ok) throw new Error('Failed to fetch sync status');
+        return res.json();
+    },
+
+    async detectAccFolder(profileId: string = 'guest'): Promise<{ path: string | null; autoDetected: boolean }> {
+        const res = await fetch(`${API_BASE}/sync/acc/detect?profile_id=${profileId}`, { method: 'POST' });
+        if (!res.ok) throw new Error('Detection failed');
+        return res.json();
+    },
+
+    async setAccSyncConfig(
+        config: { folder?: string | null; enabled?: boolean },
+        profileId: string = 'guest'
+    ): Promise<AccSyncState> {
+        const res = await fetch(`${API_BASE}/sync/acc/config?profile_id=${profileId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(config),
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.detail || 'Failed to update sync config');
+        }
+        return res.json();
+    },
+
+    async triggerAccScan(profileId: string = 'guest'): Promise<{ imported: number; skipped: number; errors: number; status?: string; busy?: boolean }> {
+        const res = await fetch(`${API_BASE}/sync/acc/scan?profile_id=${profileId}`, { method: 'POST' });
+        if (!res.ok) throw new Error('Sync scan failed');
+        return res.json();
+    },
+
+    // --- LMU Game-Directory Sync (native .duckdb copy; kept separate from ACC) ---
+    async getLmuSyncStatus(profileId: string = 'guest'): Promise<LmuSyncState> {
+        const res = await fetch(`${API_BASE}/sync/lmu/status?profile_id=${profileId}`);
+        if (!res.ok) throw new Error('Failed to fetch sync status');
+        return res.json();
+    },
+
+    async detectLmuFolder(profileId: string = 'guest'): Promise<{ path: string | null; autoDetected: boolean }> {
+        const res = await fetch(`${API_BASE}/sync/lmu/detect?profile_id=${profileId}`, { method: 'POST' });
+        if (!res.ok) throw new Error('Detection failed');
+        return res.json();
+    },
+
+    async setLmuSyncConfig(
+        config: { folder?: string | null; enabled?: boolean },
+        profileId: string = 'guest'
+    ): Promise<LmuSyncState> {
+        const res = await fetch(`${API_BASE}/sync/lmu/config?profile_id=${profileId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(config),
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.detail || 'Failed to update sync config');
+        }
+        return res.json();
+    },
+
+    async triggerLmuScan(profileId: string = 'guest'): Promise<{ imported: number; skipped: number; errors: number; status?: string; busy?: boolean }> {
+        const res = await fetch(`${API_BASE}/sync/lmu/scan?profile_id=${profileId}`, { method: 'POST' });
+        if (!res.ok) throw new Error('Sync scan failed');
         return res.json();
     },
 

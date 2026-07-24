@@ -178,6 +178,10 @@ export interface TelemetryState {
     loadingCount: number; // For Semaphore-based concurrent loading management
     loadingProgress: number | null;
     isListLoading: boolean;
+    accSync: import('../types').AccSyncState | null;
+    isAccScanning: boolean;
+    lmuSync: import('../types').LmuSyncState | null;
+    isLmuScanning: boolean;
     error: string | null;
     isPlaying: boolean;
     playbackSpeed: number;
@@ -363,6 +367,18 @@ export interface TelemetryState {
     renameSession: (sessionId: string, newName: string) => Promise<void>;
     deleteSession: (sessionId: string) => Promise<void>;
     deleteSessions: (sessionIds: string[]) => Promise<void>;
+
+    // ACC game-directory sync
+    fetchAccSyncStatus: () => Promise<void>;
+    detectAccFolder: () => Promise<string | null>;
+    setAccSyncConfig: (config: { folder?: string | null; enabled?: boolean }) => Promise<void>;
+    triggerAccScan: () => Promise<{ imported: number; skipped: number; errors: number } | null>;
+
+    // LMU game-directory sync (separate from ACC)
+    fetchLmuSyncStatus: () => Promise<void>;
+    detectLmuFolder: () => Promise<string | null>;
+    setLmuSyncConfig: (config: { folder?: string | null; enabled?: boolean }) => Promise<void>;
+    triggerLmuScan: () => Promise<{ imported: number; skipped: number; errors: number } | null>;
     togglePlayback: () => void;
     setPlaybackSpeed: (speed: number) => void;
     updatePlayback: (deltaTimeMs: number) => void;
@@ -660,6 +676,10 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
     loadingCount: 0,
     loadingProgress: null,
     isListLoading: false, // For Non-Blocking Operations (Session List)
+    accSync: null,
+    isAccScanning: false,
+    lmuSync: null,
+    isLmuScanning: false,
     error: null,
     showReferenceBrowser: false,
     isPlaying: false,
@@ -2093,6 +2113,98 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
             set({ isListLoading: false });
         } catch (err) {
             set({ error: (err as Error).message, isListLoading: false });
+        }
+    },
+
+    // --- ACC Game-Directory Sync ---
+    fetchAccSyncStatus: async () => {
+        const pid = get().activeProfileId || 'guest';
+        try {
+            const status = await apiClient.getAccSyncStatus(pid);
+            set({ accSync: status });
+        } catch (err) {
+            console.error('Failed to fetch ACC sync status:', err);
+        }
+    },
+
+    detectAccFolder: async () => {
+        const pid = get().activeProfileId || 'guest';
+        try {
+            const { path } = await apiClient.detectAccFolder(pid);
+            await get().fetchAccSyncStatus();
+            return path;
+        } catch (err) {
+            console.error('ACC folder detection failed:', err);
+            return null;
+        }
+    },
+
+    setAccSyncConfig: async (config) => {
+        const pid = get().activeProfileId || 'guest';
+        const status = await apiClient.setAccSyncConfig(config, pid);
+        set({ accSync: status });
+    },
+
+    triggerAccScan: async () => {
+        const pid = get().activeProfileId || 'guest';
+        set({ isAccScanning: true });
+        try {
+            const result = await apiClient.triggerAccScan(pid);
+            await get().fetchAccSyncStatus();
+            // Pull any newly imported sessions into the library.
+            if (result && result.imported > 0) await get().fetchSessions();
+            return result;
+        } catch (err) {
+            console.error('ACC sync scan failed:', err);
+            return null;
+        } finally {
+            set({ isAccScanning: false });
+        }
+    },
+
+    // --- LMU Game-Directory Sync (separate from ACC) ---
+    fetchLmuSyncStatus: async () => {
+        const pid = get().activeProfileId || 'guest';
+        try {
+            const status = await apiClient.getLmuSyncStatus(pid);
+            set({ lmuSync: status });
+        } catch (err) {
+            console.error('Failed to fetch LMU sync status:', err);
+        }
+    },
+
+    detectLmuFolder: async () => {
+        const pid = get().activeProfileId || 'guest';
+        try {
+            const { path } = await apiClient.detectLmuFolder(pid);
+            await get().fetchLmuSyncStatus();
+            return path;
+        } catch (err) {
+            console.error('LMU folder detection failed:', err);
+            return null;
+        }
+    },
+
+    setLmuSyncConfig: async (config) => {
+        const pid = get().activeProfileId || 'guest';
+        const status = await apiClient.setLmuSyncConfig(config, pid);
+        set({ lmuSync: status });
+    },
+
+    triggerLmuScan: async () => {
+        const pid = get().activeProfileId || 'guest';
+        set({ isLmuScanning: true });
+        try {
+            const result = await apiClient.triggerLmuScan(pid);
+            await get().fetchLmuSyncStatus();
+            // Pull any newly imported sessions into the library.
+            if (result && result.imported > 0) await get().fetchSessions();
+            return result;
+        } catch (err) {
+            console.error('LMU sync scan failed:', err);
+            return null;
+        } finally {
+            set({ isLmuScanning: false });
         }
     },
 

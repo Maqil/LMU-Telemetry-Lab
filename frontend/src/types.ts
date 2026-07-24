@@ -27,6 +27,7 @@ export interface Session {
     bestLapTime?: number;
     bestLapValid?: boolean;
     game?: string; // 'LMU' | 'ACC'
+    source?: 'sync' | 'manual'; // 'sync' = auto-imported from game folder, 'manual' = user upload
 }
 
 export interface SessionMetadata {
@@ -75,6 +76,23 @@ export interface TelemetryData {
 export interface TelemetryResponse {
     [key: string]: number[] | any;
 }
+
+export type AccSyncStatusKind = 'unconfigured' | 'folder-not-found' | 'paused' | 'active' | 'error' | 'scanning';
+
+export interface AccSyncState {
+    enabled: boolean;
+    folder: string | null;
+    autoDetected: boolean;
+    status: AccSyncStatusKind;
+    lastScanAt: number | null;
+    lastResult: { imported: number; skipped: number; errors: number } | null;
+    importedCount: number;
+}
+
+// LMU game-folder sync mirrors the ACC sync shape (kept as a distinct alias so
+// the two paths stay decoupled).
+export type LmuSyncStatusKind = AccSyncStatusKind;
+export type LmuSyncState = AccSyncState;
 
 export interface Profile {
     id: string;

@@ -30,6 +30,11 @@ logger = logging.getLogger(__name__)
 
 IMPORT_EXTENSIONS = (".ld", ".csv")
 
+# Bump when the conversion output changes so the sync agent re-imports already
+# synced files. History: 1 = initial single-lap import; 2 = .ldx beacon lap split;
+# 3 = per-lap GPS loop-closure (stops the map line drifting across a stint).
+IMPORTER_VERSION = 3
+
 # ACC .ld channels each carry their own sample rate; these are treated as
 # stepped/discrete signals and resampled with nearest-neighbour (not linear)
 # so gear/flag values stay integral. Everything else is linearly interpolated.
@@ -202,7 +207,43 @@ def load_motec_ld(path):
     return meta, channels
 
 
-def reconstruct_gps(time, speed_kmh, yaw_deg_s):
+def _reconstruct_segment(dt, v, yaw):
+    """Dead-reckon one lap and correct integration drift so it closes as a loop.
+
+    A lap starts and ends at the same physical point (the start/finish line), so
+    two systematic errors are removed:
+      * heading (gyro) bias -- the net turn over a lap must be a whole number of
+        revolutions (+-2*pi for one loop); a constant yaw bias that would spiral
+        the path is subtracted out;
+      * residual position drift -- the small leftover start->end gap is cancelled
+        with a correction spread along the lap by distance travelled.
+    Each segment is emitted from a common origin/orientation, so every lap of a
+    stint overlays the same track frame instead of drifting away from it.
+    """
+    heading = np.cumsum(yaw * dt)
+    total_t = float(np.sum(dt))
+    if total_t > 1e-6:
+        net = float(heading[-1])
+        # Snap the net rotation to the nearest full loop and remove the bias that
+        # accounts for the difference. Skip if the lap clearly isn't a full loop.
+        target = round(net / (2 * np.pi)) * 2 * np.pi
+        if abs(target) >= np.pi:
+            heading = heading - (net - target) * (np.cumsum(dt) / total_t)
+
+    x = np.cumsum(v * np.cos(heading) * dt)
+    y = np.cumsum(v * np.sin(heading) * dt)
+
+    # Close the loop: distribute the start->end gap along the lap by distance so
+    # the correction lands where the drift accumulated.
+    dist = np.cumsum(v * dt)
+    total_d = dist[-1] if dist.size and dist[-1] > 1e-6 else 1.0
+    frac = dist / total_d
+    x = x - x[-1] * frac
+    y = y - y[-1] * frac
+    return x, y
+
+
+def reconstruct_gps(time, speed_kmh, yaw_deg_s, lap_bounds=None):
     """Reconstruct a GPS-like track path from speed + yaw rate (ACC has no GPS).
 
     Returns (longitude, latitude) in DEGREES at an arbitrary but realistic base,
@@ -214,14 +255,35 @@ def reconstruct_gps(time, speed_kmh, yaw_deg_s):
     carries the SAME chirality as real GPS (Monza Turn 1 comes out as a
     right-hander). That lets ACC laps render correctly through the identical
     2D and 3D pipeline used for LMU -- no per-view mirror flips required.
+
+    ``lap_bounds`` are sample indices of lap starts (plus the final end). When
+    given, each lap is reconstructed independently and loop-closed, so a whole
+    stint of laps overlays the same track outline instead of the path spiralling
+    away from it as free integration drift accumulates lap after lap.
     """
     t = np.asarray(time, float)
     dt = np.gradient(t)
     v = np.asarray(speed_kmh, float) / 3.6
     yaw = np.nan_to_num(np.asarray(yaw_deg_s, float)) * np.pi / 180.0
-    heading = np.cumsum(yaw * dt)
-    x_m = np.cumsum(v * np.cos(heading) * dt)  # local metres, east
-    y_m = np.cumsum(v * np.sin(heading) * dt)  # local metres, north
+    n = len(t)
+
+    # Build contiguous segments covering [0, n) from the lap boundaries.
+    segs = []
+    if lap_bounds and len(lap_bounds) >= 1:
+        cuts = sorted({0, n} | {int(b) for b in lap_bounds if 0 < int(b) < n})
+        segs = [(cuts[i], cuts[i + 1]) for i in range(len(cuts) - 1)]
+    if not segs:
+        segs = [(0, n)]
+
+    x_m = np.zeros(n)
+    y_m = np.zeros(n)
+    for a, b in segs:
+        if b - a < 3:  # too short to close meaningfully -- integrate as-is
+            h = np.cumsum(yaw[a:b] * dt[a:b])
+            x_m[a:b] = np.cumsum(v[a:b] * np.cos(h) * dt[a:b])
+            y_m[a:b] = np.cumsum(v[a:b] * np.sin(h) * dt[a:b])
+        else:
+            x_m[a:b], y_m[a:b] = _reconstruct_segment(dt[a:b], v[a:b], yaw[a:b])
 
     DEG_M = 111320.0            # metres per degree of latitude
     LAT0, LON0 = 45.0, 9.0     # neutral base (absolute position is irrelevant)
@@ -230,7 +292,37 @@ def reconstruct_gps(time, speed_kmh, yaw_deg_s):
     return lon, lat
 
 
-def _build_tables(meta, ch):
+def read_ldx_beacons(src_path: str) -> list:
+    """Return lap-boundary times (seconds from session start) from the .ldx sidecar.
+
+    ACC writes lap markers to a sibling ``<name>.ldx`` XML file as MoTeC beacons,
+    with ``Time`` in microseconds relative to the log start. These crossings are
+    what split a multi-lap recording into individual laps (the .ld's LAP_BEACON
+    channel is a sparse pulse that resampling loses, so the sidecar is the
+    reliable source).
+    """
+    ldx = os.path.splitext(src_path)[0] + ".ldx"
+    if not os.path.isfile(ldx):
+        return []
+    try:
+        with open(ldx, "r", encoding="utf-8", errors="ignore") as fh:
+            xml = fh.read()
+    except Exception as e:
+        logger.warning("Could not read .ldx sidecar %s: %s", ldx, e)
+        return []
+
+    beacons = []
+    # Match only beacon (BCN) markers; ignore any other marker classes.
+    for m in re.finditer(r'ClassName="BCN"[^>]*?Time="([0-9.eE+\-]+)"', xml):
+        try:
+            beacons.append(float(m.group(1)) / 1_000_000.0)  # microseconds -> seconds
+        except (ValueError, OverflowError):
+            continue
+    return sorted(set(beacons))
+
+
+def _build_tables(meta, ch, source: str = "manual", source_path: str = None,
+                  lap_beacons: list = None):
     """Reshape ACC channels (dict name->array) into LMU per-channel DataFrames."""
     if "Time" not in ch:
         raise ValueError("No Time channel found in input.")
@@ -269,15 +361,43 @@ def _build_tables(meta, ch):
             idx = np.concatenate(([0], np.where(np.diff(v) != 0)[0] + 1))
             tables[dst] = pd.DataFrame({"ts": time[idx].astype(float), "value": v[idx]})
 
+    duration = end_t - start_t
+
+    # Split the recording into laps using the .ldx beacon crossings. Each beacon
+    # inside the session is a start/finish line crossing -> a new lap start. The
+    # "Lap" table (ts per lap start) is what the backend reads to build the lap
+    # list, exactly like native LMU files. Without beacons we fall back to a
+    # single lap (e.g. a MoTeC CSV export or a one-lap .ld).
+    boundaries = [start_t]
+    for b in (lap_beacons or []):
+        # Keep only interior crossings, well clear of the session ends.
+        if start_t + 1.0 < b < end_t - 1.0:
+            boundaries.append(b)
+    boundaries = sorted(set(boundaries))
+
+    # Reconstruct the GPS path per lap so a whole stint overlays one track frame
+    # (integrating the entire session lets drift spiral each lap away from the
+    # outline). Boundaries -> sample indices for the reconstructor.
     if "SPEED" in ch and "ROTY" in ch:
-        x, y = reconstruct_gps(time, ch["SPEED"], ch["ROTY"])
+        lap_bound_idx = [int(np.searchsorted(time, b, side="left")) for b in boundaries[1:]]
+        x, y = reconstruct_gps(time, ch["SPEED"], ch["ROTY"], lap_bounds=lap_bound_idx)
         tables["GPS Longitude"] = pd.DataFrame({"value": x.astype(float)})
         tables["GPS Latitude"] = pd.DataFrame({"value": y.astype(float)})
 
-    tables["Lap"] = pd.DataFrame({"ts": [start_t], "value": [0]}).astype(
-        {"ts": "float64", "value": "int64"})
-    duration = end_t - start_t
-    tables["Lap Time"] = pd.DataFrame({"ts": [end_t], "value": [duration]}).astype(
+    tables["Lap"] = pd.DataFrame({
+        "ts": boundaries,
+        "value": list(range(len(boundaries))),
+    }).astype({"ts": "float64", "value": "int64"})
+
+    # "Lap Time" carries each completed lap's duration (keyed by its end time),
+    # used for lap validation / best-lap. The final (in-progress) lap has no
+    # official time. A single-lap recording keeps the whole-session duration.
+    if len(boundaries) > 1:
+        lt_ts = [boundaries[i + 1] for i in range(len(boundaries) - 1)]
+        lt_val = [boundaries[i + 1] - boundaries[i] for i in range(len(boundaries) - 1)]
+    else:
+        lt_ts, lt_val = [end_t], [duration]
+    tables["Lap Time"] = pd.DataFrame({"ts": lt_ts, "value": lt_val}).astype(
         {"ts": "float64", "value": "float64"})
 
     venue = (meta.get("Venue") or "").strip() or "Unknown Track"
@@ -293,13 +413,23 @@ def _build_tables(meta, ch):
         "SessionType": "ACC Import",
         "WeatherConditions": "Unknown",
         "Game": "ACC",
+        # Provenance: "sync" = imported by the game-folder sync agent, "manual" = user upload.
+        "Source": source if source in ("sync", "manual") else "manual",
     }
+    if source_path:
+        md["SourcePath"] = source_path
     tables["metadata"] = pd.DataFrame({"key": list(md), "value": list(md.values())})
     return tables, dict(samples=n, duration=duration, track=venue, car=vehicle, car_class=car_class)
 
 
-def convert_to_duckdb(src_path: str, output_dir: str = None, output_path: str = None) -> str:
-    """Convert an ACC MoTeC .ld/.csv into a DuckDB file. Returns the output path."""
+def convert_to_duckdb(src_path: str, output_dir: str = None, output_path: str = None,
+                      source: str = "manual", source_path: str = None) -> str:
+    """Convert an ACC MoTeC .ld/.csv into a DuckDB file. Returns the output path.
+
+    ``source`` records provenance in the session metadata ("sync" for the ACC
+    game-folder sync agent, "manual" for a user upload). ``source_path`` stores
+    the original .ld path (used by the sync agent's dedup ledger).
+    """
     if not os.path.exists(src_path):
         raise FileNotFoundError(src_path)
     ext = os.path.splitext(src_path)[1].lower()
@@ -310,7 +440,12 @@ def convert_to_duckdb(src_path: str, output_dir: str = None, output_path: str = 
     else:
         raise ValueError(f"Unsupported import type: {ext}")
 
-    tables, info = _build_tables(meta, ch)
+    # Lap boundaries come from the .ldx sidecar (present alongside both .ld and
+    # .csv exports). Absent -> single lap.
+    lap_beacons = read_ldx_beacons(src_path)
+
+    tables, info = _build_tables(meta, ch, source=source, source_path=source_path,
+                                 lap_beacons=lap_beacons)
 
     if output_path is None:
         stem = os.path.splitext(os.path.basename(src_path))[0]

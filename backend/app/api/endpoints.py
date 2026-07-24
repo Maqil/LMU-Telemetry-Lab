@@ -587,6 +587,10 @@ async def list_sessions(profile_id: Optional[str] = Query("guest")):
                 # Game discriminator: ACC imports stamp Game='ACC'; native LMU files have none.
                 session_info["game"] = meta_dict.get('Game', 'LMU')
 
+                # Provenance: 'sync' = auto-imported from the game folder, 'manual' = user upload.
+                # Absent on older files (and all native LMU uploads) -> treated as manual.
+                session_info["source"] = meta_dict.get('Source', 'manual')
+
                 track_name = meta_dict.get('TrackName', '')
                 track_layout = meta_dict.get('TrackLayout', '')
                 raw_car = meta_dict.get('CarName', '')
@@ -648,6 +652,106 @@ async def list_sessions(profile_id: Optional[str] = Query("guest")):
         
     logger.info(f"API: Returning {len(sessions)} sessions")
     return {"sessions": sessions}
+
+
+# ---------------------------------------------------------------------------
+# ACC game-directory sync (Phase 2: detect + on-demand import)
+# ---------------------------------------------------------------------------
+
+class AccSyncConfig(BaseModel):
+    folder: Optional[str] = None
+    enabled: Optional[bool] = None
+
+
+@router.get("/sync/acc/status")
+async def acc_sync_status(profile_id: Optional[str] = Query("guest")):
+    """Current ACC sync config/state (auto-detects the folder on first use)."""
+    from ..services import acc_sync_service
+    data_dir, _ = get_contextual_dirs(profile_id)
+    return acc_sync_service.get_status(data_dir)
+
+
+@router.post("/sync/acc/detect")
+async def acc_sync_detect(profile_id: Optional[str] = Query("guest")):
+    """Force auto-detection of the ACC MoTeC folder."""
+    from ..services import acc_sync_service
+    data_dir, _ = get_contextual_dirs(profile_id)
+    return acc_sync_service.detect(data_dir)
+
+
+@router.post("/sync/acc/config")
+async def acc_sync_config(req: AccSyncConfig, profile_id: Optional[str] = Query("guest")):
+    """Set the watched folder and/or enable/disable sync."""
+    from ..services import acc_sync_service
+    data_dir, _ = get_contextual_dirs(profile_id)
+    try:
+        return acc_sync_service.set_config(data_dir, folder=req.folder, enabled=req.enabled)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/sync/acc/scan")
+def acc_sync_scan(profile_id: Optional[str] = Query("guest")):
+    """Import new/changed .ld recordings from the watched folder ("Sync now").
+
+    Defined as a sync endpoint so FastAPI runs the (potentially slow) import in
+    its worker threadpool rather than blocking the event loop.
+    """
+    from ..services import acc_sync_service
+    data_dir, _ = get_contextual_dirs(profile_id)
+    return acc_sync_service.scan(data_dir, profile_id=profile_id or "guest")
+
+
+# ---------------------------------------------------------------------------
+# LMU game-directory sync (detect + on-demand import)
+#
+# Kept fully separate from the ACC sync above: LMU exports native .duckdb files
+# to UserData/Telemetry, so its service just copies them (no MoTeC conversion).
+# ---------------------------------------------------------------------------
+
+class LmuSyncConfig(BaseModel):
+    folder: Optional[str] = None
+    enabled: Optional[bool] = None
+
+
+@router.get("/sync/lmu/status")
+async def lmu_sync_status(profile_id: Optional[str] = Query("guest")):
+    """Current LMU sync config/state (auto-detects the folder on first use)."""
+    from ..services import lmu_sync_service
+    data_dir, _ = get_contextual_dirs(profile_id)
+    return lmu_sync_service.get_status(data_dir)
+
+
+@router.post("/sync/lmu/detect")
+async def lmu_sync_detect(profile_id: Optional[str] = Query("guest")):
+    """Force auto-detection of the LMU UserData/Telemetry folder."""
+    from ..services import lmu_sync_service
+    data_dir, _ = get_contextual_dirs(profile_id)
+    return lmu_sync_service.detect(data_dir)
+
+
+@router.post("/sync/lmu/config")
+async def lmu_sync_config(req: LmuSyncConfig, profile_id: Optional[str] = Query("guest")):
+    """Set the watched folder and/or enable/disable sync."""
+    from ..services import lmu_sync_service
+    data_dir, _ = get_contextual_dirs(profile_id)
+    try:
+        return lmu_sync_service.set_config(data_dir, folder=req.folder, enabled=req.enabled)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/sync/lmu/scan")
+def lmu_sync_scan(profile_id: Optional[str] = Query("guest")):
+    """Copy new/changed .duckdb recordings from the watched folder ("Sync now").
+
+    Defined as a sync endpoint so FastAPI runs the (potentially slow) copy in
+    its worker threadpool rather than blocking the event loop.
+    """
+    from ..services import lmu_sync_service
+    data_dir, _ = get_contextual_dirs(profile_id)
+    return lmu_sync_service.scan(data_dir, profile_id=profile_id or "guest")
+
 
 @router.post("/sessions/upload")
 async def upload_session(file: UploadFile = File(...), profile_id: Optional[str] = Query("guest")):
