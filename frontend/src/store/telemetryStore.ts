@@ -362,6 +362,7 @@ export interface TelemetryState {
     uploadSession: (file: File) => Promise<string | null>;
     renameSession: (sessionId: string, newName: string) => Promise<void>;
     deleteSession: (sessionId: string) => Promise<void>;
+    deleteSessions: (sessionIds: string[]) => Promise<void>;
     togglePlayback: () => void;
     setPlaybackSpeed: (speed: number) => void;
     updatePlayback: (deltaTimeMs: number) => void;
@@ -2047,6 +2048,36 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
 
             const state = get();
             if (state.currentSessionId === sessionId) {
+                set({
+                    currentSessionId: null,
+                    laps: [],
+                    telemetryData: null,
+                    sessionMetadata: null,
+                    referenceLap: null,
+                    referenceLapIdx: null,
+                    referenceSessionMetadata: null,
+                    referenceTelemetryData: null
+                });
+                localStorage.removeItem('had_active_session');
+            }
+            set({ isListLoading: false });
+        } catch (err) {
+            set({ error: (err as Error).message, isListLoading: false });
+        }
+    },
+
+    deleteSessions: async (sessionIds: string[]) => {
+        const { activeProfileId } = get();
+        if (!activeProfileId || sessionIds.length === 0) return;
+
+        set({ isListLoading: true, error: null });
+        try {
+            // Delete each session, then refresh the list only once.
+            await Promise.allSettled(sessionIds.map(id => apiClient.deleteSession(id, activeProfileId)));
+            await get().fetchSessions();
+
+            const state = get();
+            if (state.currentSessionId && sessionIds.includes(state.currentSessionId)) {
                 set({
                     currentSessionId: null,
                     laps: [],

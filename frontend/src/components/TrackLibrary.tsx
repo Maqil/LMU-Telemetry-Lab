@@ -2,7 +2,7 @@ import { memo, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
     ArrowLeft, Search, Upload, Loader2, Timer, Trash2, MapPin, Layers, Car,
-    ChevronDown, CalendarDays,
+    ChevronDown, CalendarDays, CheckSquare, Square, MinusSquare, X, AlertTriangle,
 } from 'lucide-react';
 import { useTelemetryStore } from '../store/telemetryStore';
 import type { Session } from '../types';
@@ -82,15 +82,33 @@ const Stat = ({ icon: Icon, value, label, tone = 'text-gray-300' }: { icon: any;
     </div>
 );
 
-const SessionRow = ({ s, onOpen, onDelete }: { s: Session; onOpen: () => void; onDelete: () => void }) => {
+const SessionRow = ({ s, onOpen, onDelete, selectMode, selected, onToggleSelect }: {
+    s: Session;
+    onOpen: () => void;
+    onDelete: () => void;
+    selectMode: boolean;
+    selected: boolean;
+    onToggleSelect: () => void;
+}) => {
     const brand = getBrandLogoPath(s.carModel || '');
     const date = s.created ? new Date(s.created * 1000).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : 'Unknown';
     return (
         <div
-            onClick={onOpen}
+            onClick={selectMode ? onToggleSelect : onOpen}
             onMouseMove={(e) => handleGlassMouseMove(e, 0.2)}
-            className="group/row relative flex items-center gap-3 rounded-lg p-2.5 cursor-pointer border border-white/5 bg-black/20 ring-1 ring-inset ring-white/5 hover:bg-blue-600/10 hover:border-blue-500/30 transition-all duration-200 min-w-0"
+            className={`group/row relative flex items-center gap-3 rounded-lg p-2.5 cursor-pointer border ring-1 ring-inset transition-all duration-200 min-w-0 ${
+                selected
+                    ? 'bg-blue-600/20 border-blue-500/50 ring-blue-500/30'
+                    : 'bg-black/20 border-white/5 ring-white/5 hover:bg-blue-600/10 hover:border-blue-500/30'
+            }`}
         >
+            {selectMode && (
+                <div className="flex-shrink-0 flex items-center justify-center">
+                    {selected
+                        ? <CheckSquare size={17} className="text-blue-400" />
+                        : <Square size={17} className="text-gray-600 group-hover/row:text-gray-400" />}
+                </div>
+            )}
             <div className="relative flex-shrink-0 w-8 h-8 flex items-center justify-center">
                 {brand ? (
                     <img src={brand} className="w-7 h-7 object-contain" onError={(e) => (e.currentTarget.style.display = 'none')} />
@@ -118,14 +136,16 @@ const SessionRow = ({ s, onOpen, onDelete }: { s: Session; onOpen: () => void; o
                     {s.driverName && <span className="text-[9px] uppercase tracking-widest text-blue-400/60 font-bold truncate ml-auto">{s.driverName}</span>}
                 </div>
             </div>
-            <Tooltip text="DELETE SESSION" position="left">
-                <button
-                    onClick={(e) => { e.stopPropagation(); onDelete(); }}
-                    className="flex-shrink-0 p-1.5 rounded-md text-gray-500 opacity-0 group-hover/row:opacity-100 hover:text-red-400 hover:bg-red-500/10 transition-all"
-                >
-                    <Trash2 size={13} />
-                </button>
-            </Tooltip>
+            {!selectMode && (
+                <Tooltip text="DELETE SESSION" position="left">
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onDelete(); }}
+                        className="flex-shrink-0 p-1.5 rounded-md text-gray-500 opacity-0 group-hover/row:opacity-100 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                    >
+                        <Trash2 size={13} />
+                    </button>
+                </Tooltip>
+            )}
         </div>
     );
 };
@@ -136,20 +156,47 @@ const TrackListRow = ({
     onToggle,
     onOpenSession,
     onDelete,
+    selectMode,
+    selectedIds,
+    onToggleSelect,
+    onToggleTrack,
 }: {
     row: TrackRow;
     expanded: boolean;
     onToggle: () => void;
     onOpenSession: (id: string) => void;
     onDelete: (id: string) => void;
+    selectMode: boolean;
+    selectedIds: Set<string>;
+    onToggleSelect: (id: string) => void;
+    onToggleTrack: (row: TrackRow) => void;
 }) => {
     const flag = getCountryFlagPath(row.country);
     const hasSessions = row.sessions.length > 0;
     const lastDate = row.lastDriven ? new Date(row.lastDriven * 1000).toLocaleDateString([], { month: 'short', day: 'numeric' }) : '—';
 
+    const selectedCount = hasSessions ? row.sessions.reduce((n, s) => n + (selectedIds.has(s.id) ? 1 : 0), 0) : 0;
+    const allSelected = hasSessions && selectedCount === row.sessions.length;
+    const someSelected = selectedCount > 0 && !allSelected;
+
     return (
         <div className={`rounded-2xl border overflow-hidden transition-colors duration-300 ${expanded ? 'border-blue-500/30 bg-[#14141b]' : 'border-white/[0.07] bg-[#16161c]'}`}>
             {/* Track header row */}
+            <div className="flex items-stretch">
+                {selectMode && hasSessions && (
+                    <button
+                        type="button"
+                        onClick={() => onToggleTrack(row)}
+                        className="flex-shrink-0 flex items-center justify-center pl-4 text-gray-500 hover:text-blue-400 transition-colors"
+                        title={allSelected ? 'Deselect all sessions on this track' : 'Select all sessions on this track'}
+                    >
+                        {allSelected
+                            ? <CheckSquare size={18} className="text-blue-400" />
+                            : someSelected
+                                ? <MinusSquare size={18} className="text-blue-400" />
+                                : <Square size={18} />}
+                    </button>
+                )}
             <button
                 type="button"
                 onClick={hasSessions ? onToggle : undefined}
@@ -193,6 +240,7 @@ const TrackListRow = ({
                     )}
                 </div>
             </button>
+            </div>
 
             {/* Expanded sessions */}
             <AnimatePresence initial={false}>
@@ -206,7 +254,15 @@ const TrackListRow = ({
                     >
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 px-3 pb-3 pt-1 border-t border-white/5">
                             {row.sessions.map(s => (
-                                <SessionRow key={s.id} s={s} onOpen={() => onOpenSession(s.id)} onDelete={() => onDelete(s.id)} />
+                                <SessionRow
+                                    key={s.id}
+                                    s={s}
+                                    onOpen={() => onOpenSession(s.id)}
+                                    onDelete={() => onDelete(s.id)}
+                                    selectMode={selectMode}
+                                    selected={selectedIds.has(s.id)}
+                                    onToggleSelect={() => onToggleSelect(s.id)}
+                                />
                             ))}
                         </div>
                     </motion.div>
@@ -220,11 +276,16 @@ export const TrackLibrary = memo(({ game, onBack, onOpenSession }: TrackLibraryP
     const sessions = useTelemetryStore(state => state.sessions);
     const uploadSession = useTelemetryStore(state => state.uploadSession);
     const deleteSession = useTelemetryStore(state => state.deleteSession);
+    const deleteSessions = useTelemetryStore(state => state.deleteSessions);
     const isListLoading = useTelemetryStore(state => state.isListLoading);
 
     const [searchQuery, setSearchQuery] = useState('');
     const [isUploading, setIsUploading] = useState(false);
     const [expandedKey, setExpandedKey] = useState<string | null>(null);
+    const [selectMode, setSelectMode] = useState(false);
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [confirmOpen, setConfirmOpen] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const meta = GAME_META[game];
@@ -299,6 +360,49 @@ export const TrackLibrary = memo(({ game, onBack, onOpenSession }: TrackLibraryP
     const totalSessions = useMemo(() => sessions.filter(s => (s.game || 'LMU') === game).length, [sessions, game]);
     const recordedTracks = useMemo(() => rows.filter(r => r.sessions.length > 0).length, [rows]);
 
+    // Flat list of every session id currently visible (respects search filter).
+    const visibleIds = useMemo(() => rows.flatMap(r => r.sessions.map(s => s.id)), [rows]);
+    const allSelected = visibleIds.length > 0 && visibleIds.every(id => selectedIds.has(id));
+    const selectedCount = selectedIds.size;
+
+    const toggleSelect = (id: string) => {
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            next.has(id) ? next.delete(id) : next.add(id);
+            return next;
+        });
+    };
+
+    const toggleTrack = (row: TrackRow) => {
+        const ids = row.sessions.map(s => s.id);
+        const everySelected = ids.every(id => selectedIds.has(id));
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            ids.forEach(id => (everySelected ? next.delete(id) : next.add(id)));
+            return next;
+        });
+    };
+
+    const toggleSelectAll = () => {
+        setSelectedIds(allSelected ? new Set() : new Set(visibleIds));
+    };
+
+    const exitSelectMode = () => {
+        setSelectMode(false);
+        setSelectedIds(new Set());
+    };
+
+    const handleConfirmDelete = async () => {
+        setIsDeleting(true);
+        try {
+            await deleteSessions(Array.from(selectedIds));
+        } finally {
+            setIsDeleting(false);
+            setConfirmOpen(false);
+            exitSelectMode();
+        }
+    };
+
     const handleFiles = async (files: FileList | null) => {
         if (!files || files.length === 0) return;
         setIsUploading(true);
@@ -355,17 +459,57 @@ export const TrackLibrary = memo(({ game, onBack, onOpenSession }: TrackLibraryP
                     </div>
 
                     <input ref={fileInputRef} type="file" multiple accept=".duckdb,.ld,.csv" className="hidden" onChange={(e) => handleFiles(e.target.files)} />
-                    <button
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={isUploading}
-                        className="flex items-center gap-2 h-10 px-4 rounded-xl bg-blue-600/20 border border-blue-500/30 text-blue-300 hover:bg-blue-600/30 hover:text-white transition-all font-black text-[10px] uppercase tracking-widest disabled:opacity-50 ml-auto glass-container"
-                        onMouseMove={(e) => handleGlassMouseMove(e, 0.2)}
-                    >
-                        <div className="glass-content flex items-center gap-2">
-                            {isUploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-                            Upload
+
+                    {selectMode ? (
+                        <div className="flex items-center gap-2 ml-auto">
+                            <button
+                                onClick={toggleSelectAll}
+                                disabled={visibleIds.length === 0}
+                                className="flex items-center gap-2 h-10 px-4 rounded-xl bg-[#16161c] border border-white/10 text-gray-300 hover:text-white hover:border-white/20 transition-all font-black text-[10px] uppercase tracking-widest disabled:opacity-40"
+                            >
+                                {allSelected ? <CheckSquare size={14} className="text-blue-400" /> : <Square size={14} />}
+                                {allSelected ? 'Deselect All' : 'Select All'}
+                            </button>
+                            <button
+                                onClick={() => setConfirmOpen(true)}
+                                disabled={selectedCount === 0}
+                                className="flex items-center gap-2 h-10 px-4 rounded-xl bg-red-600/20 border border-red-500/40 text-red-300 hover:bg-red-600/30 hover:text-white transition-all font-black text-[10px] uppercase tracking-widest disabled:opacity-40 disabled:hover:bg-red-600/20"
+                            >
+                                <Trash2 size={14} />
+                                Delete{selectedCount > 0 ? ` (${selectedCount})` : ''}
+                            </button>
+                            <Tooltip text="CANCEL SELECTION" position="bottom">
+                                <button
+                                    onClick={exitSelectMode}
+                                    className="flex items-center justify-center w-10 h-10 rounded-xl bg-[#16161c] border border-white/10 text-gray-400 hover:text-white hover:border-white/20 transition-all"
+                                >
+                                    <X size={16} />
+                                </button>
+                            </Tooltip>
                         </div>
-                    </button>
+                    ) : (
+                        <div className="flex items-center gap-2 ml-auto">
+                            <button
+                                onClick={() => setSelectMode(true)}
+                                disabled={totalSessions === 0}
+                                className="flex items-center gap-2 h-10 px-4 rounded-xl bg-[#16161c] border border-white/10 text-gray-300 hover:text-white hover:border-white/20 transition-all font-black text-[10px] uppercase tracking-widest disabled:opacity-40"
+                            >
+                                <CheckSquare size={14} />
+                                Select
+                            </button>
+                            <button
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={isUploading}
+                                className="flex items-center gap-2 h-10 px-4 rounded-xl bg-blue-600/20 border border-blue-500/30 text-blue-300 hover:bg-blue-600/30 hover:text-white transition-all font-black text-[10px] uppercase tracking-widest disabled:opacity-50 glass-container"
+                                onMouseMove={(e) => handleGlassMouseMove(e, 0.2)}
+                            >
+                                <div className="glass-content flex items-center gap-2">
+                                    {isUploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                                    Upload
+                                </div>
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 {/* Track list */}
@@ -394,11 +538,67 @@ export const TrackLibrary = memo(({ game, onBack, onOpenSession }: TrackLibraryP
                                 onToggle={() => setExpandedKey(prev => (prev === row.key ? null : row.key))}
                                 onOpenSession={onOpenSession}
                                 onDelete={deleteSession}
+                                selectMode={selectMode}
+                                selectedIds={selectedIds}
+                                onToggleSelect={toggleSelect}
+                                onToggleTrack={toggleTrack}
                             />
                         ))}
                     </div>
                 )}
             </div>
+
+            {/* Delete confirmation */}
+            <AnimatePresence>
+                {confirmOpen && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+                        onClick={() => !isDeleting && setConfirmOpen(false)}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.94, opacity: 0, y: 8 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.94, opacity: 0, y: 8 }}
+                            transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-full max-w-sm rounded-2xl border border-red-500/20 bg-[#141419] p-6 shadow-2xl"
+                        >
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="flex-shrink-0 w-11 h-11 rounded-xl bg-red-500/15 border border-red-500/30 flex items-center justify-center">
+                                    <AlertTriangle size={20} className="text-red-400" />
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-black uppercase tracking-tight text-white leading-none">Delete Sessions</h3>
+                                    <p className="text-[11px] text-gray-500 font-bold uppercase tracking-widest mt-1">This cannot be undone</p>
+                                </div>
+                            </div>
+                            <p className="text-sm text-gray-300 mb-6">
+                                Permanently delete <span className="font-black text-white">{selectedCount}</span> selected session{selectedCount === 1 ? '' : 's'}?
+                            </p>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setConfirmOpen(false)}
+                                    disabled={isDeleting}
+                                    className="flex-1 h-10 rounded-xl bg-[#1c1c24] border border-white/10 text-gray-300 hover:text-white hover:border-white/20 transition-all font-black text-[10px] uppercase tracking-widest disabled:opacity-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleConfirmDelete}
+                                    disabled={isDeleting}
+                                    className="flex-1 h-10 rounded-xl bg-red-600/90 hover:bg-red-600 text-white transition-all font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-60"
+                                >
+                                    {isDeleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                                    Delete
+                                </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 });

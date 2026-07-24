@@ -151,6 +151,7 @@ export const TelemetryChart = React.memo<TelemetryChartProps>(({
     const refValueRef = useRef<HTMLSpanElement>(null);
     const multiValueContainerRef = useRef<HTMLDivElement>(null);
     const multiRefValueContainerRef = useRef<HTMLDivElement>(null);
+    const multiDiffContainerRef = useRef<HTMLDivElement>(null);
     const timeRef = useRef<HTMLDivElement>(null);
     const cursorRafRef = useRef<number>(0); // throttle store dispatch to 60fps
 
@@ -947,6 +948,7 @@ export const TelemetryChart = React.memo<TelemetryChartProps>(({
             if (idx === undefined || idx === null) {
                 if (multiValueContainerRef.current) multiValueContainerRef.current.innerHTML = "";
                 if (multiRefValueContainerRef.current) multiRefValueContainerRef.current.innerHTML = "";
+                if (multiDiffContainerRef.current) multiDiffContainerRef.current.innerHTML = "";
                 if (timeRef.current) timeRef.current.textContent = "";
                 return;
             }
@@ -1002,6 +1004,35 @@ export const TelemetryChart = React.memo<TelemetryChartProps>(({
                     if (i < refSeries.length - 1) html += `<span style="display: inline-flex; align-items: center; height: 24px; line-height: 1; transform: translateY(-1px);" class="text-gray-600 mx-1 text-[10px]">|</span>`;
                 });
                 multiRefValueContainerRef.current.innerHTML = html;
+            }
+
+            // Update Diff Values (current - reference)
+            if (multiDiffContainerRef.current && channel !== 'Time Delta') {
+                const formatDiff = (d: number) => {
+                    const decimals = (unit === 'mm' || unit === '%' || unit === 'G' || unit === 'MJ') ? (unit === 'G' || unit === 'MJ' ? 2 : 1) : 0;
+                    const abs = Math.abs(d);
+                    const magnitude = decimals > 0 ? abs.toFixed(decimals) : Math.round(abs).toFixed(0);
+                    const sign = d > 0 ? '+' : (d < 0 ? '-' : '');
+                    return `${sign}${magnitude}`;
+                };
+                let html = "";
+                const count = Math.min(currentSeries.length, refSeries.length);
+                for (let i = 0; i < count; i++) {
+                    const cv = currentSeries[i]?.[idx];
+                    const rv = refSeries[i]?.[idx];
+                    let unitSuffix = "";
+                    if (channel === 'HandlingMerged') unitSuffix = i === 0 ? " deg/s" : " deg";
+
+                    if (cv == null || rv == null || Number.isNaN(cv) || Number.isNaN(rv)) {
+                        html += `<span style="display: inline-flex; align-items: center; height: 24px; line-height: 1; color: #6b7280;" class="font-mono">-</span>`;
+                    } else {
+                        const d = cv - rv;
+                        const color = Math.abs(d) < 1e-9 ? '#9ca3af' : (d > 0 ? '#4ade80' : '#f87171');
+                        html += `<span style="display: inline-flex; align-items: center; height: 24px; line-height: 1; color: ${color};" class="font-mono font-black">${formatDiff(d)}${unitSuffix}</span>`;
+                    }
+                    if (i < count - 1) html += `<span style="display: inline-flex; align-items: center; height: 24px; line-height: 1; transform: translateY(-1px);" class="text-gray-600 mx-1 text-[10px]">|</span>`;
+                }
+                multiDiffContainerRef.current.innerHTML = html;
             }
 
             if (showLapTime && timeRef.current && currentTimeRef.current) {
@@ -2100,6 +2131,8 @@ export const TelemetryChart = React.memo<TelemetryChartProps>(({
                                 <div className="flex items-center gap-2">
                                     <span className="text-gray-700 font-bold opacity-60 mx-[-2px] text-xs">|</span>
                                     <div ref={multiRefValueContainerRef} className="flex items-center opacity-70 leading-none" />
+                                    <span className="px-1 py-0.25 rounded bg-white/5 border border-white/10 text-[9px] font-black text-gray-500 uppercase tracking-widest leading-none ml-1">Δ</span>
+                                    <div ref={multiDiffContainerRef} className="flex items-center text-sm leading-none" />
                                 </div>
                             )}
                         </div>
