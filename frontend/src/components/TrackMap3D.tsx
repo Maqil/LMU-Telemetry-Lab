@@ -4,7 +4,6 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Text, PerspectiveCamera, Float, Stars, Bounds, Center, Line, Edges, Billboard } from '@react-three/drei';
 import * as THREE from 'three';
 import { useTelemetryStore } from '../store/telemetryStore';
-import { MapDimensionToggle } from './MapDimensionToggle';
 import { MapSteeringOverlay } from './MapSteeringOverlay';
 import { Layers, MousePointer2, Move3d, RotateCcw, Play, Pause, Compass, Target, Navigation, Maximize2, Minimize2, Activity, ChevronRight, Check, ChevronDown } from 'lucide-react';
 import { handleGlassMouseMove } from '../utils/glassEffect';
@@ -1204,9 +1203,9 @@ export const TrackMap3D = ({ onToggleExpand, isAnimating = false }: { onToggleEx
                 {/* Title & Z-Scale Overlay */}
                 <div className={`absolute top-5 left-5 z-[200] flex pointer-events-auto transition-all duration-300 ${isMapMaximized ? 'flex-row items-center gap-6' : 'flex-col items-start gap-1'}`}>
 
-                    {/* 2D/3D dimension toggle (sits above the Z Scale slider).
-                        In maximized mode the top-center MaximizedDimensionToggle handles this. */}
-                    {!isMapMaximized && <MapDimensionToggle />}
+                    {/* 2D/3D dimension toggle moved to the top navbar (see App.tsx):
+                        the 3D canvas was intercepting the click here. Maximized mode
+                        still uses the top-center MaximizedDimensionToggle below. */}
 
                     {/* Z-Scale Horizontal Slider */}
                     <div className={`flex items-center gap-3 h-4 ${isMapMaximized ? 'pl-4 border-l border-white/10' : ''}`} onMouseDown={(e) => e.stopPropagation()}>

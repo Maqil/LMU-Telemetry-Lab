@@ -652,7 +652,7 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
     referenceTrack3DData: null,
     staticTrackBaseData: null,
     isProcessingTrack: false,
-    show3DLab: true, // Default to the 3D track layout on session open
+    show3DLab: false, // Default to the 2D track map on session open (toggle to 3D available)
     customCarMappings: JSON.parse(localStorage.getItem('custom_car_mappings') || '{}'),
     showCarSelection: null,
     isLoading: false, // Unified loading state (derived from loadingCount > 0)

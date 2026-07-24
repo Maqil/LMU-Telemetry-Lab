@@ -60,8 +60,12 @@ interface AppRailProps {
 export const AppRail = memo(({ showDataSources, onOpenDataSources }: AppRailProps) => {
     const gameFilter = useTelemetryStore(state => state.gameFilter);
     const setGameFilter = useTelemetryStore(state => state.setGameFilter);
+    const clearSession = useTelemetryStore(state => state.clearSession);
 
     const selectGame = (game: 'all' | 'LMU' | 'ACC') => {
+        // Leave any active session so the rail always returns to the Sim Select
+        // (Home) / Track Library browse view rather than the last-opened session.
+        clearSession();
         setGameFilter(game);
         onOpenDataSources();
     };

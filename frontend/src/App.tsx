@@ -28,6 +28,8 @@ import { UpdateNotifier } from './components/UpdateNotifier';
 import { CarSetupView } from './components/CarSetupView';
 import { DiscordShareModal } from './components/DiscordShareModal';
 import { AppRail } from './components/AppRail';
+import { SimSelect } from './components/SimSelect';
+import { TrackLibrary } from './components/TrackLibrary';
 import { VideoPanel } from './components/VideoPanel';
 import {
   ArrowLeft,
@@ -129,6 +131,9 @@ function App() {
   const isListLoading = useTelemetryStore(state => state.isListLoading);
   const selectedSegIdx = useTelemetryStore(state => state.selectedSegIdx);
   const selectedSectorIdx = useTelemetryStore(state => state.selectedSectorIdx);
+  const gameFilter = useTelemetryStore(state => state.gameFilter);
+  const setGameFilter = useTelemetryStore(state => state.setGameFilter);
+  const clearSession = useTelemetryStore(state => state.clearSession);
 
   const trackName = sessionMetadata?.trackName;
   const layoutName = sessionMetadata?.layoutKey || sessionMetadata?.trackLayout || 'Default';
@@ -614,6 +619,34 @@ function App() {
   useEffect(() => {
     localStorage.setItem('file_manager_open', showFileManager.toString());
   }, [showFileManager]);
+
+  // Home ("Select Your Sim") landing: shown when no specific sim is selected
+  // and there's no active session to return to.
+  const inHomeMode = (showFileManager || !currentSessionId) && gameFilter === 'all';
+
+  // Track Library: a sim is selected but no session is open yet — browse tracks
+  // and sessions before diving into the telemetry + map view.
+  const inLibraryMode = gameFilter !== 'all' && !currentSessionId;
+
+  // Pick a sim from the landing page: leave any active session and show its
+  // Track Library (never jump straight back into the last-opened session).
+  const handleSelectSim = (game: 'LMU' | 'ACC') => {
+    clearSession();
+    setGameFilter(game);
+    setShowFileManager(false);
+    setLeftSidebarCollapsed(false);
+  };
+
+  // Open a session from the Track Library -> telemetry + map view.
+  const handleOpenSession = (sessionId: string) => {
+    setShowFileManager(false);
+    selectSession(sessionId);
+  };
+
+  // Back from the Track Library to the "Select Your Sim" home page.
+  const handleLibraryBack = () => {
+    setGameFilter('all');
+  };
   // Navbar "Analysis Laps" popover (moved out of the left sidebar)
   const [showLapsPopover, setShowLapsPopover] = useState(false);
   const lapsPopoverRef = useRef<HTMLDivElement>(null);
@@ -1047,7 +1080,7 @@ function App() {
         />
       )}
       {/* Sidebar - Data Controls (only in Data Sources view; session info now lives in the navbar popover) */}
-      {!isMapMaximized && (showFileManager || !currentSessionId) && (
+      {!isMapMaximized && (showFileManager || !currentSessionId) && !inHomeMode && !inLibraryMode && (
         <div
           className={`h-full bg-[#111115] border-r border-[#1f1f26] flex flex-col flex-shrink-0 relative overflow-hidden group/sidebar transition-[width,opacity] duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]`}
           style={{
@@ -1080,7 +1113,7 @@ function App() {
         </div>
       )}
 
-      {!isMapMaximized && (showFileManager || !currentSessionId) && (
+      {!isMapMaximized && (showFileManager || !currentSessionId) && !inHomeMode && !inLibraryMode && (
         <Tooltip text={isLeftSidebarCollapsed ? "" : "DOUBLE-CLICK TO RESET"} position="right">
           <div
             className={`w-1.5 flex justify-center items-center group/sidebar-resizer relative z-50 h-full transition-all duration-300 ${isLeftSidebarCollapsed ? 'cursor-default' : 'cursor-col-resize'}`}
@@ -1111,6 +1144,17 @@ function App() {
       )}
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col bg-gray-900 min-w-0 relative">
+        {/* Home landing: Select Your Sim */}
+        {inHomeMode && !isMapMaximized ? (
+          <SimSelect onSelectGame={handleSelectSim} />
+        ) : inLibraryMode && !isMapMaximized ? (
+          <TrackLibrary
+            game={gameFilter as 'LMU' | 'ACC'}
+            onBack={handleLibraryBack}
+            onOpenSession={handleOpenSession}
+          />
+        ) : (
+        <>
         {/* Top Navbar */}
         {!isMapMaximized && (
           <div className={`bg-[#111115] border-b border-[#1f1f26] flex items-center justify-between px-6 py-2 flex-shrink-0 h-14 relative`}>
@@ -1336,6 +1380,27 @@ function App() {
                       className={`relative z-10 flex-1 h-full flex items-center justify-center text-[10px] font-black uppercase tracking-widest transition-colors duration-300 ${showMiniSectors ? 'text-white' : 'text-gray-500 hover:text-gray-300'}`}
                     >
                       SEG
+                    </button>
+                  </div>
+
+                  {/* 2D / 3D map dimension toggle — lives in the navbar so the 3D
+                      canvas can't swallow the click. */}
+                  <div className="relative flex items-center p-1 bg-[#1a1a1e]/60 backdrop-blur-md rounded-md border border-white/10 glass-container h-8 w-28 overflow-hidden group/dim-toggle" onMouseMove={handleGlassMouseMove}>
+                    <div
+                      className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-blue-600 rounded-lg shadow-[0_0_15px_rgba(37,99,235,0.4)] transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] z-0"
+                      style={{ left: !show3DLab ? '4px' : 'calc(50%)' }}
+                    />
+                    <button
+                      onClick={() => setShow3DLab(false)}
+                      className={`relative z-10 flex-1 h-full flex items-center justify-center text-[10px] font-black uppercase tracking-widest transition-colors duration-300 ${!show3DLab ? 'text-white' : 'text-gray-500 hover:text-gray-300'}`}
+                    >
+                      2D
+                    </button>
+                    <button
+                      onClick={() => setShow3DLab(true)}
+                      className={`relative z-10 flex-1 h-full flex items-center justify-center text-[10px] font-black uppercase tracking-widest transition-colors duration-300 ${show3DLab ? 'text-white' : 'text-gray-500 hover:text-gray-300'}`}
+                    >
+                      3D
                     </button>
                   </div>
 
@@ -1669,6 +1734,8 @@ function App() {
             </div>
           )}
         </div>
+        </>
+        )}
 
         {/* Global Error Banner */}
         {error && (
