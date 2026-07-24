@@ -1,19 +1,25 @@
 # -*- mode: python ; coding: utf-8 -*-
+import os
+from PyInstaller.utils.hooks import collect_dynamic_libs
 
 block_cipher = None
 
-# Add all files in the backend package as hidden imports or datas
-# Also include our car lookup CSV and the frontend/dist folder
-added_files = [
-    ('lmu_carname_to_modelname.csv', '.'),
-    ('backend/discord_config.json', '.'),
-    ('frontend/dist', 'frontend/dist')
-]
+# Add data files needed at runtime. The frontend build is required; the car
+# lookup CSV and discord config are optional (both features degrade gracefully
+# if absent), so only bundle them when they actually exist on disk.
+added_files = [('frontend/dist', 'frontend/dist')]
+for src, dst in [('lmu_carname_to_modelname.csv', '.'), ('backend/discord_config.json', '.')]:
+    if os.path.exists(src):
+        added_files.append((src, dst))
+
+# duckdb ships a compiled native extension that PyInstaller does not always
+# pick up automatically; collect it explicitly so the bundle can query DBs.
+extra_binaries = collect_dynamic_libs('duckdb')
 
 a = Analysis(
     ['backend/main.py'],
     pathex=[],
-    binaries=[],
+    binaries=extra_binaries,
     datas=added_files,
     hiddenimports=[
         'uvicorn.logging',

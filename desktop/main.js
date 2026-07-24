@@ -26,17 +26,17 @@ function createWindow() {
     const isPackaged = app.isPackaged;
 
     if (isPackaged) {
-        // Path to the bundled backend exe
-        const backendPath = path.join(process.resourcesPath, 'backend-dist', 'lmu-telemetry-backend', 'lmu-telemetry-backend.exe');
-        const appRoot = path.join(process.resourcesPath, '..');
-        const dataDir = path.join(appRoot, 'DuckDB_data');
+        // Path to the bundled backend binary (platform-specific name)
+        const isWin = process.platform === 'win32';
+        const backendDir = path.join(process.resourcesPath, 'backend-dist', 'lmu-telemetry-backend');
+        const backendPath = path.join(backendDir, isWin ? 'lmu-telemetry-backend.exe' : 'lmu-telemetry-backend');
 
         console.log(`Launching backend at: ${backendPath}`);
-        
+
         // KILL ANY PREVIOUS PROCESS ON PORT 8000 before starting
         const killExisting = () => {
             return new Promise((resolve) => {
-                if (process.platform === 'win32') {
+                if (isWin) {
                     // Find PID using netstat and kill it
                     const checkCmd = `netstat -ano | findstr :8000 | findstr LISTENING`;
                     require('child_process').exec(checkCmd, (err, stdout) => {
@@ -50,18 +50,20 @@ function createWindow() {
                             } else resolve();
                         } else resolve();
                     });
-                } else resolve();
+                } else {
+                    // macOS / Linux: free the port via lsof if anything is holding it
+                    require('child_process').exec(`lsof -ti tcp:8000 | xargs kill -9`, () => resolve());
+                }
             });
         };
 
         killExisting().then(() => {
             backendProcess = spawn(backendPath, [], {
                 stdio: 'ignore',
-                cwd: path.dirname(backendPath),
+                cwd: backendDir,
                 windowsHide: true,
                 env: {
-                    ...process.env,
-                    DUCKDB_DATA_DIR: dataDir
+                    ...process.env
                 }
             });
 
