@@ -84,6 +84,7 @@ export const LiveTelemetryControl = ({ align = 'right' }: { align?: 'left' | 'ri
     const [open, setOpen] = useState(false);
     const [busy, setBusy] = useState(false);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
+    const [host, setHost] = useState('');
     const [port, setPort] = useState('');
     const [password, setPassword] = useState('');
     const rootRef = useRef<HTMLDivElement>(null);
@@ -95,6 +96,7 @@ export const LiveTelemetryControl = ({ align = 'right' }: { align?: 'left' | 'ri
     useEffect(() => { if (live?.running) connectStream(); }, [live?.running, connectStream]);
 
     useEffect(() => { if (live?.config) setPort(String(live.config.port ?? '')); }, [live?.config?.port]);
+    useEffect(() => { if (live?.config) setHost(live.config.host || ''); }, [live?.config?.host]);
 
     useEffect(() => {
         if (!open) return;
@@ -132,7 +134,9 @@ export const LiveTelemetryControl = ({ align = 'right' }: { align?: 'left' | 'ri
     const handleSaveConnection = () => run(async () => {
         const parsed = parseInt(port, 10);
         if (!parsed || parsed < 1 || parsed > 65535) throw new Error('Enter a valid UDP port (1-65535).');
-        await setConfig({ port: parsed, password });
+        // Blank host -> localhost (ACC on this machine). Set it to the gaming
+        // PC's LAN IP to run the app on a second machine and offload rendering.
+        await setConfig({ host: host.trim() || '127.0.0.1', port: parsed, password });
         setPassword('');
     });
 
@@ -267,6 +271,17 @@ export const LiveTelemetryControl = ({ align = 'right' }: { align?: 'left' | 'ri
                         </div>
 
                         {/* Connection */}
+                        <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">
+                            Host / IP <span className="text-gray-600">· the PC running ACC (blank = this machine)</span>
+                        </label>
+                        <input
+                            value={host}
+                            onChange={(e) => setHost(e.target.value)}
+                            placeholder="127.0.0.1"
+                            spellCheck={false}
+                            className="w-full h-9 px-2.5 mb-2.5 rounded-lg bg-black/30 border border-white/10 text-[11px] font-mono text-gray-200 placeholder:text-gray-600 focus:outline-none focus:border-blue-500/50"
+                        />
+
                         <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">
                             UDP Port {live.config.hasPassword && <span className="text-emerald-400/70">· password set</span>}
                         </label>
