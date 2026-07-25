@@ -133,6 +133,7 @@ export interface ReferenceLap {
     stintCount?: number;
     totalLaps?: number;
     fuelUsed?: number;
+    isPro?: boolean;   // Curated pro reference lap (e.g. Fri3d0lf) — always suggested
 }
 
 // ---- Car Setup ----

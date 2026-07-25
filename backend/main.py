@@ -32,6 +32,7 @@ app = FastAPI(title="SIM Telemetry Lab API")
 
 from app.api.endpoints import router as api_router
 from app.services.profiles_service import ProfilesService
+from app.services.reference_library_service import seed_reference_library
 
 # Configure CORS
 origins = [
@@ -52,6 +53,13 @@ app.add_middleware(
 # Ensure persistent data directory exists BEFORE mounting
 PROFILE_DATA_DIR = ProfilesService.get_app_data_dir()
 os.makedirs(PROFILE_DATA_DIR, exist_ok=True)
+
+# Seed the shared pro reference-lap library (Fri3d0lf's laps) so they are
+# always available as default reference suggestions. Idempotent and best-effort.
+try:
+    seed_reference_library()
+except Exception as e:
+    logger.error(f"Failed to seed pro reference library: {e}", exc_info=True)
 
 app.include_router(api_router, prefix="/api/v1")
 

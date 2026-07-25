@@ -153,6 +153,18 @@ class ProfilesService:
         return path
 
     @classmethod
+    def get_reference_library_dir(cls) -> str:
+        """Shared, profile-agnostic library of curated pro reference laps.
+
+        Sessions here are surfaced as default reference-lap suggestions for
+        every profile (see reference_library_service), so they live outside any
+        single profile's Data folder.
+        """
+        path = os.path.join(cls.get_app_data_dir(), "ReferenceLibrary", "DuckDB_data")
+        os.makedirs(path, exist_ok=True)
+        return path
+
+    @classmethod
     def migrate_legacy_data(cls, legacy_data_dir: str):
         """Move data from project-root DuckDB_data to Guest profile if Guest is empty."""
         guest_dir = cls.get_profile_data_dir("guest")

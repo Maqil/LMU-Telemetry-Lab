@@ -11,6 +11,7 @@ import { Tooltip } from './ui/Tooltip';
 import { apiClient } from '../api/client';
 import { getBrandLogoPath, getClassColor } from '../utils/carHelpers';
 import { getCountryFlagPath } from '../utils/trackHelpers';
+import { pairTelemetryUploads } from '../utils/uploadHelpers';
 
 const DEFAULT_LMU_PATH = 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\Le Mans Ultimate\\UserData\\Telemetry';
 
@@ -18,6 +19,11 @@ const DEFAULT_LMU_PATH = 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\Le 
 const IMPORT_EXTENSIONS = ['.duckdb', '.ld', '.csv'];
 const isImportableFile = (name: string) =>
     IMPORT_EXTENSIONS.some(ext => name.toLowerCase().endsWith(ext));
+// The ACC .ldx lap-index sidecar isn't a session on its own, but we let it
+// through the picker/drop filter so it can be paired with its .ld (see
+// pairTelemetryUploads) to preserve multi-lap stint boundaries.
+const isUploadCandidate = (name: string) =>
+    isImportableFile(name) || name.toLowerCase().endsWith('.ldx');
 
 interface FileManagerProps {
     onClose?: () => void;
@@ -196,9 +202,9 @@ export const FileManager: React.FC<FileManagerProps> = ({ onClose }) => {
             if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
                 console.log("[DEBUG] global window drop files count:", e.dataTransfer.files.length);
                 const rawFiles = Array.from(e.dataTransfer.files);
-                const files = rawFiles.filter(file => isImportableFile(file.name));
+                const items = pairTelemetryUploads(rawFiles.filter(file => isUploadCandidate(file.name)));
 
-                if (files.length === 0) {
+                if (items.length === 0) {
                     console.warn("[DEBUG] No valid telemetry files in drop.");
                     useTelemetryStore.setState({ error: "Only .duckdb or ACC MoTeC .ld / .csv files are supported for upload." });
                     return;
@@ -207,10 +213,10 @@ export const FileManager: React.FC<FileManagerProps> = ({ onClose }) => {
                 useTelemetryStore.setState({ error: null });
                 const uploadedIds: string[] = [];
 
-                for (const file of files) {
+                for (const { file, sidecar } of items) {
                     try {
-                        console.log("[DEBUG] Global drop starting upload for file:", file.name);
-                        const id = await uploadSession(file);
+                        console.log("[DEBUG] Global drop starting upload for file:", file.name, sidecar ? `(+${sidecar.name})` : '');
+                        const id = await uploadSession(file, sidecar);
                         console.log("[DEBUG] Global drop upload success, returned ID:", id);
                         if (id) {
                             uploadedIds.push(id);
@@ -250,8 +256,8 @@ export const FileManager: React.FC<FileManagerProps> = ({ onClose }) => {
                     if (!currentlyOpenId) {
                         const firstId = uploadedIds[0];
                         selectSession(firstId);
-                        
-                        const isSingleFile = files.length === 1;
+
+                        const isSingleFile = items.length === 1;
                         if (isSingleFile && onClose) {
                             onClose();
                         } else {
@@ -474,17 +480,17 @@ export const FileManager: React.FC<FileManagerProps> = ({ onClose }) => {
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
             const rawFiles = Array.from(e.target.files);
-            const files = rawFiles.filter(file => isImportableFile(file.name));
+            const items = pairTelemetryUploads(rawFiles.filter(file => isUploadCandidate(file.name)));
 
-            if (files.length === 0) return;
+            if (items.length === 0) return;
 
             useTelemetryStore.setState({ error: null });
             const uploadedIds: string[] = [];
-            
-            for (const file of files) {
+
+            for (const { file, sidecar } of items) {
                 try {
-                    console.log("[DEBUG] Click-upload starting for file:", file.name);
-                    const id = await uploadSession(file);
+                    console.log("[DEBUG] Click-upload starting for file:", file.name, sidecar ? `(+${sidecar.name})` : '');
+                    const id = await uploadSession(file, sidecar);
                     if (id) {
                         uploadedIds.push(id);
                     }
@@ -527,8 +533,8 @@ export const FileManager: React.FC<FileManagerProps> = ({ onClose }) => {
                 if (!currentlyOpenId) {
                     const firstId = uploadedIds[0];
                     selectSession(firstId);
-                    
-                    const isSingleFile = files.length === 1;
+
+                    const isSingleFile = items.length === 1;
                     if (isSingleFile && onClose) {
                         onClose();
                     } else {
@@ -726,7 +732,7 @@ export const FileManager: React.FC<FileManagerProps> = ({ onClose }) => {
                     onMouseMove={handleGlassMouseMove}
                 >
                     <div className="glass-content flex flex-col items-center justify-center w-full pointer-events-none">
-                        <input type="file" ref={fileInputRef} className="hidden" accept=".duckdb,.ld,.csv" multiple onChange={handleFileChange} />
+                        <input type="file" ref={fileInputRef} className="hidden" accept=".duckdb,.ld,.ldx,.csv" multiple onChange={handleFileChange} />
                         <div className={`p-3 rounded-full border mb-3 transition-all duration-500 ${
                             isDragActive 
                                 ? 'bg-blue-500/30 border-blue-400 shadow-[0_0_20px_rgba(59,130,246,0.6)] scale-110' 
@@ -741,7 +747,7 @@ export const FileManager: React.FC<FileManagerProps> = ({ onClose }) => {
                         <span className="text-[12px] text-white font-black uppercase tracking-[0.15em] mb-1">Upload Telemetry</span>
                         <span className={`text-[9px] font-black uppercase tracking-widest transition-colors duration-300 ${
                             isDragActive ? 'text-blue-400 animate-pulse' : 'text-gray-400'
-                        }`}>Drop .duckdb or ACC MoTeC .ld / .csv here</span>
+                        }`}>Drop .duckdb or ACC MoTeC .ld (+.ldx) / .csv here</span>
                     </div>
                 </div>
             </div>

@@ -78,7 +78,7 @@ async def get_3d_track(
 ):
     """Get 3D track path (X, Y, Z) for visualization."""
     data_dir, _ = get_contextual_dirs(profile_id)
-    db_path = os.path.join(data_dir, session_id)
+    db_path = resolve_read_db_path(profile_id, session_id)
     
     logger.info(f"API: GET /track3d - Session: {session_id}, Lap: {lap}, Profile: {profile_id}")
     
@@ -202,6 +202,23 @@ def get_contextual_dirs(profile_id: Optional[str] = "guest"):
         ProfilesService.get_profile_data_dir(p_id),
         ProfilesService.get_profile_cache_dir(p_id)
     )
+
+def resolve_read_db_path(profile_id: Optional[str], session_id: str) -> str:
+    """Resolve a session DuckDB path for READ access.
+
+    Looks in the active profile first, then falls back to the shared pro
+    reference library so pro reference laps (Fri3d0lf's) can be read from any
+    profile. Returns the profile path unchanged when neither exists, preserving
+    the caller's 404 handling.
+    """
+    data_dir, _ = get_contextual_dirs(profile_id)
+    profile_path = os.path.join(data_dir, session_id)
+    if os.path.exists(profile_path):
+        return profile_path
+    ref_path = os.path.join(ProfilesService.get_reference_library_dir(), session_id)
+    if os.path.exists(ref_path):
+        return ref_path
+    return profile_path
 
 logger = logging.getLogger(__name__)
 
@@ -754,12 +771,21 @@ def lmu_sync_scan(profile_id: Optional[str] = Query("guest")):
 
 
 @router.post("/sessions/upload")
-async def upload_session(file: UploadFile = File(...), profile_id: Optional[str] = Query("guest")):
+async def upload_session(
+    file: UploadFile = File(...),
+    sidecar: Optional[UploadFile] = File(None),
+    profile_id: Optional[str] = Query("guest"),
+):
     """Upload a session file.
 
     Accepts a native LMU .duckdb file, or an ACC MoTeC export -- either the
     binary log (.ld) or a CSV export (.csv) -- which is converted to the
     .duckdb schema on the fly.
+
+    ``sidecar`` is the optional ACC ``.ldx`` lap-index file that ships next to a
+    ``.ld``. It carries the lap-boundary beacons, so uploading it alongside the
+    ``.ld`` lets a multi-lap stint split into individual laps instead of
+    collapsing into a single lap.
     """
     from ..services.acc_importer import is_convertible, convert_to_duckdb
     import shutil, tempfile
@@ -778,26 +804,34 @@ async def upload_session(file: UploadFile = File(...), profile_id: Optional[str]
             raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
     if is_convertible(fname_lower):
-        # Save the raw upload to a temp file, then convert into data_dir.
-        suffix = os.path.splitext(file.filename)[1]
-        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+        # Save the raw upload into a temp DIR under its real base name so an
+        # accompanying .ldx sidecar (uploaded alongside) sits next to it with a
+        # matching stem -- the ACC importer reads lap beacons from that sibling.
+        tmp_dir = tempfile.mkdtemp(prefix="acc_upload_")
         try:
-            shutil.copyfileobj(file.file, tmp)
-            tmp.close()
-            out_path = convert_to_duckdb(tmp.name, output_dir=data_dir,
-                                         output_path=os.path.join(
-                                             data_dir,
-                                             os.path.splitext(os.path.basename(file.filename))[0] + ".duckdb"))
+            stem = os.path.splitext(os.path.basename(file.filename))[0]
+            ext = os.path.splitext(file.filename)[1]
+            tmp_ld = os.path.join(tmp_dir, stem + ext)
+            with open(tmp_ld, "wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+
+            # Persist the .ldx sidecar next to the .ld (matching stem) if given.
+            if sidecar is not None and (sidecar.filename or "").lower().endswith(".ldx"):
+                with open(os.path.join(tmp_dir, stem + ".ldx"), "wb") as sc_buffer:
+                    shutil.copyfileobj(sidecar.file, sc_buffer)
+
+            out_path = convert_to_duckdb(
+                tmp_ld,
+                output_dir=data_dir,
+                output_path=os.path.join(data_dir, stem + ".duckdb"),
+            )
             filename = os.path.basename(out_path)
             return {"id": filename, "status": "converted", "size": os.path.getsize(out_path)}
         except Exception as e:
             logger.error(f"ACC import failed for {file.filename}: {e}")
             raise HTTPException(status_code=400, detail=f"Import failed: {str(e)}")
         finally:
-            try:
-                os.remove(tmp.name)
-            except OSError:
-                pass
+            shutil.rmtree(tmp_dir, ignore_errors=True)
 
     raise HTTPException(status_code=400,
                         detail="Only .duckdb or ACC MoTeC .ld / .csv files are allowed")
@@ -878,7 +912,7 @@ async def export_session_setup(session_id: str, request: Request, custom_car_mod
     logger.info(f"API: GET /setup/export - Session: {session_id}, custom_car_model: {custom_car_model}, profile_id: {profile_id}")
 
     data_dir, _ = get_contextual_dirs(profile_id)
-    db_path = os.path.join(data_dir, session_id)
+    db_path = resolve_read_db_path(profile_id, session_id)
     if not os.path.exists(db_path):
         raise HTTPException(status_code=404, detail=f"Session not found: {session_id}")
 
@@ -927,7 +961,7 @@ async def export_session_setup(session_id: str, request: Request, custom_car_mod
 async def get_session_setup(session_id: str, profile_id: Optional[str] = Query("guest")):
     """Get structured car setup data from a session's DuckDB metadata."""
     data_dir, _ = get_contextual_dirs(profile_id)
-    db_path = os.path.join(data_dir, session_id)
+    db_path = resolve_read_db_path(profile_id, session_id)
     if not os.path.exists(db_path):
         raise HTTPException(status_code=404, detail=f"Session not found: {session_id}")
 
@@ -1087,7 +1121,7 @@ async def get_session_laps(session_id: str, profile_id: Optional[str] = Query("g
     """Get summary of laps for a session with robust logging."""
     data_dir, _ = get_contextual_dirs(profile_id)
     logger.info(f"API: GET /laps - Profile: {profile_id}, Session: {session_id}")
-    db_path = os.path.join(data_dir, session_id)
+    db_path = resolve_read_db_path(profile_id, session_id)
     if not os.path.exists(db_path):
         logger.error(f"Database NOT FOUND: {db_path}")
         raise HTTPException(status_code=404, detail=f"Database not found: {session_id}")
@@ -1107,10 +1141,30 @@ async def get_reference_laps(
     car_class: str = Query(...),
     profile_id: Optional[str] = Query("guest")
 ):
-    """Find compatible laps for reference across all profile sessions."""
+    """Find compatible laps for reference across all profile sessions.
+
+    Results always include curated pro reference laps (Fri3d0lf's) from the
+    shared reference library for the matching track + car class, so they surface
+    as default suggestions regardless of the active profile's own sessions.
+    """
     data_dir, _ = get_contextual_dirs(profile_id)
     try:
         laps = TelemetryService.find_compatible_laps(data_dir, track_name, track_layout, car_class)
+
+        # Merge in the shared pro reference library (deduped by sessionId so a
+        # pro lap the user has also imported into their own profile isn't shown
+        # twice; the profile copy wins).
+        try:
+            ref_dir = ProfilesService.get_reference_library_dir()
+            pro_laps = TelemetryService.find_compatible_laps(
+                ref_dir, track_name, track_layout, car_class, is_pro=True
+            )
+            existing_sessions = {l["sessionId"] for l in laps}
+            pro_laps = [l for l in pro_laps if l["sessionId"] not in existing_sessions]
+            laps = pro_laps + laps
+        except Exception as e:
+            logger.warning(f"Could not merge pro reference laps: {e}")
+
         return {"laps": laps}
     except Exception as e:
         logger.error(f"Error finding compatible laps: {e}", exc_info=True)
@@ -1128,7 +1182,7 @@ async def get_telemetry(
     """Get fused telemetry data with robust logging."""
     data_dir, cache_dir = get_contextual_dirs(profile_id)
     logger.info(f"API: GET /telemetry - Profile: {profile_id}, Session: {session_id}, Freq: {freq}, Stint: {stint_id}")
-    db_path = os.path.join(data_dir, session_id)
+    db_path = resolve_read_db_path(profile_id, session_id)
     if not os.path.exists(db_path):
         logger.error(f"Database NOT FOUND: {db_path}")
         raise HTTPException(status_code=404, detail="Session not found")
@@ -1281,10 +1335,10 @@ async def export_session_lap(session_id: str, lap_number: int, request: Request,
 
     logger.info(f"API: GET /export/lap - Session: {session_id}, Lap: {lap_number}, custom_car_model: {custom_car_model}, profile_id: {profile_id}")
     data_dir, cache_dir = get_contextual_dirs(profile_id)
-    db_path = os.path.join(data_dir, session_id)
+    db_path = resolve_read_db_path(profile_id, session_id)
     if not os.path.exists(db_path):
         raise HTTPException(status_code=404, detail="Session not found")
-        
+
     try:
         # 1. Fetch metadata for naming
         from ..services.car_lookup import get_car_info

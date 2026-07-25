@@ -972,8 +972,12 @@ class TelemetryService:
             con.close()
 
     @staticmethod
-    def find_compatible_laps(data_dir: str, track_name: str, track_layout: str, car_class: str):
-        """Find all laps across all sessions matching track, layout and class."""
+    def find_compatible_laps(data_dir: str, track_name: str, track_layout: str, car_class: str, is_pro: bool = False):
+        """Find all laps across all sessions matching track, layout and class.
+
+        ``is_pro`` tags every returned lap as a curated pro reference lap (used
+        when scanning the shared reference library).
+        """
         import glob
         import duckdb
         
@@ -1026,7 +1030,8 @@ class TelemetryService:
                                 "rawCarName": meta.get('CarName', ''),
                                 "totalLaps": total_laps,
                                 "stintCount": stint_count,
-                                "fuelUsed": lap.get('fuelUsed', 0.0)
+                                "fuelUsed": lap.get('fuelUsed', 0.0),
+                                "isPro": is_pro
                             })
                     else:
                         pass

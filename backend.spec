@@ -12,6 +12,12 @@ for src, dst in [('lmu_carname_to_modelname.csv', '.'), ('backend/discord_config
     if os.path.exists(src):
         added_files.append((src, dst))
 
+# Curated pro reference laps (Fri3d0lf's ACC MoTeC .ld files). Seeded into the
+# shared reference library on startup so they surface as default reference-lap
+# suggestions. Bundle the whole folder when present.
+if os.path.isdir('fri3d0lf-Telemetry'):
+    added_files.append(('fri3d0lf-Telemetry/*.ld', 'fri3d0lf-Telemetry'))
+
 # duckdb ships a compiled native extension that PyInstaller does not always
 # pick up automatically; collect it explicitly so the bundle can query DBs.
 extra_binaries = collect_dynamic_libs('duckdb')
