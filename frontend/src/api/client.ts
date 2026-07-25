@@ -1,5 +1,5 @@
 
-import type { Session, Lap, TelemetryData, Profile, AccSyncState, LmuSyncState } from '../types';
+import type { Session, Lap, TelemetryData, Profile, AccSyncState, LmuSyncState, LiveStatus } from '../types';
 
 const API_BASE = '/api/v1';
 
@@ -341,6 +341,50 @@ export const apiClient = {
         const res = await fetch(`${API_BASE}/sync/lmu/scan?profile_id=${profileId}`, { method: 'POST' });
         if (!res.ok) throw new Error('Sync scan failed');
         return res.json();
+    },
+
+    // --- Live telemetry (real-time ACC UDP broadcasting feed) ---
+    async getLiveStatus(): Promise<LiveStatus> {
+        const res = await fetch(`${API_BASE}/live/status`);
+        if (!res.ok) throw new Error('Failed to fetch live status');
+        return res.json();
+    },
+
+    async detectLiveConfig(): Promise<{ path: string | null; port: number | null; password: string | null; commandPassword: string | null }> {
+        const res = await fetch(`${API_BASE}/live/detect`, { method: 'POST' });
+        if (!res.ok) throw new Error('Detection failed');
+        return res.json();
+    },
+
+    async setLiveConfig(config: { source?: string; host?: string; port?: number; password?: string; updateMs?: number; autoStart?: boolean }): Promise<LiveStatus> {
+        const res = await fetch(`${API_BASE}/live/config`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(config),
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.detail || 'Failed to update live config');
+        }
+        return res.json();
+    },
+
+    async startLive(): Promise<LiveStatus> {
+        const res = await fetch(`${API_BASE}/live/start`, { method: 'POST' });
+        if (!res.ok) throw new Error('Failed to start live telemetry');
+        return res.json();
+    },
+
+    async stopLive(): Promise<LiveStatus> {
+        const res = await fetch(`${API_BASE}/live/stop`, { method: 'POST' });
+        if (!res.ok) throw new Error('Failed to stop live telemetry');
+        return res.json();
+    },
+
+    /** Open the live streaming WebSocket. Kept separate from _fetchJson (it isn't fetch). */
+    connectLiveSocket(): WebSocket {
+        const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        return new WebSocket(`${proto}//${window.location.host}${API_BASE}/live/ws`);
     },
 
     async validatePath(path: string): Promise<boolean> {

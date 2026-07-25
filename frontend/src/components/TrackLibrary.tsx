@@ -13,6 +13,7 @@ import { getCountryFlagPath, getTrackImagePath, matchTrack, ACC_TRACK_ROSTER } f
 import { Tooltip } from './ui/Tooltip';
 import { AccSyncControl } from './AccSyncControl';
 import { LmuSyncControl } from './LmuSyncControl';
+import { LiveTelemetryControl } from './LiveTelemetryControl';
 
 /**
  * Full-page track / session browser for a single sim.
@@ -474,8 +475,9 @@ export const TrackLibrary = memo(({ game, onBack, onOpenSession }: TrackLibraryP
                         <p className="text-[11px] text-gray-500 font-bold uppercase tracking-widest mt-1">Track Library</p>
                     </div>
 
-                    {/* Game-folder sync lives beside the sim title. */}
-                    <div className="ml-auto flex items-center">
+                    {/* Live telemetry + game-folder sync live beside the sim title. */}
+                    <div className="ml-auto flex items-center gap-2">
+                        {game === 'ACC' && <LiveTelemetryControl />}
                         {game === 'ACC' && <AccSyncControl />}
                         {game === 'LMU' && <LmuSyncControl />}
                     </div>

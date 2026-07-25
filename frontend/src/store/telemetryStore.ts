@@ -1,6 +1,48 @@
 import { create } from 'zustand';
-import type { Session, Lap, TelemetryData, SessionMetadata, Profile, ChartConfig, CarSetupData, VideoAssociation } from '../types';
+import type { Session, Lap, TelemetryData, SessionMetadata, Profile, ChartConfig, CarSetupData, VideoAssociation, LiveStatus, LiveLapComplete } from '../types';
 import { apiClient } from '../api/client';
+
+/** Virtual session id used while viewing the real-time live feed. */
+export const LIVE_SESSION_ID = '__live__';
+
+// Live-stream plumbing kept at module scope so incoming frames (~10 Hz) don't
+// churn React beyond the throttled store updates the actions make.
+const LIVE_BUFFER_MAX = 6000; // rolling window cap (samples)
+let _liveSocket: WebSocket | null = null;
+let _liveChannels: string[] = [];
+let _liveBuffer: Record<string, number[]> = {}; // 'Time' + each channel -> samples
+
+/** Append WS rows ([t, ch0, ch1, …]) into the rolling buffer; returns the last
+ *  frame's values keyed by channel (for the header readout). */
+const _appendLiveRows = (rows: number[][]): Record<string, number> | null => {
+    if (!rows || rows.length === 0) return null;
+    if (!_liveBuffer['Time']) _liveBuffer['Time'] = [];
+    for (const ch of _liveChannels) if (!_liveBuffer[ch]) _liveBuffer[ch] = [];
+    let latest: Record<string, number> | null = null;
+    for (const row of rows) {
+        _liveBuffer['Time'].push(row[0]);
+        _liveChannels.forEach((ch, i) => _liveBuffer[ch].push(row[i + 1]));
+        latest = {};
+        _liveChannels.forEach((ch, i) => (latest![ch] = row[i + 1]));
+    }
+    // Trim to the rolling window.
+    const over = _liveBuffer['Time'].length - LIVE_BUFFER_MAX;
+    if (over > 0) for (const k of Object.keys(_liveBuffer)) _liveBuffer[k].splice(0, over);
+    return latest;
+};
+
+const _resetLiveBuffer = (channels: string[]) => {
+    _liveChannels = channels || [];
+    _liveBuffer = { Time: [] };
+    for (const ch of _liveChannels) _liveBuffer[ch] = [];
+};
+
+/** A shallow copy of the buffer in TelemetryData shape, for the charts/map. */
+const _liveTelemetrySnapshot = (): TelemetryData => {
+    const out: TelemetryData = {};
+    for (const k of Object.keys(_liveBuffer)) out[k] = _liveBuffer[k].slice();
+    return out;
+};
 
 // Helper for finding fractional index in a mapped channel array (Time, Distance)
 // Uses binary search for performance
@@ -182,6 +224,12 @@ export interface TelemetryState {
     isAccScanning: boolean;
     lmuSync: import('../types').LmuSyncState | null;
     isLmuScanning: boolean;
+    // Live telemetry (real-time ACC UDP feed)
+    liveStatus: LiveStatus | null;
+    liveLatest: Record<string, number> | null;   // most recent frame's channel values
+    liveLastLap: LiveLapComplete | null;          // last completed live lap
+    livePauseOnBlur: boolean;                     // pause chart redraw while the game has focus
+    liveRenderEnabled: boolean;                   // false while paused-on-blur suspends rendering
     error: string | null;
     isPlaying: boolean;
     playbackSpeed: number;
@@ -379,6 +427,16 @@ export interface TelemetryState {
     detectLmuFolder: () => Promise<string | null>;
     setLmuSyncConfig: (config: { folder?: string | null; enabled?: boolean }) => Promise<void>;
     triggerLmuScan: () => Promise<{ imported: number; skipped: number; errors: number } | null>;
+
+    // Live telemetry (real-time ACC UDP feed)
+    fetchLiveStatus: () => Promise<void>;
+    detectLiveConfig: () => Promise<{ path: string | null; port: number | null } | null>;
+    setLiveConfig: (config: { source?: string; host?: string; port?: number; password?: string; updateMs?: number; autoStart?: boolean }) => Promise<void>;
+    startLive: () => Promise<void>;
+    stopLive: () => Promise<void>;
+    connectLiveStream: () => void;
+    enterLiveView: () => void;
+    setLivePauseOnBlur: (value: boolean) => void;
     togglePlayback: () => void;
     setPlaybackSpeed: (speed: number) => void;
     updatePlayback: (deltaTimeMs: number) => void;
@@ -680,6 +738,11 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
     isAccScanning: false,
     lmuSync: null,
     isLmuScanning: false,
+    liveStatus: null,
+    liveLatest: null,
+    liveLastLap: null,
+    livePauseOnBlur: localStorage.getItem('live_pause_on_blur') !== 'false',
+    liveRenderEnabled: true,
     error: null,
     showReferenceBrowser: false,
     isPlaying: false,
@@ -2208,6 +2271,137 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
         }
     },
 
+    // --- Live telemetry (real-time ACC UDP feed) ---
+    fetchLiveStatus: async () => {
+        try {
+            set({ liveStatus: await apiClient.getLiveStatus() });
+        } catch (err) {
+            console.error('Failed to fetch live status:', err);
+        }
+    },
+
+    detectLiveConfig: async () => {
+        try {
+            const found = await apiClient.detectLiveConfig();
+            // Persist the detected port/password so a later Start uses them.
+            if (found?.port) {
+                await apiClient.setLiveConfig({ port: found.port, password: found.password || '' });
+            }
+            await get().fetchLiveStatus();
+            return found;
+        } catch (err) {
+            console.error('Live config detection failed:', err);
+            return null;
+        }
+    },
+
+    setLiveConfig: async (config) => {
+        set({ liveStatus: await apiClient.setLiveConfig(config) });
+    },
+
+    startLive: async () => {
+        set({ liveStatus: await apiClient.startLive() });
+        get().connectLiveStream();
+    },
+
+    stopLive: async () => {
+        try {
+            if (_liveSocket) { _liveSocket.close(); _liveSocket = null; }
+            set({ liveStatus: await apiClient.stopLive() });
+        } catch (err) {
+            console.error('Failed to stop live telemetry:', err);
+        }
+    },
+
+    connectLiveStream: () => {
+        if (_liveSocket && (_liveSocket.readyState === WebSocket.OPEN || _liveSocket.readyState === WebSocket.CONNECTING)) return;
+        let ws: WebSocket;
+        try { ws = apiClient.connectLiveSocket(); }
+        catch (e) { console.error('Live WS connect failed:', e); return; }
+        _liveSocket = ws;
+
+        const inLiveView = () => get().currentSessionId === LIVE_SESSION_ID;
+        const pushToView = (latest: Record<string, number> | null) => {
+            if (latest) set({ liveLatest: latest });
+            // Only touch the (expensive) telemetryData when the live view is
+            // open and rendering isn't suspended by pause-on-blur.
+            if (inLiveView() && get().liveRenderEnabled) {
+                const td = _liveTelemetrySnapshot();
+                const n = (td['Time'] as number[])?.length ?? 0;
+                set({ telemetryData: td, cursorIndex: n > 0 ? n - 1 : null, smoothCursorIndex: n > 0 ? n - 1 : null });
+            }
+        };
+
+        ws.onmessage = (ev) => {
+            let msg: any;
+            try { msg = JSON.parse(ev.data); } catch { return; }
+            switch (msg.type) {
+                case 'snapshot': {
+                    if (msg.status) set({ liveStatus: msg.status });
+                    _resetLiveBuffer(msg.channels || msg.status?.channels || []);
+                    pushToView(_appendLiveRows(msg.rows || []));
+                    break;
+                }
+                case 'frames': {
+                    pushToView(_appendLiveRows(msg.rows || []));
+                    break;
+                }
+                case 'status': {
+                    if (msg.status) {
+                        if (!_liveChannels.length && msg.status.channels?.length) _liveChannels = msg.status.channels;
+                        set({ liveStatus: msg.status });
+                    }
+                    break;
+                }
+                case 'lap_complete': {
+                    set({ liveLastLap: { lap: msg.lap, timeMs: msg.timeMs ?? null, invalid: !!msg.invalid, track: msg.track, car: msg.car } });
+                    // A finished lap may have been persisted as a normal session.
+                    get().fetchSessions();
+                    break;
+                }
+            }
+        };
+        ws.onclose = () => { if (_liveSocket === ws) _liveSocket = null; };
+        ws.onerror = () => { /* onclose follows; /live/status still reflects state */ };
+    },
+
+    enterLiveView: () => {
+        const status = get().liveStatus;
+        // Synthesize a session so components that resolve currentSessionId work.
+        const liveSession: Session = {
+            id: LIVE_SESSION_ID, path: '', size: 0, created: Date.now() / 1000,
+            trackName: status?.track || 'Live', trackLayout: '',
+            carModel: status?.car || '', carClass: '', driverName: status?.driver || '',
+            game: 'ACC', source: 'live',
+        };
+        const td = _liveTelemetrySnapshot();
+        const n = (td['Time'] as number[])?.length ?? 0;
+        set(state => ({
+            currentSessionId: LIVE_SESSION_ID,
+            sessions: state.sessions.some(s => s.id === LIVE_SESSION_ID) ? state.sessions : [liveSession, ...state.sessions],
+            sessionMetadata: {
+                trackName: status?.track || 'Live', trackLayout: '', carClass: '',
+                modelName: status?.car || '', rawCarName: '', driverName: status?.driver || '',
+                sessionType: 'Live', country: '', officialTrackLength: status?.trackLength || 0,
+            } as SessionMetadata,
+            laps: [],
+            selectedLapIdx: null,
+            selectedStint: null,
+            referenceLapIdx: null,
+            referenceTelemetryData: null,
+            telemetryData: td,
+            cursorIndex: n > 0 ? n - 1 : null,
+            smoothCursorIndex: n > 0 ? n - 1 : null,
+            isPlaying: false,
+        }));
+        get().connectLiveStream();
+    },
+
+    setLivePauseOnBlur: (value) => {
+        localStorage.setItem('live_pause_on_blur', value ? 'true' : 'false');
+        set({ livePauseOnBlur: value });
+    },
+
     // --- Profile Actions ---
     fetchProfiles: async () => {
         try {
@@ -2476,4 +2670,27 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
 
 if (typeof window !== 'undefined') {
     (window as any).useTelemetryStore = useTelemetryStore;
+
+    // Pause-on-blur: the app and ACC share a GPU, so while the game has focus we
+    // stop redrawing the live view (data keeps buffering) and catch up on return.
+    window.addEventListener('blur', () => {
+        const s = useTelemetryStore.getState();
+        if (s.livePauseOnBlur && s.currentSessionId === LIVE_SESSION_ID && s.liveRenderEnabled) {
+            useTelemetryStore.setState({ liveRenderEnabled: false });
+        }
+    });
+    window.addEventListener('focus', () => {
+        const s = useTelemetryStore.getState();
+        if (!s.liveRenderEnabled) {
+            const patch: any = { liveRenderEnabled: true };
+            if (s.currentSessionId === LIVE_SESSION_ID) {
+                const td = _liveTelemetrySnapshot();
+                const n = (td['Time'] as number[])?.length ?? 0;
+                patch.telemetryData = td;
+                patch.cursorIndex = n > 0 ? n - 1 : null;
+                patch.smoothCursorIndex = n > 0 ? n - 1 : null;
+            }
+            useTelemetryStore.setState(patch);
+        }
+    });
 }

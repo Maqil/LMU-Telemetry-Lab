@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Query, UploadFile, File, Request, Response
+from fastapi import APIRouter, HTTPException, Query, UploadFile, File, Request, Response, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse
 from typing import List, Optional
 from pydantic import BaseModel
@@ -751,6 +751,93 @@ def lmu_sync_scan(profile_id: Optional[str] = Query("guest")):
     from ..services import lmu_sync_service
     data_dir, _ = get_contextual_dirs(profile_id)
     return lmu_sync_service.scan(data_dir, profile_id=profile_id or "guest")
+
+
+# ---------------------------------------------------------------------------
+# Live telemetry (real-time ACC UDP broadcasting feed)
+#
+# Standalone from the game-folder sync above: the reader thread + ring buffer
+# live in live_telemetry_service; here we just expose control REST + the
+# streaming WebSocket. Nothing here touches sync state.
+# ---------------------------------------------------------------------------
+
+class LiveConfig(BaseModel):
+    source: Optional[str] = None       # "acc_udp" | "mock"
+    host: Optional[str] = None
+    port: Optional[int] = None
+    password: Optional[str] = None
+    updateMs: Optional[int] = None
+    autoStart: Optional[bool] = None
+
+
+@router.get("/live/status")
+async def live_status():
+    """Current live-telemetry state (source, connection, track/car/lap, hz)."""
+    from ..services.live_telemetry_service import get_service
+    return get_service().get_status()
+
+
+@router.post("/live/detect")
+async def live_detect():
+    """Read ACC's broadcasting.json (port/password) if it can be found."""
+    from ..services.live_telemetry_service import detect_broadcast_config
+    return detect_broadcast_config()
+
+
+@router.post("/live/config")
+async def live_config(req: LiveConfig):
+    """Update the live source config (source/port/password/rate). Restarts if running."""
+    from ..services.live_telemetry_service import get_service
+    updates = {}
+    for key in ("source", "host", "port", "password", "updateMs", "autoStart"):
+        value = getattr(req, key)
+        if value is not None:
+            updates[key] = value
+    try:
+        return get_service().set_config(**updates)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/live/start")
+def live_start():
+    """Start the reader thread ("Go Live"). Sync def -> runs off the event loop."""
+    from ..services.live_telemetry_service import get_service
+    return get_service().start()
+
+
+@router.post("/live/stop")
+def live_stop():
+    """Stop the reader thread. Sync def -> the thread join won't block the loop."""
+    from ..services.live_telemetry_service import get_service
+    return get_service().stop()
+
+
+@router.websocket("/live/ws")
+async def live_ws(websocket: WebSocket):
+    """Stream live frames. On connect the buffered tail is sent so charts fill
+    instantly, then batched frame/status/lap_complete messages are pushed as the
+    reader thread produces them (one reader fans out to every client)."""
+    import asyncio
+    import json as _json
+    from ..services.live_telemetry_service import get_service
+
+    svc = get_service()
+    await websocket.accept()
+    loop = asyncio.get_running_loop()
+    queue: "asyncio.Queue" = asyncio.Queue(maxsize=256)
+    svc.subscribe(loop, queue)
+    try:
+        await websocket.send_text(_json.dumps(svc.snapshot(), default=str))
+        while True:
+            payload = await queue.get()
+            await websocket.send_text(payload)
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        logger.debug("Live WebSocket closed: %s", e)
+    finally:
+        svc.unsubscribe(queue)
 
 
 @router.post("/sessions/upload")

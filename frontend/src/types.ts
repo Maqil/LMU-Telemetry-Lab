@@ -27,7 +27,7 @@ export interface Session {
     bestLapTime?: number;
     bestLapValid?: boolean;
     game?: string; // 'LMU' | 'ACC'
-    source?: 'sync' | 'manual'; // 'sync' = auto-imported from game folder, 'manual' = user upload
+    source?: 'sync' | 'manual' | 'live'; // 'sync' = game-folder import, 'manual' = upload, 'live' = real-time capture
 }
 
 export interface SessionMetadata {
@@ -93,6 +93,58 @@ export interface AccSyncState {
 // the two paths stay decoupled).
 export type LmuSyncStatusKind = AccSyncStatusKind;
 export type LmuSyncState = AccSyncState;
+
+// --- Live telemetry (real-time ACC UDP broadcasting feed) ---
+export type LiveStateKind =
+    | 'driving'    // connected + status LIVE + frames flowing
+    | 'connected'  // connected but sitting in the garage (no recent frames)
+    | 'waiting'    // reader running, game not sending yet ("Waiting for ACC…")
+    | 'paused'     // session paused / in a menu (status != LIVE)
+    | 'replay'     // watching a replay
+    | 'stopped';   // reader not running
+
+export interface LiveStatus {
+    running: boolean;
+    state: LiveStateKind;
+    connected: boolean;
+    source: string;                 // 'acc_udp' | 'mock'
+    error: string | null;
+    hz: number;                     // frames/s kept after downsampling
+    packetsPerSec?: number;         // raw inbound UDP rate (diagnostics)
+    carUpdatesPerSec?: number;
+    frames: number;
+    channels: string[];             // ordered channel names in each frame row
+    buffered: number;               // samples currently in the ring buffer
+    track: string;
+    trackLength: number;
+    car: string;
+    driver: string;
+    lap: number | null;
+    lapTimeMs: number | null;
+    lastLapMs: number | null;
+    bestLapMs: number | null;
+    delta: number | null;
+    position: number | null;
+    sessionType: string;
+    gameStatus: string;             // LIVE | PAUSE | REPLAY | OFF
+    config: {
+        source: string;
+        host: string;
+        port: number;
+        hasPassword: boolean;
+        updateMs: number;
+        autoStart: boolean;
+    };
+}
+
+/** Broadcast when the source's lap counter advances. */
+export interface LiveLapComplete {
+    lap: number;
+    timeMs: number | null;
+    invalid: boolean;
+    track?: string;
+    car?: string;
+}
 
 export interface Profile {
     id: string;
