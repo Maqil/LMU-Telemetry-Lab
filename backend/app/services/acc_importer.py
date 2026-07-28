@@ -32,8 +32,9 @@ IMPORT_EXTENSIONS = (".ld", ".csv")
 
 # Bump when the conversion output changes so the sync agent re-imports already
 # synced files. History: 1 = initial single-lap import; 2 = .ldx beacon lap split;
-# 3 = per-lap GPS loop-closure (stops the map line drifting across a stint).
-IMPORTER_VERSION = 3
+# 3 = per-lap GPS loop-closure (stops the map line drifting across a stint);
+# 4 = corrected MoTeC de-scale (proper mul/shift/dec + float64 to stop overflow).
+IMPORTER_VERSION = 4
 
 # ACC .ld channels each carry their own sample rate; these are treated as
 # stepped/discrete signals and resampled with nearest-neighbour (not linear)
@@ -322,7 +323,8 @@ def read_ldx_beacons(src_path: str) -> list:
 
 
 def _build_tables(meta, ch, source: str = "manual", source_path: str = None,
-                  lap_beacons: list = None):
+                  lap_beacons: list = None, driver_override: str = None,
+                  is_pro: bool = False, game: str = "ACC"):
     """Reshape ACC channels (dict name->array) into LMU per-channel DataFrames."""
     if "Time" not in ch:
         raise ValueError("No Time channel found in input.")
@@ -408,14 +410,18 @@ def _build_tables(meta, ch, source: str = "manual", source_path: str = None,
         "TrackLayout": "",
         "CarName": vehicle,
         "CarClass": car_class,
-        "DriverName": (meta.get("Driver") or "").strip() or "ACC Driver",
+        "DriverName": (driver_override or "").strip() or (meta.get("Driver") or "").strip() or "ACC Driver",
         "SessionTime": f"{meta.get('Log Date','')} {meta.get('Log Time','')}".strip(),
-        "SessionType": "ACC Import",
+        "SessionType": f"{game} Import",
         "WeatherConditions": "Unknown",
-        "Game": "ACC",
+        "Game": game if game else "ACC",
         # Provenance: "sync" = imported by the game-folder sync agent, "manual" = user upload.
         "Source": source if source in ("sync", "manual") else "manual",
     }
+    if is_pro:
+        # Marks a curated pro/reference lap so it can be surfaced as a default
+        # reference-lap suggestion across every profile.
+        md["IsProReference"] = "1"
     if source_path:
         md["SourcePath"] = source_path
     tables["metadata"] = pd.DataFrame({"key": list(md), "value": list(md.values())})
@@ -423,16 +429,38 @@ def _build_tables(meta, ch, source: str = "manual", source_path: str = None,
 
 
 def convert_to_duckdb(src_path: str, output_dir: str = None, output_path: str = None,
-                      source: str = "manual", source_path: str = None) -> str:
-    """Convert an ACC MoTeC .ld/.csv into a DuckDB file. Returns the output path.
+                      source: str = "manual", source_path: str = None,
+                      driver_override: str = None, is_pro: bool = False,
+                      game: str = "ACC") -> str:
+    """Convert a MoTeC .ld/.csv into a DuckDB file. Returns the output path.
 
-    ``source`` records provenance in the session metadata ("sync" for the ACC
+    ``source`` records provenance in the session metadata ("sync" for a
     game-folder sync agent, "manual" for a user upload). ``source_path`` stores
     the original .ld path (used by the sync agent's dedup ledger).
+
+    ``driver_override`` forces the DriverName metadata (used to attribute curated
+    pro laps to their driver), and ``is_pro`` tags the session as a pro reference
+    lap so it can be surfaced as a default reference suggestion.
+
+    ``game`` stamps the source sim in metadata ("ACC" or "LMU"). MoTeC .ld/.csv
+    is a shared format, so both sims flow through this same reshape pipeline.
     """
     if not os.path.exists(src_path):
         raise FileNotFoundError(src_path)
     ext = os.path.splitext(src_path)[1].lower()
+
+    # LMU also exports MoTeC .ld, but with its own native channel naming and lap
+    # encoding. Detect those and route to the LMU importer so a single entry
+    # point (upload / picker / either sync) handles both sims transparently.
+    if ext == ".ld":
+        from . import lmu_importer
+        if lmu_importer.looks_like_lmu_ld(src_path):
+            return lmu_importer.convert_lmu_ld_to_duckdb(
+                src_path, output_dir=output_dir, output_path=output_path,
+                source=source, source_path=source_path,
+                driver_override=driver_override, is_pro=is_pro,
+            )
+
     if ext == ".csv":
         meta, ch = load_motec_csv(src_path)
     elif ext == ".ld":
@@ -445,7 +473,8 @@ def convert_to_duckdb(src_path: str, output_dir: str = None, output_path: str = 
     lap_beacons = read_ldx_beacons(src_path)
 
     tables, info = _build_tables(meta, ch, source=source, source_path=source_path,
-                                 lap_beacons=lap_beacons)
+                                 lap_beacons=lap_beacons, driver_override=driver_override,
+                                 is_pro=is_pro, game=game)
 
     if output_path is None:
         stem = os.path.splitext(os.path.basename(src_path))[0]

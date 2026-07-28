@@ -141,9 +141,12 @@ export const apiClient = {
         return JSON.parse(text);
     },
 
-    async uploadSession(file: File, profileId: string = 'guest'): Promise<{ id: string }> {
+    async uploadSession(file: File, profileId: string = 'guest', sidecar?: File | null): Promise<{ id: string }> {
         const formData = new FormData();
         formData.append('file', file);
+        // Optional ACC .ldx lap-index sidecar -- lets a multi-lap .ld stint
+        // split into individual laps instead of collapsing into one.
+        if (sidecar) formData.append('sidecar', sidecar);
         const res = await fetch(`${API_BASE}/sessions/upload?profile_id=${profileId}`, {
             method: 'POST',
             body: formData,

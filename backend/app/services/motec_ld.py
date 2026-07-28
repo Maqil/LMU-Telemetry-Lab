@@ -30,17 +30,21 @@ def decode_string(raw: bytes) -> str:
 
 
 class ldVehicle(object):
-    fmt = "<64s128xI32s32s"
+    # `id` (offset 0) holds the car model in ACC exports but only the class
+    # ("GT3") in LMU exports; LMU puts the full entry/team string in a second
+    # 64-byte field where ACC leaves padding. Capture both (same 260-byte size).
+    fmt = "<64s64s64xI32s32s"
 
-    def __init__(self, id, weight, type, comment):
-        self.id, self.weight, self.type, self.comment = id, weight, type, comment
+    def __init__(self, id, entry, weight, type, comment):
+        self.id, self.entry, self.weight, self.type, self.comment = \
+            id, entry, weight, type, comment
 
     @classmethod
     def fromfile(cls, f):
-        id, weight, type, comment = struct.unpack(
+        id, entry, weight, type, comment = struct.unpack(
             ldVehicle.fmt, f.read(struct.calcsize(ldVehicle.fmt)))
-        id, type, comment = map(decode_string, [id, type, comment])
-        return cls(id, weight, type, comment)
+        id, entry, type, comment = map(decode_string, [id, entry, type, comment])
+        return cls(id, entry, weight, type, comment)
 
 
 class ldVenue(object):
@@ -198,10 +202,14 @@ class ldChan(object):
                 return None
             return lst[idx]
 
+        # The `dtype` code is the sample byte-width (1/2/4). ACC only ever used
+        # 2- and 4-byte samples; LMU also emits 1-byte integers for small-range
+        # channels (Gear, Current Sector, In Pits, tyre compound), so map code 1
+        # to int8 -- otherwise those channels decode as "unknown data type".
         if dtype_a in (0x07,):
             dtype = safe_get([None, np.float16, None, np.float32], dtype - 1)
         elif dtype_a in (0, 0x03, 0x05):
-            dtype = safe_get([None, np.int16, None, np.int32], dtype - 1)
+            dtype = safe_get([np.int8, np.int16, None, np.int32], dtype - 1)
         elif dtype_a == 0x08 and dtype == 0x08:
             dtype = np.dtype("<d")
         else:
@@ -222,9 +230,20 @@ class ldChan(object):
                 data = np.fromfile(f, count=self.data_len, dtype=self.dtype)
             if len(data) != self.data_len:
                 raise ValueError("Not all data read for channel %s" % self.name)
-            # De-scale to physical units (matches MoTeC's CSV export values).
+            # Promote to float64 BEFORE scaling: `mul` can push raw int16/int32
+            # samples past their integer range (e.g. LMU steering 216*250 wraps
+            # int16; Ground Speed *2 wraps int32), so scaling in the native
+            # integer dtype silently overflows.
+            data = data.astype(np.float64)
+            # De-scale to physical units. The `shift` is a physical-unit offset
+            # applied AFTER the multiplier/scale/decimal terms:
+            #     physical = raw * mul * 10^(-dec) / scale + shift
+            # ACC exports leave mul=1, shift=0, dec=0 (so this is a no-op beyond
+            # /scale), but LMU exports use mul/shift/dec heavily -- applying the
+            # shift inside the multiplier (as older ldparser code did) yielded
+            # wildly wrong values (e.g. Ground Speed ~24400 instead of km/h).
             scale = self.scale if self.scale else 1
-            self._data = (data / scale * pow(10., -self.dec) + self.shift) * self.mul
+            self._data = data * self.mul * pow(10., -self.dec) / scale + self.shift
         return self._data
 
 

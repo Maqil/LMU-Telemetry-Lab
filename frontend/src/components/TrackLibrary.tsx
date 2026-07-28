@@ -10,6 +10,7 @@ import type { Session } from '../types';
 import { handleGlassMouseMove } from '../utils/glassEffect';
 import { getBrandLogoPath, getClassColor } from '../utils/carHelpers';
 import { getCountryFlagPath, getTrackImagePath, matchTrack, ACC_TRACK_ROSTER } from '../utils/trackHelpers';
+import { pairTelemetryUploads } from '../utils/uploadHelpers';
 import { Tooltip } from './ui/Tooltip';
 import { AccSyncControl } from './AccSyncControl';
 import { LmuSyncControl } from './LmuSyncControl';
@@ -445,7 +446,11 @@ export const TrackLibrary = memo(({ game, onBack, onOpenSession }: TrackLibraryP
         if (!files || files.length === 0) return;
         setIsUploading(true);
         try {
-            for (const file of Array.from(files)) await uploadSession(file);
+            // Pair each .ld with its .ldx sidecar so multi-lap stints keep their
+            // lap boundaries; standalone .ldx files are dropped.
+            for (const { file, sidecar } of pairTelemetryUploads(Array.from(files))) {
+                await uploadSession(file, sidecar);
+            }
         } finally {
             setIsUploading(false);
             if (fileInputRef.current) fileInputRef.current.value = '';
@@ -556,7 +561,7 @@ export const TrackLibrary = memo(({ game, onBack, onOpenSession }: TrackLibraryP
                         </button>
                     </Tooltip>
 
-                    <input ref={fileInputRef} type="file" multiple accept=".duckdb,.ld,.csv" className="hidden" onChange={(e) => handleFiles(e.target.files)} />
+                    <input ref={fileInputRef} type="file" multiple accept=".duckdb,.ld,.ldx,.csv" className="hidden" onChange={(e) => handleFiles(e.target.files)} />
 
                     <div className="flex items-center gap-2 ml-auto">
                     {selectMode ? (

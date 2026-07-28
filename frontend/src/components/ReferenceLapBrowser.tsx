@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useTelemetryStore, findMappedCarModel } from '../store/telemetryStore';
 import { apiClient } from '../api/client';
 import type { ReferenceLap } from '../types';
-import { Search, History, MapPin, X, Loader2, Calendar, ChevronRight, ChevronDown } from 'lucide-react';
+import { Search, History, MapPin, X, Loader2, Calendar, ChevronRight, ChevronDown, Trophy } from 'lucide-react';
 import { handleGlassMouseMove } from '../utils/glassEffect';
 import { Tooltip } from './ui/Tooltip';
 import { getBrandLogoPath } from '../utils/carHelpers';
@@ -58,16 +58,17 @@ export const ReferenceLapBrowser: React.FC<ReferenceLapBrowserProps> = ({ onClos
             (l.carModel || '').toLowerCase().includes(search.toLowerCase())
         );
 
-        const groups: Record<string, { 
-            sessionId: string; 
-            sessionName: string; 
-            date: number; 
-            driver: string; 
+        const groups: Record<string, {
+            sessionId: string;
+            sessionName: string;
+            date: number;
+            driver: string;
             carModel?: string;
             stintCount?: number;
             totalLaps?: number;
+            isPro?: boolean;
             fastestValidDuration: number;
-            stints: Record<number, ReferenceLap[]> 
+            stints: Record<number, ReferenceLap[]>
         }> = {};
 
         filtered.forEach(lap => {
@@ -80,6 +81,7 @@ export const ReferenceLapBrowser: React.FC<ReferenceLapBrowserProps> = ({ onClos
                     carModel: lap.carModel,
                     stintCount: lap.stintCount,
                     totalLaps: lap.totalLaps,
+                    isPro: lap.isPro,
                     fastestValidDuration: Infinity,
                     stints: {}
                 };
@@ -94,8 +96,19 @@ export const ReferenceLapBrowser: React.FC<ReferenceLapBrowserProps> = ({ onClos
             }
         });
 
-        return Object.values(groups).sort((a, b) => b.date - a.date);
+        // Pro reference laps (Fri3d0lf's) are always surfaced first as suggestions,
+        // then the profile's own sessions ordered most-recent first.
+        return Object.values(groups).sort((a, b) =>
+            (b.isPro ? 1 : 0) - (a.isPro ? 1 : 0) || b.date - a.date
+        );
     }, [laps, search, customCarMappings, sessions]);
+
+    // Auto-expand the first suggested (pro) session so it's visible on open.
+    useEffect(() => {
+        if (expandedSession) return;
+        const firstPro = groupedData.find(s => s.isPro);
+        if (firstPro) setExpandedSession(firstPro.sessionId);
+    }, [groupedData, expandedSession]);
 
     const toggleSession = (id: string) => {
         setExpandedSession(prev => prev === id ? null : id);
@@ -171,18 +184,31 @@ export const ReferenceLapBrowser: React.FC<ReferenceLapBrowserProps> = ({ onClos
                                     {/* Session Header */}
                                     <button
                                         onClick={() => toggleSession(session.sessionId)}
-                                        className={`w-full flex flex-col p-4 rounded-lg border transition-all glass-container-flat relative group ${isExpanded ? 'bg-blue-600/5 border-blue-500/30' : 'bg-white/[0.02] border-white/5 hover:border-white/20'}`}
+                                        className={`w-full flex flex-col p-4 rounded-lg border transition-all glass-container-flat relative group ${
+                                            session.isPro
+                                                ? (isExpanded ? 'bg-amber-500/10 border-amber-400/40' : 'bg-amber-500/[0.04] border-amber-500/20 hover:border-amber-400/40')
+                                                : (isExpanded ? 'bg-blue-600/5 border-blue-500/30' : 'bg-white/[0.02] border-white/5 hover:border-white/20')
+                                        }`}
                                         onMouseMove={handleGlassMouseMove}
                                     >
                                         <div className="glass-content w-full">
                                             <div className="flex items-center justify-between mb-1">
                                                 <div className="flex items-center gap-3">
-                                                    <Calendar size={14} className="text-gray-500" />
-                                                    <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">{formatDate(session.date)}</span>
+                                                    {session.isPro ? (
+                                                        <span className="flex items-center gap-1.5 py-0.5 px-2 bg-amber-500/15 rounded border border-amber-400/30 text-amber-300 text-[9px] font-black uppercase tracking-[0.15em]">
+                                                            <Trophy size={11} className="text-amber-400" />
+                                                            Suggested Pro
+                                                        </span>
+                                                    ) : (
+                                                        <>
+                                                            <Calendar size={14} className="text-gray-500" />
+                                                            <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">{formatDate(session.date)}</span>
+                                                        </>
+                                                    )}
                                                 </div>
                                                 <div className="flex items-center gap-2">
-                                                    <span className="text-[9px] font-black py-0.5 px-2 bg-white/5 rounded border border-white/10 text-gray-400 uppercase tracking-tighter italic">{session.driver}</span>
-                                                    {isExpanded ? <ChevronDown size={14} className="text-blue-400" /> : <ChevronRight size={14} className="text-gray-600" />}
+                                                    <span className={`text-[9px] font-black py-0.5 px-2 rounded border uppercase tracking-tighter italic ${session.isPro ? 'bg-amber-500/10 border-amber-400/30 text-amber-300' : 'bg-white/5 border-white/10 text-gray-400'}`}>{session.driver}</span>
+                                                    {isExpanded ? <ChevronDown size={14} className={session.isPro ? 'text-amber-400' : 'text-blue-400'} /> : <ChevronRight size={14} className="text-gray-600" />}
                                                 </div>
                                             </div>
                                             <div className="text-sm font-black text-white truncate max-w-[90%] uppercase tracking-tight group-hover:text-blue-400 transition-colors text-left">

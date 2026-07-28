@@ -3,9 +3,14 @@ Le Mans Ultimate game-directory sync (detection + on-demand import).
 
 Le Mans Ultimate (Steam app 2399420) writes native telemetry straight to
 ``.../Le Mans Ultimate/UserData/Telemetry`` as ``.duckdb`` files -- the SAME
-schema this backend already reads. So, unlike the ACC sync (which converts
-MoTeC ``.ld`` exports), LMU sync just COPIES new/changed ``.duckdb`` files into
-the profile's library, stamping ``Source="sync"`` in their metadata.
+schema this backend already reads. Those are COPIED new/changed into the
+profile's library, stamping ``Source="sync"`` in their metadata.
+
+LMU can ALSO export MoTeC logs (``.ld`` binary + ``.ldx`` lap-index sidecar),
+so this sync additionally converts any ``.ld`` files in the watched folder via
+acc_importer (the MoTeC reshape pipeline is sim-agnostic), stamping
+``Game="LMU"``. The ``.ldx`` sidecar supplies lap boundaries so a multi-lap
+stint splits into individual laps.
 
 This module is intentionally standalone and independent of the ACC sync
 service: it keeps its own ``lmu_sync_state.json`` and never touches ACC state.
@@ -22,6 +27,9 @@ import time
 from typing import Optional
 
 import duckdb
+
+from .acc_importer import convert_to_duckdb
+from .lmu_importer import LMU_IMPORTER_VERSION
 
 logger = logging.getLogger(__name__)
 
@@ -203,6 +211,18 @@ def _import_file(src: str, data_dir: str) -> str:
     return session_id
 
 
+def _import_ld(src: str, data_dir: str) -> str:
+    """Convert an LMU MoTeC .ld export into the library, tagged Game=LMU.
+
+    A sibling .ldx (read inside convert_to_duckdb) supplies lap-boundary beacons
+    so a multi-lap stint splits into individual laps. Returns the session id.
+    """
+    out_path = convert_to_duckdb(
+        src, output_dir=data_dir, source="sync", source_path=src, game="LMU"
+    )
+    return os.path.basename(out_path)
+
+
 # --------------------------------------------------------------------------
 # Public API
 # --------------------------------------------------------------------------
@@ -279,11 +299,16 @@ def scan(data_dir: str, profile_id: str = "guest") -> dict:
 
         os.makedirs(data_dir, exist_ok=True)
 
-        # LMU writes one complete .duckdb per session; the filename embeds a
-        # unique RecordingTime, so a plain filename + mtime + size check is
-        # enough to dedup (no ACC-style content fingerprinting needed).
+        # LMU writes one complete file per session (native .duckdb, or a MoTeC
+        # .ld export); the filename embeds a unique time, so a plain filename +
+        # mtime + size check is enough to dedup (no ACC-style content
+        # fingerprinting needed). The .ldx sidecar is consumed with its .ld.
         for name in sorted(os.listdir(folder)):
-            if not name.lower().endswith(".duckdb"):
+            lower = name.lower()
+            if lower.endswith(".ldx"):
+                continue  # lap-index sidecar, read alongside its .ld
+            is_ld = lower.endswith(".ld")
+            if not (lower.endswith(".duckdb") or is_ld):
                 continue
             src = os.path.join(folder, name)
             try:
@@ -303,22 +328,30 @@ def scan(data_dir: str, profile_id: str = "guest") -> dict:
 
             # Skip only if unchanged AND the produced .duckdb still exists. If
             # the output was deleted, the ledger is stale -> re-import so
-            # "delete then sync" repopulates it.
+            # "delete then sync" repopulates it. For converted .ld files, a newer
+            # IMPORTER_VERSION also forces a re-import in place.
             prev = ledger.get(src)
             prev_out = os.path.join(data_dir, prev["sessionId"]) if prev and prev.get("sessionId") else None
-            if (prev and prev.get("mtime") == st.st_mtime and prev.get("size") == st.st_size
-                    and prev_out and os.path.isfile(prev_out)):
+            unchanged = bool(prev and prev.get("mtime") == st.st_mtime
+                             and prev.get("size") == st.st_size
+                             and prev_out and os.path.isfile(prev_out))
+            if is_ld:
+                unchanged = unchanged and prev.get("converterVersion") == LMU_IMPORTER_VERSION
+            if unchanged:
                 skipped += 1
                 continue
 
             try:
-                session_id = _import_file(src, data_dir)
-                ledger[src] = {
+                session_id = _import_ld(src, data_dir) if is_ld else _import_file(src, data_dir)
+                entry = {
                     "mtime": st.st_mtime,
                     "size": st.st_size,
                     "sessionId": session_id,
                     "importedAt": now,
                 }
+                if is_ld:
+                    entry["converterVersion"] = LMU_IMPORTER_VERSION
+                ledger[src] = entry
                 imported += 1
             except Exception as e:
                 logger.error("LMU sync import failed for %s: %s", src, e)

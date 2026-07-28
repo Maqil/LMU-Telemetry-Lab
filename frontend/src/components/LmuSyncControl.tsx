@@ -14,7 +14,8 @@ import { Tooltip } from './ui/Tooltip';
  * UserData/Telemetry export folder, lets the user (re)point it, enable/disable
  * sync, and run an on-demand import ("Sync now"). Only rendered for the LMU
  * library. Kept as a separate component from AccSyncControl so the two sync
- * paths stay decoupled -- LMU copies native .duckdb files, ACC converts MoTeC.
+ * paths stay decoupled -- LMU copies native .duckdb files and converts MoTeC
+ * .ld exports, ACC converts MoTeC.
  */
 
 const STATUS_META: Record<LmuSyncStatusKind, { label: string; tone: string; ring: string }> = {
@@ -143,7 +144,7 @@ export const LmuSyncControl = () => {
                         </div>
 
                         <p className="text-[11px] text-gray-500 mb-3 leading-snug">
-                            Automatically imports LMU <span className="font-mono text-gray-400">.duckdb</span> recordings from your game's UserData/Telemetry folder.
+                            Automatically imports LMU <span className="font-mono text-gray-400">.duckdb</span> and MoTeC <span className="font-mono text-gray-400">.ld</span> recordings from your game's UserData/Telemetry folder.
                         </p>
 
                         {/* Folder path */}

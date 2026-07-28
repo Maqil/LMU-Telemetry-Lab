@@ -363,7 +363,7 @@ export interface TelemetryState {
     setCustomCarMapping: (rawCarName: string, modelName: string) => void;
 
     // File Management
-    uploadSession: (file: File) => Promise<string | null>;
+    uploadSession: (file: File, sidecar?: File | null) => Promise<string | null>;
     renameSession: (sessionId: string, newName: string) => Promise<void>;
     deleteSession: (sessionId: string) => Promise<void>;
     deleteSessions: (sessionIds: string[]) => Promise<void>;
@@ -2016,13 +2016,13 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
         localStorage.removeItem('had_active_session');
     },
 
-    uploadSession: async (file: File) => {
+    uploadSession: async (file: File, sidecar?: File | null) => {
         const { activeProfileId } = get();
         if (!activeProfileId) return null;
 
         set({ isListLoading: true, error: null });
         try {
-            const result = await apiClient.uploadSession(file, activeProfileId);
+            const result = await apiClient.uploadSession(file, activeProfileId, sidecar);
             await get().fetchSessions(); // Refresh list
             set({ isListLoading: false });
             return result.id;
