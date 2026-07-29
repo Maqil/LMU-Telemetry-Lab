@@ -650,8 +650,8 @@ export const FileManager: React.FC<FileManagerProps> = ({ onClose }) => {
         const result = Object.values(hierarchy).map((group: any) => {
             if (groupingMode === 'track') {
                 group.sessions.sort((a: any, b: any) => {
-                    const timeA = parseMetadata(a.id)?.dateObj.getTime() || (a.created ? a.created * 1000 : 0);
-                    const timeB = parseMetadata(b.id)?.dateObj.getTime() || (b.created ? b.created * 1000 : 0);
+                    const timeA = (a.recordedAt ? a.recordedAt * 1000 : 0) || parseMetadata(a.id)?.dateObj.getTime() || (a.created ? a.created * 1000 : 0);
+                    const timeB = (b.recordedAt ? b.recordedAt * 1000 : 0) || parseMetadata(b.id)?.dateObj.getTime() || (b.created ? b.created * 1000 : 0);
                     return timeB - timeA;
                 });
                 group.totalSessions = group.sessions.length;
@@ -819,7 +819,9 @@ export const FileManager: React.FC<FileManagerProps> = ({ onClose }) => {
                                     const fileSizeMB = (s.size / (1024 * 1024)).toFixed(1);
                                     const metadata = parseMetadata(s.id);
                                     const isExport = metadata?.type === 'Export';
-                                    let dateDisplay = metadata ? `${metadata.dateStr} ${metadata.timeStr}` : (s.created ? new Date(s.created * 1000).toLocaleString() : 'Unknown');
+                                    let dateDisplay = s.recordedAt
+                                        ? new Date(s.recordedAt * 1000).toLocaleString()
+                                        : (metadata ? `${metadata.dateStr} ${metadata.timeStr}` : (s.created ? new Date(s.created * 1000).toLocaleString() : 'Unknown'));
 
                                     return (
                                         <div

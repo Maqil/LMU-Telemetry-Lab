@@ -638,6 +638,17 @@ async def list_sessions(profile_id: Optional[str] = Query("guest")):
                 if raw_class: session_info["carClass"] = raw_class
                 if driver_name: session_info["driverName"] = driver_name
                 if raw_car: session_info["rawCarName"] = raw_car
+
+                # Real recording timestamp from the .ld header (SessionTime), surfaced
+                # for display + sorting. Falls back to the file mtime when absent.
+                session_time = meta_dict.get('SessionTime', '')
+                if session_time:
+                    session_info["sessionTime"] = session_time
+                    try:
+                        session_info["recordedAt"] = datetime.strptime(
+                            session_time, "%Y-%m-%d %H:%M:%S").timestamp()
+                    except (ValueError, TypeError):
+                        pass
                 
                 # Extract Best Lap
                 try:
@@ -666,7 +677,10 @@ async def list_sessions(profile_id: Optional[str] = Query("guest")):
             logger.warning(f"Failed to read metadata for {name}: {e}")
             
         sessions.append(session_info)
-        
+
+    # Most recent first: prefer the real recording timestamp, fall back to file mtime.
+    sessions.sort(key=lambda s: s.get("recordedAt") or s.get("created") or 0, reverse=True)
+
     logger.info(f"API: Returning {len(sessions)} sessions")
     return {"sessions": sessions}
 

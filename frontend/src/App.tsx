@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, memo, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MapTransitionOverlay } from './components/MapTransitionOverlay';
 import { useTelemetryStore, CATEGORY_CHART_CONFIGS } from './store/telemetryStore';
-import { FileManager } from './components/FileManager';
 import { TelemetryChart } from './components/TelemetryChart';
 import { TrackMap } from './components/TrackMap';
 import { LapDetailsPanel } from './components/LapDetailsPanel';
@@ -28,11 +27,13 @@ import { UpdateNotifier } from './components/UpdateNotifier';
 import { CarSetupView } from './components/CarSetupView';
 import { DiscordShareModal } from './components/DiscordShareModal';
 import { AppRail } from './components/AppRail';
+import { SessionTabBar } from './components/SessionTabBar';
 import { SimSelect } from './components/SimSelect';
 import { TrackLibrary } from './components/TrackLibrary';
 import { VideoPanel } from './components/VideoPanel';
 import {
-  ArrowLeft,
+  Timer,
+  X,
   Film,
   Settings,
   Users,
@@ -559,6 +560,13 @@ function App() {
             setShow3DLab(true);
           });
         }
+      } else {
+        // Restore the last-active session tab (persisted across reloads).
+        const activeTab = localStorage.getItem('active_session_tab');
+        if (activeTab && sessions.some(s => s.id === activeTab)) {
+          setShowFileManager(false);
+          selectSession(activeTab);
+        }
       }
     }
   }, [sessions, currentSessionId, selectSession, setShow3DLab]);
@@ -780,12 +788,13 @@ function App() {
   // Default Layout Constants
   const DEFAULT_SIDEBAR_WIDTH = 320;
   const DEFAULT_MAP_WIDTH = 540;
-  const MAX_SIDEBAR_WIDTH = 500;
+  const MAX_SIDEBAR_WIDTH = 760;
+  // Widen the Lap Details sidebar so the two-column comparison (current + reference) fits.
+  const DUAL_SIDEBAR_WIDTH = 480;
   const MAX_MAP_WIDTH = 600;
   const MIN_CHART_WIDTH = 520;
   const DEFAULT_TRACK_MAP_HEIGHT = 320;
   const DEFAULT_EXPANDED_MAP_HEIGHT = 400;
-  const LAP_DETAILS_HEIGHT = 300; // Fixed, non-resizable bottom section
 
   // Sidebar / Map Resizing
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
@@ -803,6 +812,18 @@ function App() {
       }
     }
   }, [referenceLapIdx, referenceLap, isRightPanelCollapsed]);
+
+  // Auto-expand/revert the Lap Details sidebar so the two-column comparison fits.
+  useEffect(() => {
+    const hasRefSelection = referenceLapIdx !== null || referenceLap !== null;
+    if (!isLeftSidebarCollapsed) {
+      if (hasRefSelection && sidebarWidth < DUAL_SIDEBAR_WIDTH) {
+        setSidebarWidth(DUAL_SIDEBAR_WIDTH);
+      } else if (!hasRefSelection && sidebarWidth === DUAL_SIDEBAR_WIDTH) {
+        setSidebarWidth(DEFAULT_SIDEBAR_WIDTH);
+      }
+    }
+  }, [referenceLapIdx, referenceLap, isLeftSidebarCollapsed]);
 
   const [trackMapHeight, setTrackMapHeight] = useState(DEFAULT_TRACK_MAP_HEIGHT);
 
@@ -1093,22 +1114,41 @@ function App() {
           }}
         >
           <div className="flex-1 overflow-hidden flex flex-col" style={{ transform: 'translateZ(0)', isolation: 'isolate' }}>
-            <div className="flex-1 overflow-y-scroll">
-              <FileManager onClose={() => setShowFileManager(false)} />
-            </div>
-            {currentSessionId && (
-              <div className="mt-auto p-4 border-t border-white/5 bg-transparent">
-                <button
-                  onClick={() => setShowFileManager(false)}
-                  className="w-full py-3 px-4 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 rounded-lg border border-blue-500/30 shadow-[0_0_20px_rgba(37,99,235,0.2)] flex items-center justify-center font-black text-[10px] uppercase tracking-[0.2em] transition-all ring-1 ring-inset ring-blue-400/20 glass-container group"
-                  onMouseMove={handleGlassMouseMove}
-                >
-                  <div className="glass-content flex items-center justify-center w-full">
-                    Return to Active Session
-                  </div>
-                </button>
+            <div className="flex items-center gap-3 px-4 pt-3 pb-1 flex-shrink-0">
+              <h3 className="text-gray-500 text-[12px] font-black uppercase tracking-[0.2em] px-1 whitespace-nowrap">Lap Details</h3>
+              <div className="h-[1px] flex-1 bg-white/10 relative overflow-hidden group/linkage">
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] animate-[sweep_3s_infinite]" />
               </div>
-            )}
+              {currentSessionId && (
+                <Tooltip text="CLOSE LAP DETAILS" position="bottom" delay={100}>
+                  <button
+                    onClick={() => setShowFileManager(false)}
+                    className="p-1.5 rounded-md border border-white/10 text-gray-400 hover:text-white hover:bg-white/10 hover:border-white/20 transition-all active:scale-90 glass-container"
+                    onMouseMove={(e) => handleGlassMouseMove(e, 0.2)}
+                  >
+                    <div className="glass-content flex items-center justify-center">
+                      <X size={14} />
+                    </div>
+                  </button>
+                </Tooltip>
+              )}
+            </div>
+            <div className="flex-1 overflow-auto custom-scrollbar min-h-0 px-4 pb-4">
+              {selectedLapIdx !== null ? (
+                <LapDetailsPanel
+                  telemetryMaxStats={telemetryMaxStats}
+                  lineBounds={lineBounds}
+                  miniSectors={miniSectors}
+                  currentLapMiniSectorTimes={currentLapMiniSectorTimes}
+                  refLapMiniSectorTimes={refLapMiniSectorTimes}
+                  sessionMiniSectorBests={sessionMiniSectorBests}
+                  allLapsMiniSectorTimes={allLapsMiniSectorTimes}
+                  sessionBests={sessionBests}
+                />
+              ) : (
+                <div className="h-full flex items-center justify-center text-gray-600 text-xs font-bold uppercase tracking-widest">No Lap Selected</div>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -1177,17 +1217,19 @@ function App() {
                 </div>
               </div> */}
 
-              {/* Return to Data Sources button (sidebar entry point, since the sidebar is hidden in session view) */}
+              {/* Lap Details button (sidebar entry point, since the sidebar is hidden in session view) */}
               {currentSessionId && !showFileManager && (
-                <button
-                  onClick={() => { setShowFileManager(true); setLeftSidebarCollapsed(false); }}
-                  className="flex items-center gap-1.5 h-9 px-2.5 rounded-md border border-white/10 bg-[#1a1a1e]/60 text-gray-400 hover:text-white hover:border-white/20 glass-container transition-all group/data"
-                  onMouseMove={(e) => handleGlassMouseMove(e, 0.2)}
-                >
-                  <div className="glass-content flex items-center gap-1.5">
-                    <ArrowLeft size={14} className="group-hover/data:-translate-x-0.5 transition-transform" />
-                  </div>
-                </button>
+                <Tooltip text="LAP DETAILS" position="bottom" delay={100}>
+                  <button
+                    onClick={() => { setShowFileManager(true); setLeftSidebarCollapsed(false); }}
+                    className="flex items-center gap-1.5 h-9 px-2.5 rounded-md border border-white/10 bg-[#1a1a1e]/60 text-gray-400 hover:text-white hover:border-white/20 glass-container transition-all group/data"
+                    onMouseMove={(e) => handleGlassMouseMove(e, 0.2)}
+                  >
+                    <div className="glass-content flex items-center gap-1.5">
+                      <Timer size={14} className="group-hover/data:scale-110 transition-transform" />
+                    </div>
+                  </button>
+                </Tooltip>
               )}
 
               {/* Session Info button + popover (flag + track name = first row of the first box) */}
@@ -1479,6 +1521,9 @@ function App() {
           </div>
         )}
 
+        {/* Session tabs — below the navbar, directly above the telemetry charts */}
+        {!isMapMaximized && <SessionTabBar />}
+
         {/* Main Content Area Body */}
         <div className="flex-1 flex flex-col min-h-0 relative overflow-y-auto overflow-x-hidden custom-scrollbar">
           {/* Top region: telemetry + map fill the full viewport height; scroll down for Lap Details */}
@@ -1706,33 +1751,6 @@ function App() {
             )}
           </div>
 
-          {/* ===== Bottom: fixed, non-resizable Lap Details section ===== */}
-          {selectedLapIdx !== null && !isMapMaximized && (
-            <div
-              className="w-full border-t border-gray-800 bg-gray-950 flex flex-col overflow-hidden flex-shrink-0"
-              style={{ height: LAP_DETAILS_HEIGHT }}
-            >
-              <div className="flex items-center gap-3 px-4 pt-3 pb-1 flex-shrink-0">
-                <h3 className="text-gray-500 text-[12px] font-black uppercase tracking-[0.2em] px-1 whitespace-nowrap">Lap Details</h3>
-                <div className="h-[1px] flex-1 bg-white/10 relative overflow-hidden group/linkage">
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] animate-[sweep_3s_infinite]" />
-                </div>
-              </div>
-              <div className="flex-1 overflow-auto custom-scrollbar min-h-0 px-4 pb-4">
-                <LapDetailsPanel
-                  horizontal
-                  telemetryMaxStats={telemetryMaxStats}
-                  lineBounds={lineBounds}
-                  miniSectors={miniSectors}
-                  currentLapMiniSectorTimes={currentLapMiniSectorTimes}
-                  refLapMiniSectorTimes={refLapMiniSectorTimes}
-                  sessionMiniSectorBests={sessionMiniSectorBests}
-                  allLapsMiniSectorTimes={allLapsMiniSectorTimes}
-                  sessionBests={sessionBests}
-                />
-              </div>
-            </div>
-          )}
         </div>
         </>
         )}

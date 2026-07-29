@@ -95,7 +95,9 @@ const SessionRow = ({ s, onOpen, onDelete, selectMode, selected, onToggleSelect 
     onToggleSelect: () => void;
 }) => {
     const brand = getBrandLogoPath(s.carModel || '');
-    const date = s.created ? new Date(s.created * 1000).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : 'Unknown';
+    // Prefer the real recording time; fall back to the file mtime.
+    const dateEpoch = s.recordedAt ?? s.created;
+    const date = dateEpoch ? new Date(dateEpoch * 1000).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : 'Unknown';
     return (
         <div
             onClick={selectMode ? onToggleSelect : onOpen}
@@ -340,7 +342,8 @@ export const TrackLibrary = memo(({ game, onBack, onOpenSession }: TrackLibraryP
             );
             row.sessions.push(s);
             if (s.bestLapValid && s.bestLapTime != null && s.bestLapTime < row.bestLap) row.bestLap = s.bestLapTime;
-            if ((s.created || 0) > row.lastDriven) row.lastDriven = s.created || 0;
+            const epoch = s.recordedAt ?? s.created ?? 0;
+            if (epoch > row.lastDriven) row.lastDriven = epoch;
         });
 
         let list = Array.from(map.values());
@@ -360,7 +363,7 @@ export const TrackLibrary = memo(({ game, onBack, onOpenSession }: TrackLibraryP
         }
 
         list.forEach(r => {
-            r.sessions.sort((a, b) => (b.created || 0) - (a.created || 0));
+            r.sessions.sort((a, b) => (b.recordedAt ?? b.created ?? 0) - (a.recordedAt ?? a.created ?? 0));
             r.carCount = new Set(r.sessions.map(s => s.carModel).filter(Boolean)).size;
         });
 

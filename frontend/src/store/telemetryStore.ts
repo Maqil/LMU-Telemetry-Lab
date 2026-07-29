@@ -120,8 +120,16 @@ export const getPlaybackTimeRange = (state: any) => {
     return null;
 };
 
+export interface SessionTab {
+    id: string;              // sessionId
+    trackName: string;       // label
+    carModel?: string;
+    game?: string;           // 'LMU' | 'ACC'
+}
+
 export interface TelemetryState {
     sessions: Session[];
+    openTabs: SessionTab[];  // open session tabs (browser-style)
     currentSessionId: string | null;
     sessionMetadata: SessionMetadata | null; // NEW
     referenceSessionMetadata: SessionMetadata | null; // NEW
@@ -357,6 +365,7 @@ export interface TelemetryState {
     setTrackBaseData: (data: any) => void; // NEW
     setIsProcessingTrack: (isProcessing: boolean) => void; // NEW
     clearSession: () => void;
+    closeSessionTab: (sessionId: string) => void;
     customCarMappings: Record<string, string>;
     showCarSelection: { rawCarName: string; currentModel: string; carClass: string; isRef: boolean } | null;
     setShowCarSelection: (val: { rawCarName: string; currentModel: string; carClass: string; isRef: boolean } | null) => void;
@@ -414,13 +423,13 @@ export interface TelemetryState {
 }
 
 const DEFAULT_CHARTS: ChartConfig[] = [
-    { id: 'Ground Speed', alias: 'Speed', color: '#00aaff', visible: true, order: 0, height: 180, unit: 'km/h' },
-    { id: 'Throttle Pos', alias: 'Throttle', color: '#00ff00', visible: true, order: 1, height: 140, unit: '%' },
-    { id: 'Brake Pos', alias: 'Brake', color: '#ff0000', visible: true, order: 2, height: 140, unit: '%' },
-    { id: 'Steering Angle', alias: 'Steering', color: '#ff00ff', visible: true, order: 3, height: 140, unit: 'deg' },
-    { id: 'Time Delta', alias: 'Delta', color: '#bf00ff', visible: true, order: 4, height: 100, unit: 's' },
-    { id: 'Gear', alias: 'Gear', color: '#ffaa00', visible: true, order: 5, height: 100 },
-    { id: 'Engine RPM', alias: 'Engine RPM', color: '#ffff00', visible: true, order: 6, height: 140, unit: 'rpm' },
+    { id: 'Ground Speed', alias: 'Speed', color: '#00aaff', visible: true, order: 0, height: 160, unit: 'km/h' },
+    { id: 'Throttle Pos', alias: 'Throttle', color: '#00ff00', visible: true, order: 1, height: 160, unit: '%' },
+    { id: 'Brake Pos', alias: 'Brake', color: '#ff0000', visible: true, order: 2, height: 160, unit: '%' },
+    { id: 'Steering Angle', alias: 'Steering', color: '#ff00ff', visible: true, order: 3, height: 120, unit: 'deg' },
+    { id: 'Time Delta', alias: 'Delta', color: '#bf00ff', visible: true, order: 4, height: 120, unit: 's' },
+    { id: 'Gear', alias: 'Gear', color: '#ffaa00', visible: true, order: 5, height: 120 },
+    { id: 'Engine RPM', alias: 'Engine RPM', color: '#ffff00', visible: true, order: 6, height: 120, unit: 'rpm' },
 ];
 
 export interface ChartPreset {
@@ -647,8 +656,25 @@ export const getCategoryTemplateConfigs = (category: ChartCategory, state: {
     return configs;
 };
 
+// ── Session tabs (open/close/switch) persistence ──────────────────────────────
+const OPEN_TABS_KEY = 'open_session_tabs';
+const ACTIVE_TAB_KEY = 'active_session_tab';
+const loadOpenTabs = (): SessionTab[] => {
+    try {
+        const raw = localStorage.getItem(OPEN_TABS_KEY);
+        const parsed = raw ? JSON.parse(raw) : [];
+        return Array.isArray(parsed) ? parsed.filter((t: any) => t && typeof t.id === 'string') : [];
+    } catch {
+        return [];
+    }
+};
+const persistOpenTabs = (tabs: SessionTab[]) => {
+    try { localStorage.setItem(OPEN_TABS_KEY, JSON.stringify(tabs)); } catch { /* ignore */ }
+};
+
 export const useTelemetryStore = create<TelemetryState>((set, get) => ({
     sessions: [],
+    openTabs: loadOpenTabs(),
     currentSessionId: null,
     sessionMetadata: null, // NEW
     referenceSessionMetadata: null, // NEW
@@ -1638,6 +1664,21 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
             currentSessionId: sessionId,
         }));
         localStorage.setItem('had_active_session', 'true');
+        localStorage.setItem(ACTIVE_TAB_KEY, sessionId);
+        // Register this session as an open tab (browser-style) if not already open.
+        set(state => {
+            if (state.openTabs.some(t => t.id === sessionId)) return {};
+            const s = state.sessions.find(x => x.id === sessionId);
+            const tab: SessionTab = {
+                id: sessionId,
+                trackName: s?.trackName || 'Session',
+                carModel: s?.carModel,
+                game: s?.game
+            };
+            const openTabs = [...state.openTabs, tab];
+            persistOpenTabs(openTabs);
+            return { openTabs };
+        });
         set({
             sessionMetadata: null,
             referenceSessionMetadata: null,
@@ -1670,7 +1711,17 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
             if (metadata && mappedCar) {
                 metadata.modelName = mappedCar;
             }
-            set({ laps: data.laps, sessionMetadata: metadata });
+            set(state => {
+                // Refine the tab label from freshly-loaded metadata (covers sessions
+                // that weren't in the `sessions` catalog when the tab was created).
+                const openTabs = state.openTabs.map(t =>
+                    t.id === sessionId
+                        ? { ...t, trackName: metadata?.trackName || t.trackName, carModel: metadata?.modelName || t.carModel }
+                        : t
+                );
+                persistOpenTabs(openTabs);
+                return { laps: data.laps, sessionMetadata: metadata, openTabs };
+            });
 
             // 3. Eager load Telemetry for the first stint at 10Hz
             const telData = await apiClient.getTelemetry(sessionId, defaultStint, 10, undefined, activeProfileId);
@@ -2014,6 +2065,26 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
             zoomRange: null
         });
         localStorage.removeItem('had_active_session');
+        localStorage.removeItem(ACTIVE_TAB_KEY);
+    },
+
+    closeSessionTab: (sessionId: string) => {
+        const state = get();
+        const idx = state.openTabs.findIndex(t => t.id === sessionId);
+        if (idx === -1) return;
+        const remaining = state.openTabs.filter(t => t.id !== sessionId);
+        persistOpenTabs(remaining);
+        set({ openTabs: remaining });
+
+        // If we closed the active tab, activate a neighbour (or clear to home).
+        if (state.currentSessionId === sessionId) {
+            if (remaining.length > 0) {
+                const next = remaining[Math.min(idx, remaining.length - 1)];
+                get().selectSession(next.id);
+            } else {
+                get().clearSession();
+            }
+        }
     },
 
     uploadSession: async (file: File, sidecar?: File | null) => {
@@ -2067,7 +2138,8 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
             await get().fetchSessions(); // Refresh list
 
             const state = get();
-            if (state.currentSessionId === sessionId) {
+            const wasActive = state.currentSessionId === sessionId;
+            if (wasActive) {
                 set({
                     currentSessionId: null,
                     laps: [],
@@ -2079,6 +2151,17 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
                     referenceTelemetryData: null
                 });
                 localStorage.removeItem('had_active_session');
+                localStorage.removeItem(ACTIVE_TAB_KEY);
+            }
+            // Drop the deleted session's tab; activate a neighbour if it was active.
+            const tabIdx = state.openTabs.findIndex(t => t.id === sessionId);
+            if (tabIdx !== -1) {
+                const remaining = state.openTabs.filter(t => t.id !== sessionId);
+                persistOpenTabs(remaining);
+                set({ openTabs: remaining });
+                if (wasActive && remaining.length > 0) {
+                    get().selectSession(remaining[Math.min(tabIdx, remaining.length - 1)].id);
+                }
             }
             set({ isListLoading: false });
         } catch (err) {
@@ -2097,7 +2180,8 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
             await get().fetchSessions();
 
             const state = get();
-            if (state.currentSessionId && sessionIds.includes(state.currentSessionId)) {
+            const wasActive = !!state.currentSessionId && sessionIds.includes(state.currentSessionId);
+            if (wasActive) {
                 set({
                     currentSessionId: null,
                     laps: [],
@@ -2109,6 +2193,17 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
                     referenceTelemetryData: null
                 });
                 localStorage.removeItem('had_active_session');
+                localStorage.removeItem(ACTIVE_TAB_KEY);
+            }
+            // Drop deleted sessions' tabs; activate a surviving tab if the active one went.
+            const deleted = new Set(sessionIds);
+            if (state.openTabs.some(t => deleted.has(t.id))) {
+                const remaining = state.openTabs.filter(t => !deleted.has(t.id));
+                persistOpenTabs(remaining);
+                set({ openTabs: remaining });
+                if (wasActive && remaining.length > 0) {
+                    get().selectSession(remaining[0].id);
+                }
             }
             set({ isListLoading: false });
         } catch (err) {
@@ -2233,6 +2328,7 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
             isGlobalTransitioning: true,
             activeProfileId: profileId,
             currentSessionId: null,
+            openTabs: [],
             sessionMetadata: null,
             laps: [],
             selectedLapIdx: null,
@@ -2245,6 +2341,8 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
             maximizedSidebarMode: 'data_sources',
             userWheelRotation: localStorage.getItem(`user_wheel_rotation_${profileId}`) ? parseFloat(localStorage.getItem(`user_wheel_rotation_${profileId}`)!) : null
         });
+        persistOpenTabs([]);
+        localStorage.removeItem(ACTIVE_TAB_KEY);
         await get().fetchSessions();
         setTimeout(() => set({ isGlobalTransitioning: false }), 800);
     },

@@ -65,7 +65,8 @@ const LiveTelemetryRow = ({
   color,
   unit = "",
   max: customMax,
-  compact = false
+  compact = false,
+  showRef = false
 }: {
   icon: any;
   label: string;
@@ -75,6 +76,7 @@ const LiveTelemetryRow = ({
   unit?: string;
   max?: number;
   compact?: boolean;
+  showRef?: boolean;
 }) => {
   const format = (v: number | null | undefined) => {
     if (v == null || isNaN(v)) return "--";
@@ -91,7 +93,7 @@ const LiveTelemetryRow = ({
       onMouseMove={(e) => handleGlassMouseMove(e, 0.2)}
     >
       <div
-        className={`glass-content grid ${compact ? "grid-cols-[14px_1fr_1fr] gap-2 py-1.5 px-2" : "grid-cols-[18px_1fr_110px] gap-2 py-2.5 px-4"} items-center cursor-default`}
+        className={`glass-content grid ${compact ? `${showRef ? "grid-cols-[14px_1fr_1fr]" : "grid-cols-[14px_1fr]"} gap-2 py-1.5 px-2` : "grid-cols-[18px_1fr_110px] gap-2 py-2.5 px-4"} items-center cursor-default`}
       >
         <Icon size={compact ? 10 : 12} className="text-gray-300 brightness-125 group-hover/teleRow:text-blue-400 transition-colors" />
         {!compact && (
@@ -107,7 +109,7 @@ const LiveTelemetryRow = ({
             {unit}
           </span>
         </div>
-        {compact && (
+        {compact && showRef && (
           <div
             className={`relative ${compact ? "h-5" : "h-6"} rounded-md bg-gray-900/40 overflow-hidden flex items-center justify-center border border-white/5`}
           >
@@ -581,14 +583,16 @@ export const LapDetailsPanel = React.memo(
 
     const showLiveTelemetryRef = hasRef || autoCompareIdx !== null;
     const isComparingToTheoreticalBest = !hasRef && autoCompareIdx !== null;
-    // In the wide bottom bar (horizontal), render every card in its compact form
-    // so they line up short and tidy instead of stacking full-size.
-    const cardsCompact = hasRef || horizontal;
-    const telemetryCompact = showLiveTelemetryRef || horizontal;
+    // The panel now renders in the narrow vertical sidebar; keep every card in its
+    // compact form so they squeeze into the page height instead of stacking full-size.
+    // (horizontal is retained for the legacy wide bottom-bar layout.)
+    const dense = !horizontal;
+    const cardsCompact = hasRef || horizontal || dense;
+    const telemetryCompact = showLiveTelemetryRef || horizontal || dense;
 
     return (
-      <div className={horizontal ? "flex flex-row flex-wrap items-stretch gap-3" : "min-w-max flex flex-col gap-3"}>
-        <div className={horizontal ? "contents" : (hasRef ? "grid grid-cols-2 gap-3" : "flex flex-col gap-3")}>
+      <div className={horizontal ? "flex flex-row flex-wrap items-stretch gap-3" : "min-w-max flex flex-col gap-2"}>
+        <div className={horizontal ? "contents" : (hasRef ? "grid grid-cols-2 gap-2" : "flex flex-col gap-2")}>
           {/* Lap Time Card */}
           <div
             className={`bg-white/10 glass-container-flat ${cardsCompact ? "p-2 pt-6" : "p-4 pt-10"} rounded-lg border border-white/25 shadow-xl hover:bg-white/15 transition-all relative group/laptime ${horizontal ? "h-full" : ""}`}
@@ -656,11 +660,11 @@ export const LapDetailsPanel = React.memo(
                   </div>
                 )
               ) : (
-                <div className="flex flex-col gap-3 min-w-[260px]">
+                <div className="flex flex-col gap-2 min-w-[260px]">
                   {(laps.length > 1 || !!refLap) && (
                     <>
-                      <div className="flex flex-col gap-2">
-                        <div className="flex justify-between items-baseline border-b border-white/5 pb-1.5 px-1">
+                      <div className="flex flex-col gap-1">
+                        <div className="flex justify-between items-baseline border-b border-white/5 pb-1 px-1">
                           <div className="flex items-center gap-2">
                             <span className={`text-[10px] font-black uppercase tracking-widest ${refLap ? "text-yellow-500" : "text-gray-300"}`}>
                               {refLap
@@ -681,7 +685,7 @@ export const LapDetailsPanel = React.memo(
                               </span>
                             )}
                           </div>
-                          <span className={`text-[17px] font-black font-mono tracking-tighter ${refLap ? "text-yellow-500" : "text-purple-400"}`}>
+                          <span className={`text-[12px] font-black font-mono tracking-tighter ${refLap ? "text-yellow-500" : "text-purple-400"}`}>
                             {formatTime(
                               refLap
                                 ? selectedSegIdx !== null
@@ -812,7 +816,7 @@ export const LapDetailsPanel = React.memo(
                     </>
                   )}
                   <div className="flex flex-col gap-2">
-                    <div className="flex justify-between items-baseline border-b border-white/5 pb-1.5 px-1">
+                    <div className="flex justify-between items-baseline border-b border-white/5 pb-1 px-1">
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">
                           {selectedSegIdx !== null
@@ -827,7 +831,7 @@ export const LapDetailsPanel = React.memo(
                           </span>
                         )}
                       </div>
-                      <span className="text-[20px] font-black text-white font-mono tracking-tighter drop-shadow-[0_0_10px_rgba(255,255,255,0.2)]">
+                      <span className="text-[12px] font-black text-white font-mono tracking-tighter drop-shadow-[0_0_10px_rgba(255,255,255,0.2)]">
                         {formatTime(
                           selectedSegIdx !== null
                             ? currentLapMiniSectorTimes?.[selectedSegIdx]?.duration || 0
@@ -915,13 +919,14 @@ export const LapDetailsPanel = React.memo(
                     val={getVal("Ground Speed", activeCursorIdx)}
                     refVal={hasRef ? getVal("Ground Speed", refIdx, true) : getVal("Ground Speed", autoCompareIdx, false)}
                     compact={telemetryCompact}
+                    showRef={showLiveTelemetryRef}
                   />
-                  {/* <LiveTelemetryRow
+                  <LiveTelemetryRow
                     icon={({ size, className }: any) => (
                       <img
                         src="/throttle.png"
-                        width={showLiveTelemetryRef ? 10 : size}
-                        height={showLiveTelemetryRef ? 10 : size}
+                        width={telemetryCompact ? 10 : size}
+                        height={telemetryCompact ? 10 : size}
                         className={className}
                         alt="T"
                       />
@@ -931,19 +936,21 @@ export const LapDetailsPanel = React.memo(
                     unit="%"
                     val={getVal("Throttle Pos", activeCursorIdx)}
                     refVal={hasRef ? getVal("Throttle Pos", refIdx, true) : getVal("Throttle Pos", autoCompareIdx, false)}
-                    compact={showLiveTelemetryRef}
+                    compact={telemetryCompact}
+                    showRef={showLiveTelemetryRef}
                   />
                   <LiveTelemetryRow
                     icon={({ size, className }: any) => (
-                      <img src="/brake.png" width={showLiveTelemetryRef ? 10 : size} height={showLiveTelemetryRef ? 10 : size} className={className} alt="B" />
+                      <img src="/brake.png" width={telemetryCompact ? 10 : size} height={telemetryCompact ? 10 : size} className={className} alt="B" />
                     )}
                     label="Brake"
                     color={chartConfigs.find((c: any) => c.id === "Brake Pos" || c.id === "Brake")?.color || "#ff0000"}
                     unit="%"
                     val={getVal("Brake Pos", activeCursorIdx)}
                     refVal={hasRef ? getVal("Brake Pos", refIdx, true) : getVal("Brake Pos", autoCompareIdx, false)}
-                    compact={showLiveTelemetryRef}
-                  /> */}
+                    compact={telemetryCompact}
+                    showRef={showLiveTelemetryRef}
+                  />
                   <LiveTelemetryRow
                     icon={({ size, className }: any) => (
                       <img src="/gear.png" width={telemetryCompact ? 10 : size} height={telemetryCompact ? 10 : size} className={className} alt="G" />
@@ -954,6 +961,7 @@ export const LapDetailsPanel = React.memo(
                     val={getVal("Gear", activeCursorIdx)}
                     refVal={hasRef ? getVal("Gear", refIdx, true) : getVal("Gear", autoCompareIdx, false)}
                     compact={telemetryCompact}
+                    showRef={showLiveTelemetryRef}
                   />
                 </div>
               </div>
@@ -1021,12 +1029,12 @@ export const LapDetailsPanel = React.memo(
           </div>
         )} */}
 
-        <div className={hasRef ? "grid grid-cols-2 gap-3" : "flex flex-col gap-3"}>
+        <div className={hasRef ? "grid grid-cols-2 gap-2" : "flex flex-col gap-2"}>
           <F1Dashboard data={telemetryData} cursorIndex={activeCursorIdx} theme="current" compact={cardsCompact} />
           {hasRef && <F1Dashboard data={refData} cursorIndex={refIdx} theme="reference" compact={cardsCompact} />}
         </div>
 
-        <div className={hasRef ? "grid grid-cols-2 gap-3" : "flex flex-col gap-3"}>
+        <div className={hasRef ? "grid grid-cols-2 gap-2" : "flex flex-col gap-2"}>
           <TyreDashboard
             data={telemetryData}
             cursorIndex={activeCursorIdx}
@@ -1047,7 +1055,7 @@ export const LapDetailsPanel = React.memo(
           )}
         </div>
 
-        <div className={hasRef ? "grid grid-cols-2 gap-3" : "flex flex-col gap-3"}>
+        <div className={hasRef ? "grid grid-cols-2 gap-2" : "flex flex-col gap-2"}>
           <FuelDashboard data={telemetryData} cursorIndex={activeCursorIdx} fuelCapacity={sessionMetadata?.fuelCapacity} theme="current" compact={cardsCompact} />
           {hasRef && <FuelDashboard data={refData} cursorIndex={refIdx} fuelCapacity={refMeta?.fuelCapacity} theme="reference" compact={cardsCompact} />}
         </div>

@@ -70,10 +70,12 @@ export const AppRail = memo(({ showDataSources, onOpenDataSources }: AppRailProp
         onOpenDataSources();
     };
 
-    // Home is "active" when browsing all sources; a sim is active when its filter is applied.
+    // Home is "active" only on the all-sources browse view. A sim stays highlighted
+    // whenever its filter is applied — including after opening a track/session from
+    // that game's library, so the rail keeps showing which game you're in.
     const homeActive = showDataSources && gameFilter === 'all';
-    const lmuActive = showDataSources && gameFilter === 'LMU';
-    const accActive = showDataSources && gameFilter === 'ACC';
+    const lmuActive = gameFilter === 'LMU';
+    const accActive = gameFilter === 'ACC';
 
     return (
         <div className="h-full w-[60px] flex-shrink-0 bg-[#0b0b0e] border-r border-[#1f1f26] flex flex-col items-center py-3 gap-1.5 z-40 relative">

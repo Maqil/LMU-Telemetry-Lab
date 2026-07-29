@@ -944,12 +944,17 @@ export const TelemetryChart = React.memo<TelemetryChartProps>(({
         }
 
 
+        // Floating value label that tracks the cursor's vertical line (created after
+        // the uPlot instance and appended to its overlay so coordinates line up).
+        let hoverValueEl: HTMLDivElement | null = null;
+
         const syncUI = (idx: number | null | undefined) => {
             if (idx === undefined || idx === null) {
                 if (multiValueContainerRef.current) multiValueContainerRef.current.innerHTML = "";
                 if (multiRefValueContainerRef.current) multiRefValueContainerRef.current.innerHTML = "";
                 if (multiDiffContainerRef.current) multiDiffContainerRef.current.innerHTML = "";
                 if (timeRef.current) timeRef.current.textContent = "";
+                if (hoverValueEl) hoverValueEl.style.display = "none";
                 return;
             }
 
@@ -1057,6 +1062,36 @@ export const TelemetryChart = React.memo<TelemetryChartProps>(({
                 timeRef.current.innerHTML = `
                     <span class="text-[#3b82f6] mr-1 text-[10px]">CUR :</span><span class="text-white mr-3 text-[10px]">${currentStr}</span>
                 `;
+            }
+
+            // Floating value that tracks the cursor's vertical line.
+            if (hoverValueEl) {
+                const u = uplotRef.current;
+                const leftPx = u?.cursor?.left ?? -10;
+                const primaryVal = currentSeries[0]?.[idx];
+                if (!u || leftPx < 0 || primaryVal == null || Number.isNaN(primaryVal)) {
+                    hoverValueEl.style.display = "none";
+                } else {
+                    const sep = '<span style="color:#6b7280;margin:0 3px">|</span>';
+                    const parts = currentSeries.map((s, i) => {
+                        const info = getBundledInfo(i);
+                        const { text, color: vc } = formatVal(s[idx]);
+                        return `<span style="color:${vc || info.stroke}">${text}</span>`;
+                    });
+                    let html = parts.join(sep);
+                    // When comparing two laps, append the reference value(s) in amber.
+                    if (refSeries.length && refSeries.some((s) => s[idx] != null && !Number.isNaN(s[idx]))) {
+                        const refParts = refSeries.map((s) => {
+                            const { text } = formatVal(s[idx]);
+                            return `<span style="color:#ffb300;opacity:0.9">${text}</span>`;
+                        });
+                        html += `<span style="color:#4b5563;margin:0 5px">·</span>` + refParts.join(sep);
+                    }
+                    hoverValueEl.innerHTML = html;
+                    hoverValueEl.style.left = `${leftPx}px`;
+                    hoverValueEl.style.top = `${Math.max(2, u.valToPos(primaryVal, 'y') - 20)}px`;
+                    hoverValueEl.style.display = "block";
+                }
             }
         };
 
@@ -1638,6 +1673,19 @@ export const TelemetryChart = React.memo<TelemetryChartProps>(({
 
         uplotRef.current = new uPlot(opts, data as any, chartRef.current);
 
+        // Floating cursor value label (appended to the plot overlay so its
+        // coordinates match u.cursor.left / u.valToPos).
+        hoverValueEl = document.createElement('div');
+        hoverValueEl.style.cssText = [
+            'position:absolute', 'z-index:30', 'pointer-events:none',
+            'transform:translateX(-50%)', 'white-space:nowrap',
+            'font:700 11px ui-monospace,SFMono-Regular,monospace',
+            'padding:1px 5px', 'border-radius:6px',
+            'background:rgba(10,12,20,0.75)', 'backdrop-filter:blur(4px)',
+            'border:1px solid rgba(255,255,255,0.08)', 'color:#fff', 'display:none',
+        ].join(';');
+        uplotRef.current.over.appendChild(hoverValueEl);
+
         // Add click listener to jump playback on chart click (ignoring drag and double-click)
         const over = uplotRef.current.over;
         let startX = 0, startY = 0;
@@ -1896,6 +1944,16 @@ export const TelemetryChart = React.memo<TelemetryChartProps>(({
         };
     }, [isXAxisTime]);
 
+    // Which per-chart view-mode toggle (if any) applies. The title / value / unit /
+    // minimize header was removed so the graph fills the row; these functional
+    // toggles (and the bundled legend) are kept in a slim strip only when relevant.
+    const hasSuspToggle = (channel === 'Susp Pos' && wheelIndex === 0) || channel === 'SuspPosFront';
+    const has3rdToggle = channel === 'Front3rdDeflection' || channel === 'ThirdDeflectionMerged';
+    const hasHandlingToggle = channel === 'Yaw Rate' || channel === 'HandlingMerged';
+    const hasTyrePressToggle = channel === 'TyresPressure' && (wheelIndex === undefined || wheelIndex === null || wheelIndex === 0);
+    const hasRideHeightToggle = channel === 'RideHeights' && (wheelIndex === undefined || wheelIndex === null || wheelIndex === 0);
+    const hasSlipRatioToggle = channel === 'Slip Ratio' && (wheelIndex === undefined || wheelIndex === null || wheelIndex === 0);
+    const hasHeaderControls = hasSuspToggle || has3rdToggle || hasHandlingToggle || hasTyrePressToggle || hasRideHeightToggle || hasSlipRatioToggle || (isBundled && !isCollapsed);
 
     return (
         <div className={`mb-0.5 rounded-lg flex flex-col items-stretch glass-container-flat glass-expand-pixel transition-all duration-300 group min-w-0 relative ${isResizing ? 'select-none' : ''}`}
@@ -1924,13 +1982,10 @@ export const TelemetryChart = React.memo<TelemetryChartProps>(({
                     style={{ backgroundColor: getRGBA(color, 1) }}
                 />
 
-                <div className={`flex items-center justify-between px-3 h-10 flex-shrink-0 cursor-default select-none relative z-10`}>
+                {hasHeaderControls && (
+                <div className={`flex items-center gap-2 px-3 pt-0.5 flex-shrink-0 cursor-default select-none relative z-10`}>
                     <div className="flex items-center gap-2">
                         <div className="flex items-center gap-1.5">
-                            <span className="px-2 py-0.5 rounded-lg border text-[10px] font-black uppercase tracking-[0.2em]"
-                                style={{ borderColor: getRGBA(color, 0.3), color: color, backgroundColor: getRGBA(color, 0.15) }}>
-                                {isNoABS ? "NO ABS DATA" : (alias || channel)}
-                            </span>
 
                             {/* View Mode Toggle for Suspension */}
                             {((channel === 'Susp Pos' && wheelIndex === 0) || channel === 'SuspPosFront') && (
@@ -2113,60 +2168,13 @@ export const TelemetryChart = React.memo<TelemetryChartProps>(({
                                 </div>
                             )}
 
-                            {isPlaying && (
-                                <div className="flex items-center gap-1 px-1.5 py-0.25 rounded-md bg-red-500/20 border border-red-500/30 animate-pulse">
-                                    <div className="w-1 h-1 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
-                                    <span className="text-[8px] font-black text-red-400 uppercase tracking-widest">Live</span>
-                                </div>
-                            )}
                         </div>
-                        {showLapTime && <span ref={timeRef} className="text-[11px] font-mono font-bold text-yellow-500/80"></span>}
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-2">
-                            {/* Multi-Value Container */}
-                            <div ref={multiValueContainerRef} className="flex items-center text-lg font-mono font-black tracking-tighter leading-none" />
-
-                            {hasReferenceData && !isCollapsed && channel !== 'Time Delta' && (
-                                <div className="flex items-center gap-2">
-                                    <span className="text-gray-700 font-bold opacity-60 mx-[-2px] text-xs">|</span>
-                                    <div ref={multiRefValueContainerRef} className="flex items-center opacity-70 leading-none" />
-                                    <span className="px-1 py-0.25 rounded bg-white/5 border border-white/10 text-[9px] font-black text-gray-500 uppercase tracking-widest leading-none ml-1">Δ</span>
-                                    <div ref={multiDiffContainerRef} className="flex items-center text-sm leading-none" />
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Unit Label */}
-                        {channel === 'Speed' || channel === 'Ground Speed' ? (
-                            <span className="text-[11px] font-bold text-gray-400 uppercase tracking-tighter ml-1 h-6 inline-flex items-center" style={{ height: '24px', display: 'inline-flex', alignItems: 'center' }}>
-                                {speedUnit === 'kmh' ? 'km/h' : 'mph'}
-                            </span>
-                        ) : (
-                            unit && <span className="text-[11px] font-bold text-gray-400 uppercase tracking-tighter ml-1" style={{ height: '24px', display: 'inline-flex', alignItems: 'center', transform: 'translateY(0.5px)' }}>{unit}</span>
-                        )}
-
-                        <button
-                            className={`p-1.5 rounded-sm border transition-all active:scale-90 flex items-center justify-center glass-container-flat hover:scale-110 border-white/10 text-gray-400 hover:text-white hover:bg-white/10 group/collapse ml-2`}
-                            onMouseMove={(e) => handleGlassMouseMove(e, 0.15)}
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setIsCollapsed(!isCollapsed);
-                            }}
-                        >
-                            <div className="glass-content flex items-center justify-center">
-                                {isCollapsed ? (
-                                    <svg fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24" className="w-3.5 h-3.5"><path d="M12 5v14m-7-7h14" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                                ) : (
-                                    <svg fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24" className="w-3.5 h-3.5"><path d="M5 12h14" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                                )}
-                            </div>
-                        </button>
                     </div>
                 </div>
+                )}
 
                 <div
-                    className={`grid transition-all ${isResizing ? 'duration-0' : 'duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]'} w-full overflow-hidden min-w-0 ${isCollapsed ? 'grid-rows-[0fr] opacity-0' : 'grid-rows-[1fr] opacity-100 mt-2'}`}
+                    className={`grid transition-all ${isResizing ? 'duration-0' : 'duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]'} w-full overflow-hidden min-w-0 ${isCollapsed ? 'grid-rows-[0fr] opacity-0' : `grid-rows-[1fr] opacity-100 ${hasHeaderControls ? 'mt-1' : ''}`}`}
                 >
                     <div className="min-h-0 min-w-0 relative z-10 transition-all duration-300">
                         <div
@@ -2174,6 +2182,13 @@ export const TelemetryChart = React.memo<TelemetryChartProps>(({
                             className={`w-full h-full min-w-0 transition-opacity duration-300 ${isResetting ? 'transition-[height] duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]' : ''} ${isPlaying ? 'opacity-90' : ''}`}
                             style={{ height: height }}
                         />
+                        {/* Small, low-emphasis row title (bottom-left), tinted with the line color */}
+                        <span
+                            className="absolute bottom-1 left-6 z-20 pointer-events-none select-none text-[9px] font-bold tracking-wide"
+                            style={{ color: getRGBA(color, 0.7) }}
+                        >
+                            {alias || channel}
+                        </span>
                     </div>
                 </div>
 

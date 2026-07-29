@@ -5,6 +5,7 @@ import type { Lap, ReferenceLap } from '../types';
 import { Tooltip } from './ui/Tooltip';
 import { handleGlassMouseMove } from '../utils/glassEffect';
 import { CompactTelemetryOverlay } from './CompactTelemetryOverlay';
+import { MapSteeringOverlay } from './MapSteeringOverlay';
 import { TrackInfoOverlay } from './TrackInfoOverlay';
 import { CarInfoOverlay } from './CarInfoOverlay';
 import { LapsSelectorOverlay } from './LapsSelectorOverlay';
@@ -3070,7 +3071,7 @@ export const TrackMap = React.memo(({ isExpanded = false, onToggleExpand, isMini
                                     : 20;
                                 const rightPadding = (isMapMaximized && hudVisibility.dataCharts) ? maxPadding : 20;
                                 const effectiveWidth = baseWidth - (leftPadding + rightPadding);
-                                return isExpanded ? Math.min(896, Math.max(320, effectiveWidth)) : undefined;
+                                return Math.min(896, Math.max(320, effectiveWidth));
                             })()
                         }}
                         transition={{ type: "spring", stiffness: 400, damping: 40 }}
@@ -3192,12 +3193,76 @@ export const TrackMap = React.memo(({ isExpanded = false, onToggleExpand, isMini
                                     </div>
                                 </>
                             ) : (
-                                <div className="flex items-center gap-2">
-                                    <button onClick={() => fitTrack(true)} className="text-gray-400 hover:text-white rounded-md transition-all border border-transparent hover:bg-white/5 active:scale-90 glass-container" onMouseMove={handleGlassMouseMove}><div className="glass-content p-1.5"><RotateCcw size={14} /></div></button>
-                                    <div className="w-px h-3 bg-white/5 mx-0.5" />
-                                    {onToggleExpand && (
-                                        <button onClick={onToggleExpand} className="text-gray-500 hover:text-white rounded-md transition-all border border-transparent hover:bg-white/5 active:scale-90 glass-container" onMouseMove={handleGlassMouseMove}><div className="glass-content p-1.5"><Maximize2 size={14} /></div></button>
-                                    )}
+                                <div className="flex items-center w-full gap-2">
+                                    {/* Playback: play/pause + speed */}
+                                    <Tooltip text={isPlaying ? "PAUSE" : "PLAY"} position="top" className="rounded-full">
+                                        <button
+                                            onClick={togglePlayback}
+                                            className={`transition-all rounded-full glass-container hover:scale-110 active:scale-95 border ${isPlaying ? 'bg-blue-600/20 text-blue-400 border-blue-500/20 shadow-[0_0_15px_rgba(37,99,235,0.2)]' : 'bg-white/5 text-slate-500 hover:text-white hover:bg-white/10 border-transparent'}`}
+                                            onMouseMove={handleGlassMouseMove}
+                                        >
+                                            <div className="glass-content p-2 flex items-center justify-center">
+                                                {isPlaying ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" className="ml-0.5" />}
+                                            </div>
+                                        </button>
+                                    </Tooltip>
+                                    <div className="relative" ref={speedMenuRef}>
+                                        <Tooltip text="SPEED" position="top">
+                                            <button
+                                                onClick={() => setIsSpeedOpen(!isSpeedOpen)}
+                                                className={`bg-transparent border border-white/10 text-[10px] font-black rounded-sm transition-all min-w-[42px] glass-container hover:scale-110 active:scale-90 ${isSpeedOpen ? 'text-blue-400 bg-white/10 border-white/20' : 'text-gray-500 hover:text-white'}`}
+                                                onMouseMove={handleGlassMouseMove}
+                                            >
+                                                <div className="glass-content px-2 py-1.5 flex items-center justify-center">
+                                                    <span className="select-none">{playbackSpeed}x</span>
+                                                </div>
+                                            </button>
+                                        </Tooltip>
+                                        <div className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-16 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] origin-bottom ${isSpeedOpen ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-2 pointer-events-none'}`}>
+                                            <div className="flex flex-col gap-1 p-1 bg-[#1a1a1e]/90 glass-container rounded-md border border-white/10" onMouseMove={handleGlassMouseMove}>
+                                                <div className="glass-content w-full h-full flex flex-col">
+                                                    {[4, 2, 1, 0.5].map(s => (
+                                                        <button
+                                                            key={s}
+                                                            onClick={() => { setPlaybackSpeed(s); setIsSpeedOpen(false); }}
+                                                            className={`px-2 py-1.5 text-[10px] font-bold transition-all text-center rounded-lg select-none ${playbackSpeed === s ? 'bg-blue-600/30 text-blue-400 border border-blue-500/30' : 'text-gray-400 hover:text-white hover:bg-white/10 border border-transparent'} hover:scale-110 active:scale-90 z-10`}
+                                                        >
+                                                            {s}x
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {/* Timestamp + scrub slider */}
+                                    <div className="flex-1 flex items-center gap-2 min-w-0">
+                                        <span className="text-[11px] font-mono text-blue-400 font-bold tracking-tighter drop-shadow-[0_0_8px_rgba(59,130,246,0.3)] select-none">
+                                            {playbackProgress.currentTime}
+                                        </span>
+                                        <div className="relative flex-1 h-6 flex items-center group/timeline">
+                                            <input
+                                                type="range"
+                                                min="0"
+                                                max="1"
+                                                step="0.0001"
+                                                value={playbackProgress.progress}
+                                                onChange={(e) => setPlaybackProgress(parseFloat(e.target.value))}
+                                                className="w-full h-1 bg-white/5 rounded-full appearance-none cursor-pointer scale-y-75 group-hover/timeline:scale-y-125 transition-all outline-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-0 [&::-webkit-slider-thumb]:h-0"
+                                                style={{ background: `linear-gradient(to right, #3b82f6 ${playbackProgress.progress * 100}%, rgba(255,255,255,0.02) ${playbackProgress.progress * 100}%)` }}
+                                            />
+                                        </div>
+                                    </div>
+                                    {/* Reset view + expand */}
+                                    <div className="flex items-center gap-1.5 pl-2 border-l border-white/10">
+                                        <Tooltip text="RESET VIEW" position="top">
+                                            <button onClick={() => fitTrack(true)} className="text-gray-400 hover:text-white rounded-md transition-all border border-transparent hover:bg-white/5 active:scale-90 glass-container" onMouseMove={handleGlassMouseMove}><div className="glass-content p-1.5"><RotateCcw size={14} /></div></button>
+                                        </Tooltip>
+                                        {onToggleExpand && (
+                                            <Tooltip text="EXPAND" position="top">
+                                                <button onClick={onToggleExpand} className="text-gray-500 hover:text-white rounded-md transition-all border border-transparent hover:bg-white/5 active:scale-90 glass-container" onMouseMove={handleGlassMouseMove}><div className="glass-content p-1.5"><Maximize2 size={14} /></div></button>
+                                            </Tooltip>
+                                        )}
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -3205,7 +3270,7 @@ export const TrackMap = React.memo(({ isExpanded = false, onToggleExpand, isMini
                 </motion.div>
             </div>
         );
-    }, [isExpanded, isBarHovered, isPlaying, playbackSpeed, playbackProgress, showMiniMap, showHudMenu, showTelemetryOverlay, isMapMaximized, hudVisibility, maximizedSidebarMode, dimensions.width, telemetryData, isMiniMap, togglePlayback, setPlaybackSpeed, setPlaybackProgress, setShowMiniMap, setShowHudMenu, setShowTelemetryOverlay, setHudVisibility, fitTrack, cameraMode, setCameraMode, setIsMapMaximized, onToggleExpand, isSingleLap, singleLapXAxisMode, dashboardSyncMode]);
+    }, [isExpanded, isBarHovered, isPlaying, isSpeedOpen, playbackSpeed, playbackProgress, showMiniMap, showHudMenu, showTelemetryOverlay, isMapMaximized, hudVisibility, maximizedSidebarMode, dimensions.width, telemetryData, isMiniMap, togglePlayback, setPlaybackSpeed, setPlaybackProgress, setShowMiniMap, setShowHudMenu, setShowTelemetryOverlay, setHudVisibility, fitTrack, cameraMode, setCameraMode, setIsMapMaximized, onToggleExpand, isSingleLap, singleLapXAxisMode, dashboardSyncMode]);
 
     return (
         <div ref={containerRef}
@@ -3370,11 +3435,12 @@ export const TrackMap = React.memo(({ isExpanded = false, onToggleExpand, isMini
                 </div>
 
                 {/* HUD OVERLAYS - Moved to end of DOM for consistent event capturing in 2D mode */}
-                {isExpanded && !isMiniMap && !isAnimating && (
+                {!isMiniMap && !isAnimating && (
                     <>
-                        {/* 1. Telemetry Overlap */}
+                        {/* 1. Telemetry Overlap — always shown in the docked map (matches 3D),
+                            toggled by showTelemetryOverlay when expanded, and by hudVisibility.overlap when maximized */}
                         <div
-                            className={`absolute inset-0 pointer-events-none transition-all duration-500 transform z-[150] ${(isMapMaximized ? hudVisibility.overlap : showTelemetryOverlay)
+                            className={`absolute inset-0 pointer-events-none transition-all duration-500 transform z-[150] ${(isMapMaximized ? hudVisibility.overlap : (isExpanded ? showTelemetryOverlay : true))
                                 ? 'opacity-100 scale-100 translate-y-0'
                                 : 'opacity-0 scale-95 -translate-y-4 pointer-events-none'
                                 }`}
@@ -3394,6 +3460,12 @@ export const TrackMap = React.memo(({ isExpanded = false, onToggleExpand, isMini
                                     isMiniMap={isMiniMap}
                                 />
                             )}
+                        </div>
+
+                        {/* HUD: Steering wheel — mirrors the 3D map. Bottom-left when
+                            maximized, otherwise top-right of the docked/expanded map. */}
+                        <div className={`absolute ${isMapMaximized ? 'bottom-8 left-8' : 'top-4 right-4'} z-[100] pointer-events-none`}>
+                            <MapSteeringOverlay />
                         </div>
 
                         {/* 2. Smart Sidebar */}

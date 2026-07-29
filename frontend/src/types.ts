@@ -11,7 +11,9 @@ export interface Session {
     id: string;
     path: string;
     size: number;
-    created: number; // Unix timestamp
+    created: number; // Unix timestamp (file mtime)
+    sessionTime?: string; // Real recording time from the .ld header, e.g. "2023-06-24 12:33:51"
+    recordedAt?: number; // sessionTime as a Unix timestamp (for sorting); absent if unparseable
     trackName?: string;
     trackLayout?: string;
     layoutKey?: string;

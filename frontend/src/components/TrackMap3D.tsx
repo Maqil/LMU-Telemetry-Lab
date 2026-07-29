@@ -8,7 +8,6 @@ import { MapSteeringOverlay } from './MapSteeringOverlay';
 import { Layers, MousePointer2, Move3d, RotateCcw, Play, Pause, Compass, Target, Navigation, Maximize2, Minimize2, Activity, ChevronRight, Check, ChevronDown } from 'lucide-react';
 import { handleGlassMouseMove } from '../utils/glassEffect';
 import { Tooltip } from './ui/Tooltip';
-import { TrackMap } from './TrackMap';
 import { CompactTelemetryOverlay } from './CompactTelemetryOverlay';
 import { TrackInfoOverlay } from './TrackInfoOverlay';
 import { CarInfoOverlay } from './CarInfoOverlay';
@@ -21,14 +20,6 @@ import { FileManager } from './FileManager';
 const CarMarkerIcon = ({ size = 16, className = "" }: { size?: number, className?: string }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
         <path d="M5 5l14 6-7 2-2 7L5 5z" />
-    </svg>
-);
-
-const MapIcon = ({ size = 20, className = "" }: { size?: number; className?: string }) => (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
-        <path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3V6z" />
-        <path d="M9 3v15" />
-        <path d="M15 6v15" />
     </svg>
 );
 
@@ -758,8 +749,6 @@ export const TrackMap3D = ({ onToggleExpand, isAnimating = false }: { onToggleEx
     const [hoverInfo, setHoverInfo] = useState<{ p: any, pos: { x: number, y: number } } | null>(null);
     const [isHovering, setIsHovering] = useState(false);
     const [viewMode, setViewMode] = useState<'free' | 'follow' | 'headingUp'>('follow');
-    const showMiniMap = useTelemetryStore(state => state.showMiniMap);
-    const setShowMiniMap = useTelemetryStore(state => state.setShowMiniMap);
     const [resetKey, setResetKey] = useState(0);
     const controlsRef = useRef<any>(null);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -1200,34 +1189,6 @@ export const TrackMap3D = ({ onToggleExpand, isAnimating = false }: { onToggleEx
 
             <div className="glass-content flex-1 flex flex-col relative z-10 w-full h-full">
 
-                {/* Title & Z-Scale Overlay */}
-                <div className={`absolute top-5 left-5 z-[200] flex pointer-events-auto transition-all duration-300 ${isMapMaximized ? 'flex-row items-center gap-6' : 'flex-col items-start gap-1'}`}>
-
-                    {/* 2D/3D dimension toggle moved to the top navbar (see App.tsx):
-                        the 3D canvas was intercepting the click here. Maximized mode
-                        still uses the top-center MaximizedDimensionToggle below. */}
-
-                    {/* Z-Scale Horizontal Slider */}
-                    <div className={`flex items-center gap-3 h-4 ${isMapMaximized ? 'pl-4 border-l border-white/10' : ''}`} onMouseDown={(e) => e.stopPropagation()}>
-                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Z Scale</span>
-                        <div className="relative flex items-center h-4">
-                            <input
-                                type="range"
-                                min="0"
-                                max="2"
-                                step="0.05"
-                                value={zScale}
-                                onChange={(e) => setZScale(parseFloat(e.target.value))}
-                                className="w-16 accent-blue-500 bg-white/10 h-1.5 rounded-full appearance-none outline-none cursor-pointer"
-                                style={{
-                                    background: `linear-gradient(to right, #3b82f6 ${(zScale / 2) * 100}%, rgba(255,255,255,0.05) ${(zScale / 2) * 100}%)`
-                                }}
-                            />
-                        </div>
-                        <span className="text-[10px] font-mono font-black text-blue-400 w-6 opacity-80">{zScale.toFixed(1)}x</span>
-                    </div>
-                </div>
-
                 {/* HUD: Top Center Telemetry (Refined Alignment) */}
                 {!isAnimating && (
                     <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[100] pointer-events-auto flex flex-col items-center gap-3">
@@ -1259,22 +1220,9 @@ export const TrackMap3D = ({ onToggleExpand, isAnimating = false }: { onToggleEx
                     </div>
                 )}
 
-                {/* HUD: Minimap (Top Right) - Fixed 5:3 Smaller */}
+                {/* HUD: Steering wheel — top-right when docked, bottom-left when maximized */}
                 {!isAnimating && (
-                    <div className={`absolute ${isMapMaximized ? 'top-6 right-8' : 'top-4 right-4'} z-[100] w-[14rem] aspect-[5/3] transition-all duration-500 transform ${showMiniMap ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 -translate-y-4 scale-95 pointer-events-none'}`}>
-                        <div className={`w-full h-full glass-container rounded-md overflow-hidden relative transition-all duration-300 ${showMiniMap ? 'pointer-events-auto' : 'pointer-events-none'}`}
-                            onMouseMove={handleGlassMouseMove}
-                            style={{ '--glass-hover-scale': '1', '--glass-content-scale': '1' } as any}>
-                            <div className="glass-content w-full h-full">
-                                <TrackMap key="minimap-overlay" isMiniMap={true} />
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* HUD: Steering wheel — below the minimap when docked, bottom-right when maximized */}
-                {!isAnimating && (
-                    <div className={`absolute ${isMapMaximized ? 'bottom-8 left-8' : 'top-[10rem] right-4'} z-[100] pointer-events-none`}>
+                    <div className={`absolute ${isMapMaximized ? 'bottom-8 left-8' : 'top-4 right-4'} z-[100] pointer-events-none`}>
                         <MapSteeringOverlay />
                     </div>
                 )}
@@ -1411,17 +1359,7 @@ export const TrackMap3D = ({ onToggleExpand, isAnimating = false }: { onToggleEx
                                                     camera modes (Free/Follow/Heading) stay available in the side-by-side map */}
                                                 {barWidth > 440 && (
                                                     <>
-                                                        {/* 1. MiniMap */}
-                                                        <Tooltip text="MINIMAP" position="top">
-                                                            <button
-                                                                onClick={() => setShowMiniMap(!showMiniMap)}
-                                                                className={`p-2 rounded-lg transition-all ${showMiniMap ? 'text-blue-400 bg-blue-500/10 border border-blue-500/20' : 'text-slate-500 hover:text-white hover:bg-white/5 border border-transparent'}`}
-                                                            >
-                                                                <MapIcon size={16} />
-                                                            </button>
-                                                        </Tooltip>
-
-                                                        {/* 2. HUD Setup — only in maximized (overlap HUD is always shown in the docked map) */}
+                                                        {/* 1. HUD Setup — only in maximized (overlap HUD is always shown in the docked map) */}
                                                         {isMapMaximized && (
                                                         <div className="relative" ref={hudMenuRef}>
                                                             <Tooltip text={isMapMaximized ? "HUD SETUP" : "OVERLAP"} position="top">
@@ -1773,7 +1711,7 @@ export const TrackMap3D = ({ onToggleExpand, isAnimating = false }: { onToggleEx
                             animate={{
                                 opacity: 1,
                                 x: 0,
-                                top: showMiniMap ? 166 : 16 // Synchronized with 2D
+                                top: 16 // Synchronized with 2D
                             }}
                             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                             className="absolute right-[20px] z-[2001] pointer-events-auto"
@@ -1811,7 +1749,7 @@ export const TrackMap3D = ({ onToggleExpand, isAnimating = false }: { onToggleEx
                             animate={{
                                 opacity: 1,
                                 x: 0,
-                                top: showMiniMap ? 198 : 48 // Perfectly aligned with bottom of toggle
+                                top: 48 // Perfectly aligned with bottom of toggle
                             }}
                             exit={{ opacity: 0, x: 40 }}
                             transition={{ type: 'spring', stiffness: 120, damping: 20 }}
