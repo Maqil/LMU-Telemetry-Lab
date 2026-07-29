@@ -1,13 +1,18 @@
-import { useTelemetryStore } from '../store/telemetryStore';
+import { useTelemetryStore, LIVE_SESSION_ID } from '../store/telemetryStore';
 import { handleGlassMouseMove } from '../utils/glassEffect';
 
 /**
  * 2D / 3D map dimension switch. Rendered as an overlay inside the map (above the
  * Z Scale slider in 3D, next to the title in 2D) so it lives with the map itself.
+ *
+ * In the live view the map is pinned to 2D -- the 3D lab needs a completed lap's
+ * track mesh and elevation, which a stream has not produced yet -- so the 3D
+ * option is disabled rather than silently doing nothing.
  */
 export const MapDimensionToggle = ({ className = '' }: { className?: string }) => {
     const show3DLab = useTelemetryStore(s => s.show3DLab);
     const setShow3DLab = useTelemetryStore(s => s.setShow3DLab);
+    const isLive = useTelemetryStore(s => s.currentSessionId === LIVE_SESSION_ID);
 
     return (
         <div
@@ -26,7 +31,11 @@ export const MapDimensionToggle = ({ className = '' }: { className?: string }) =
             </button>
             <button
                 onClick={() => setShow3DLab(true)}
-                className={`relative z-10 flex-1 h-full flex items-center justify-center text-[10px] font-black uppercase tracking-widest transition-colors duration-300 ${show3DLab ? 'text-white' : 'text-gray-500 hover:text-gray-300'}`}
+                disabled={isLive}
+                title={isLive ? 'The live map is 2D only' : undefined}
+                className={`relative z-10 flex-1 h-full flex items-center justify-center text-[10px] font-black uppercase tracking-widest transition-colors duration-300 ${
+                    isLive ? 'text-gray-700 cursor-not-allowed'
+                        : show3DLab ? 'text-white' : 'text-gray-500 hover:text-gray-300'}`}
             >
                 3D
             </button>

@@ -1,5 +1,5 @@
 
-import type { Session, Lap, TelemetryData, Profile, AccSyncState, LmuSyncState, LiveStatus } from '../types';
+import type { Session, Lap, TelemetryData, Profile, AccSyncState, LmuSyncState, LiveStatus, LiveConfigUpdate } from '../types';
 
 const API_BASE = '/api/v1';
 
@@ -356,7 +356,7 @@ export const apiClient = {
         return res.json();
     },
 
-    async setLiveConfig(config: { source?: string; host?: string; port?: number; password?: string; updateMs?: number; autoStart?: boolean }): Promise<LiveStatus> {
+    async setLiveConfig(config: LiveConfigUpdate): Promise<LiveStatus> {
         const res = await fetch(`${API_BASE}/live/config`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

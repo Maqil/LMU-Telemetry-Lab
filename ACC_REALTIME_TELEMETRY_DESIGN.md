@@ -39,8 +39,26 @@ ACC's broadcasting API (enable via `…/Config/broadcasting.json`: `updListenerP
 
 **What it gives:** live map position, speed, gear, lap fraction, lap times, deltas, standings — for **all** cars. **What it lacks:** throttle, brake, steering, rpm, tyres (no physics). It is **network-based**, so it works **natively from Linux with zero bridge**.
 
-### 2.3 The Linux/Proton reality (decisive constraint)
-We run the backend as a **native Linux** process; ACC runs under **Proton/Wine**. Wine's *named shared memory* is not exposed to native Linux processes (it isn't a plain `/dev/shm` file), so a native reader **cannot** open `acpmf_physics` directly. Two ways around it:
+### 2.3 The Linux/Proton reality (corrected after implementation)
+
+> **This section's original premise was wrong, and the implementation is better for it.**
+> It claimed a native Linux reader *cannot* reach `acpmf_physics`. In practice it
+> can: Wine backs named mappings with anonymous `memfd` objects that remain
+> visible in the game process's address space, so they are readable through
+> `/proc/<pid>/mem` from the same user. `live_sources/acc_shm_direct.py` does
+> exactly that — **no bridge, no Proton-side Python, no Steam launch options**.
+> Verified against a running ACC: `smVersion 1.9`, car `bmw_m4_gt3`, track `Spa`.
+>
+> Two wrinkles worth knowing:
+> * Wine hashes the mapping names away, so the three blocks are identified by
+>   **content**, not by name. Several unrelated Wine mappings score plausibly on
+>   static field checks alone, so identification also requires the block's
+>   `packetId` to be **advancing**, and rejects denormal floats (reinterpreted
+>   integers land in the ~1e-45 band and would otherwise pass a `0..1` pedal test).
+> * A hardened `kernel.yama.ptrace_scope` can deny the read. That, and running
+>   the app on a different machine from the game, are what the bridge still covers.
+
+We run the backend as a **native Linux** process; ACC runs under **Proton/Wine**. Where the direct read is unavailable, two fallbacks remain:
 
 1. **Proton-side bridge (for full physics):** a tiny Windows helper (a ~150-line `.exe`, or `wine python`) launched **inside the same Proton prefix** memory-maps the three structs and forwards frames over **UDP to `127.0.0.1`**. The native backend just receives UDP — same code path on every OS. Launch it via Steam launch options (`bridge.exe %command%`) or a Proton wrapper script.
 2. **UDP broadcasting (no bridge):** works from Linux immediately, but physics-less (§2.2).
@@ -149,13 +167,22 @@ A minimal Windows helper shipped alongside the app (or as a downloadable), run *
 
 ## 8. Phased roadmap
 
-| Phase | Deliverable |
-|---|---|
-| **1 — Ingestion spine** | `live_telemetry_service` + `LiveFrame` schema + ring buffer + `/live/ws` + `/live/status`. Fed by a **mock source** (replays a stored lap) so the whole frontend live path is built and tested without the game. |
-| **2 — Live UI** | Store live slice + WS client + reuse `TelemetryChart` "LIVE" window + track-map follow marker + LIVE header control. |
-| **3 — UDP broadcasting source (Linux-native)** | `UdpBroadcastSource`; live map, speed, gear, lap times, deltas — no bridge. Real end-to-end on this machine. |
-| **4 — Shared-memory bridge (full physics)** | Proton bridge `.exe` + `SharedMemoryBridgeSource`; full DRIVER/TYRES/DYNAMICS live. Windows direct-mmap variant. |
-| **5 — Persistence & integration** | Lap segmenter → DuckDB (shared builder with `acc_importer`), `source:'live'` provenance + library filter chip, auto-appear in the session list, referenceable/insights-ready. |
+| Phase | Deliverable | Status |
+|---|---|---|
+| **1 — Ingestion spine** | `live_telemetry_service` + `LiveFrame` schema + ring buffer + `/live/ws` + `/live/status`. Fed by a **mock source** (replays a stored lap) so the whole frontend live path is built and tested without the game. | ✅ done |
+| **2 — Live UI** | Store live slice + WS client + reuse `TelemetryChart` "LIVE" window + track-map follow marker + LIVE header control. | ✅ done |
+| **3 — UDP broadcasting source (Linux-native)** | `UdpBroadcastSource`; live map, speed, gear, lap times, deltas — no bridge. Real end-to-end on this machine. | ✅ done (`live_sources/acc_udp.py`) |
+| **4 — Shared-memory bridge (full physics)** | Proton bridge + `SharedMemoryBridgeSource`; full DRIVER/TYRES/DYNAMICS live. | ✅ done (`tools/acc_bridge/` + `live_sources/acc_shm.py`) |
+| **5 — Persistence & integration** | Lap segmenter → DuckDB (shared builder with `acc_importer`), `source:'live'` provenance + library filter chip, auto-appear in the session list, referenceable/insights-ready. | ⬜ next |
+
+**Phase 4 as shipped.** The bridge sends *raw* ACC fields rather than app channel
+names, so the mapping (`live_sources/acc_shm.py`) can change without reshipping
+the Windows-side helper. There is no separate Windows direct-mmap source: on
+native Windows the same bridge runs locally, which keeps one code path
+everywhere. The shared memory has no track-length field, so `Lap Dist` is
+derived by differencing ACC's cumulative `distanceTraveled` per lap, which also
+self-calibrates the track length. The live map is pinned to **2D** — the 3D lab
+needs a completed lap's mesh and elevation, which a stream hasn't produced.
 
 Phase 1–2 stand alone via the mock source; Phase 3 makes it live on Linux without any Windows component; Phase 4 unlocks the full physics dashboard; Phase 5 folds live laps into the existing analysis/library/sync world.
 

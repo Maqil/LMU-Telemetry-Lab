@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Session, Lap, TelemetryData, SessionMetadata, Profile, ChartConfig, CarSetupData, VideoAssociation, LiveStatus, LiveLapComplete } from '../types';
+import type { Session, Lap, TelemetryData, SessionMetadata, Profile, ChartConfig, CarSetupData, VideoAssociation, LiveStatus, LiveLapComplete, LiveConfigUpdate } from '../types';
 import { apiClient } from '../api/client';
 
 /** Virtual session id used while viewing the real-time live feed. */
@@ -37,10 +37,53 @@ const _resetLiveBuffer = (channels: string[]) => {
     for (const ch of _liveChannels) _liveBuffer[ch] = [];
 };
 
+/** 4-wheel channels arrive from the shared-memory source as four flat scalars
+ *  ("TyresPressure LF", …) because the live wire format is one number per
+ *  channel. The bundled charts instead read [sample][wheel] arrays, so the
+ *  groups are reassembled into that shape on snapshot. */
+const LIVE_WHEEL_GROUPS = ['TyresPressure', 'TyresCoreTemp', 'Susp Pos', 'Brake Temp', 'Slip Ratio'];
+const LIVE_WHEEL_SUFFIXES = ['LF', 'RF', 'LR', 'RR'];
+
+/** Lap number used for the synthetic "current window" lap in live view. */
+export const LIVE_LAP_IDX = 0;
+
+/** The analysis layout (charts, map, HUD) is gated on a selected lap, and a
+ *  stream has no completed laps to select. Synthesising one that spans the whole
+ *  rolling buffer lets every existing lap-bounds calculation work unchanged
+ *  instead of special-casing live mode at each render site. */
+const _liveLap = (td: TelemetryData): Lap => {
+    const time = (td['Time'] as number[]) || [];
+    const start = time.length ? time[0] : 0;
+    const end = time.length ? time[time.length - 1] : 0;
+    return {
+        lap: LIVE_LAP_IDX,
+        startTime: start,
+        endTime: end,
+        duration: Math.max(0, end - start),
+        isValid: true,
+        isOutLap: false,
+    };
+};
+
 /** A shallow copy of the buffer in TelemetryData shape, for the charts/map. */
 const _liveTelemetrySnapshot = (): TelemetryData => {
     const out: TelemetryData = {};
     for (const k of Object.keys(_liveBuffer)) out[k] = _liveBuffer[k].slice();
+
+    for (const group of LIVE_WHEEL_GROUPS) {
+        const cols = LIVE_WHEEL_SUFFIXES.map(w => _liveBuffer[`${group} ${w}`]);
+        if (cols.some(c => !c)) continue;
+        const n = cols[0].length;
+        const bundled: number[][] = new Array(n);
+        for (let i = 0; i < n; i++) bundled[i] = [cols[0][i], cols[1][i], cols[2][i], cols[3][i]];
+        out[group] = bundled;
+    }
+
+    // TelemetryChart slices the selected lap by scanning a per-sample `Lap`
+    // channel and bails when it is missing, so the live window needs one that
+    // matches the synthetic lap (_liveLap) for the charts to draw at all.
+    const samples = (out['Time'] as number[])?.length ?? 0;
+    out['Lap'] = new Array(samples).fill(LIVE_LAP_IDX);
     return out;
 };
 
@@ -431,7 +474,7 @@ export interface TelemetryState {
     // Live telemetry (real-time ACC UDP feed)
     fetchLiveStatus: () => Promise<void>;
     detectLiveConfig: () => Promise<{ path: string | null; port: number | null } | null>;
-    setLiveConfig: (config: { source?: string; host?: string; port?: number; password?: string; updateMs?: number; autoStart?: boolean }) => Promise<void>;
+    setLiveConfig: (config: LiveConfigUpdate) => Promise<void>;
     startLive: () => Promise<void>;
     stopLive: () => Promise<void>;
     connectLiveStream: () => void;
@@ -1252,6 +1295,9 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
     setIsUserInteractingWithCharts: (isInteracting: boolean) => set({ isUserInteractingWithCharts: isInteracting }),
     setShowReferenceBrowser: (show: boolean) => set({ showReferenceBrowser: show }),
     setShow3DLab: (show) => {
+        // Live is 2D only (see enterLiveView): the 3D lab needs a completed
+        // lap's worth of track mesh + elevation, which a stream doesn't have.
+        if (show && get().currentSessionId === LIVE_SESSION_ID) return;
         const { track3DData, selectedLapIdx, selectedStint, fetch3DTrack, laps, telemetryData } = get();
 
         // Pause and Reset main progress
@@ -2328,7 +2374,15 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
             if (inLiveView() && get().liveRenderEnabled) {
                 const td = _liveTelemetrySnapshot();
                 const n = (td['Time'] as number[])?.length ?? 0;
-                set({ telemetryData: td, cursorIndex: n > 0 ? n - 1 : null, smoothCursorIndex: n > 0 ? n - 1 : null });
+                set({
+                    telemetryData: td,
+                    cursorIndex: n > 0 ? n - 1 : null,
+                    smoothCursorIndex: n > 0 ? n - 1 : null,
+                    // Keep the synthetic lap's bounds tracking the window as it
+                    // slides, so the charts' x-range follows the newest sample.
+                    laps: [_liveLap(td)],
+                    selectedLapIdx: LIVE_LAP_IDX,
+                });
             }
         };
 
@@ -2384,8 +2438,8 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
                 modelName: status?.car || '', rawCarName: '', driverName: status?.driver || '',
                 sessionType: 'Live', country: '', officialTrackLength: status?.trackLength || 0,
             } as SessionMetadata,
-            laps: [],
-            selectedLapIdx: null,
+            laps: [_liveLap(td)],
+            selectedLapIdx: LIVE_LAP_IDX,
             selectedStint: null,
             referenceLapIdx: null,
             referenceTelemetryData: null,
@@ -2393,6 +2447,10 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
             cursorIndex: n > 0 ? n - 1 : null,
             smoothCursorIndex: n > 0 ? n - 1 : null,
             isPlaying: false,
+            // The 3D lab renders a pre-built track mesh and needs a full lap of
+            // elevation data, neither of which exists mid-stream -- live is 2D
+            // only, and MapDimensionToggle disables the 3D option while here.
+            show3DLab: false,
         }));
         get().connectLiveStream();
     },

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, memo, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MapTransitionOverlay } from './components/MapTransitionOverlay';
-import { useTelemetryStore, CATEGORY_CHART_CONFIGS } from './store/telemetryStore';
+import { useTelemetryStore, CATEGORY_CHART_CONFIGS, LIVE_SESSION_ID } from './store/telemetryStore';
 import { FileManager } from './components/FileManager';
 import { TelemetryChart } from './components/TelemetryChart';
 import { TrackMap } from './components/TrackMap';
@@ -109,6 +109,8 @@ function App() {
   const isProcessingTrack = useTelemetryStore(state => state.isProcessingTrack);
   const show3DLab = useTelemetryStore(state => state.show3DLab);
   const setShow3DLab = useTelemetryStore(state => state.setShow3DLab);
+  // The live map is 2D only (the 3D lab needs a completed lap's mesh/elevation).
+  const isLiveView = useTelemetryStore(state => state.currentSessionId === LIVE_SESSION_ID);
   const isVideoPanelOpen = useTelemetryStore(state => state.isVideoPanelOpen);
   const toggleVideoPanel = useTelemetryStore(state => state.toggleVideoPanel);
   const showMiniSectors = useTelemetryStore(state => state.showMiniSectors);
@@ -1398,7 +1400,11 @@ function App() {
                     </button>
                     <button
                       onClick={() => setShow3DLab(true)}
-                      className={`relative z-10 flex-1 h-full flex items-center justify-center text-[10px] font-black uppercase tracking-widest transition-colors duration-300 ${show3DLab ? 'text-white' : 'text-gray-500 hover:text-gray-300'}`}
+                      disabled={isLiveView}
+                      title={isLiveView ? 'The live map is 2D only' : undefined}
+                      className={`relative z-10 flex-1 h-full flex items-center justify-center text-[10px] font-black uppercase tracking-widest transition-colors duration-300 ${
+                        isLiveView ? 'text-gray-700 cursor-not-allowed'
+                          : show3DLab ? 'text-white' : 'text-gray-500 hover:text-gray-300'}`}
                     >
                       3D
                     </button>

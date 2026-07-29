@@ -1,11 +1,13 @@
 import React from 'react';
-import { useTelemetryStore } from '../store/telemetryStore';
+import { useTelemetryStore, LIVE_SESSION_ID } from '../store/telemetryStore';
 import { handleGlassMouseMove } from '../utils/glassEffect';
 
 export const MaximizedDimensionToggle: React.FC = () => {
     const show3DLab = useTelemetryStore(state => state.show3DLab);
     const setShow3DLab = useTelemetryStore(state => state.setShow3DLab);
     const selectedLapIdx = useTelemetryStore(state => state.selectedLapIdx);
+    // Live is pinned to 2D -- see MapDimensionToggle.
+    const isLive = useTelemetryStore(state => state.currentSessionId === LIVE_SESSION_ID);
 
     if (selectedLapIdx === null) return null;
 
@@ -28,7 +30,11 @@ export const MaximizedDimensionToggle: React.FC = () => {
             </button>
             <button
                 onClick={() => setShow3DLab(true)}
-                className={`relative z-10 flex-1 h-full flex items-center justify-center text-[9px] font-black uppercase tracking-[0.1em] transition-colors duration-300 ${show3DLab ? 'text-white' : 'text-gray-500 hover:text-white'}`}
+                disabled={isLive}
+                title={isLive ? 'The live map is 2D only' : undefined}
+                className={`relative z-10 flex-1 h-full flex items-center justify-center text-[9px] font-black uppercase tracking-[0.1em] transition-colors duration-300 ${
+                    isLive ? 'text-gray-700 cursor-not-allowed'
+                        : show3DLab ? 'text-white' : 'text-gray-500 hover:text-white'}`}
             >
                 3D
             </button>

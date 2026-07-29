@@ -762,12 +762,15 @@ def lmu_sync_scan(profile_id: Optional[str] = Query("guest")):
 # ---------------------------------------------------------------------------
 
 class LiveConfig(BaseModel):
-    source: Optional[str] = None       # "acc_udp" | "mock"
+    source: Optional[str] = None       # "acc_udp" | "acc_shm" | "mock"
     host: Optional[str] = None
     port: Optional[int] = None
     password: Optional[str] = None
     updateMs: Optional[int] = None
     autoStart: Optional[bool] = None
+    bridgePort: Optional[int] = None        # acc_shm: port the bridge sends to
+    steeringLockDeg: Optional[float] = None  # acc_shm: wheel range in degrees
+    shmTransport: Optional[str] = None       # acc_shm: auto | direct | bridge
 
 
 @router.get("/live/status")
@@ -789,7 +792,8 @@ async def live_config(req: LiveConfig):
     """Update the live source config (source/port/password/rate). Restarts if running."""
     from ..services.live_telemetry_service import get_service
     updates = {}
-    for key in ("source", "host", "port", "password", "updateMs", "autoStart"):
+    for key in ("source", "host", "port", "password", "updateMs", "autoStart",
+                "bridgePort", "steeringLockDeg", "shmTransport"):
         value = getattr(req, key)
         if value is not None:
             updates[key] = value

@@ -12,6 +12,11 @@ for src, dst in [('lmu_carname_to_modelname.csv', '.'), ('backend/discord_config
     if os.path.exists(src):
         added_files.append((src, dst))
 
+# The ACC shared-memory bridge is a plain script the *user* runs on the Windows
+# side of ACC's Proton prefix, so it ships as data (never imported by the app).
+if os.path.isdir('tools/acc_bridge'):
+    added_files.append(('tools/acc_bridge', 'tools/acc_bridge'))
+
 # duckdb ships a compiled native extension that PyInstaller does not always
 # pick up automatically; collect it explicitly so the bundle can query DBs.
 extra_binaries = collect_dynamic_libs('duckdb')

@@ -103,15 +103,26 @@ export type LiveStateKind =
     | 'replay'     // watching a replay
     | 'stopped';   // reader not running
 
+/** Which feed the live reader is attached to.
+ *  - `acc_udp`: ACC's broadcasting protocol. Works natively from Linux, but
+ *    carries no pedals/steering/rpm/tyres.
+ *  - `acc_shm`: full physics, forwarded by tools/acc_bridge running on the
+ *    Windows side of ACC's Proton prefix.
+ *  - `mock`: replays a stored lap, for working on the UI without the game. */
+export type LiveSourceKind = 'acc_udp' | 'acc_shm' | 'mock';
+
 export interface LiveStatus {
     running: boolean;
     state: LiveStateKind;
     connected: boolean;
-    source: string;                 // 'acc_udp' | 'mock'
+    source: LiveSourceKind;
     error: string | null;
     hz: number;                     // frames/s kept after downsampling
     packetsPerSec?: number;         // raw inbound UDP rate (diagnostics)
     carUpdatesPerSec?: number;
+    /** acc_shm only: 'direct' reads the game's memory (normal on Linux),
+     *  'bridge' waits on the Windows-side forwarder. */
+    transport?: 'direct' | 'bridge' | null;
     frames: number;
     channels: string[];             // ordered channel names in each frame row
     buffered: number;               // samples currently in the ring buffer
@@ -128,13 +139,27 @@ export interface LiveStatus {
     sessionType: string;
     gameStatus: string;             // LIVE | PAUSE | REPLAY | OFF
     config: {
-        source: string;
+        source: LiveSourceKind;
         host: string;
         port: number;
         hasPassword: boolean;
         updateMs: number;
         autoStart: boolean;
+        bridgePort: number;         // acc_shm: UDP port the bridge sends to
+        steeringLockDeg: number;    // acc_shm: wheel range used to scale steering
     };
+}
+
+/** Partial live-config update sent to POST /live/config. */
+export interface LiveConfigUpdate {
+    source?: LiveSourceKind;
+    host?: string;
+    port?: number;
+    password?: string;
+    updateMs?: number;
+    autoStart?: boolean;
+    bridgePort?: number;
+    steeringLockDeg?: number;
 }
 
 /** Broadcast when the source's lap counter advances. */

@@ -17,6 +17,9 @@ import threading
 import time
 from collections import deque
 
+from .live_sources.acc_shm import (
+    DEFAULT_BRIDGE_PORT, DEFAULT_STEERING_LOCK_DEG, AccSharedMemorySource,
+)
 from .live_sources.acc_udp import DEFAULT_PORT, AccUdpBroadcastSource
 from .live_sources.mock_replay import MockLiveSource
 
@@ -38,12 +41,28 @@ BROADCAST_HZ = 10.0
 #: ring-buffer depth in seconds (what a newly connected client gets instantly)
 BUFFER_SECONDS = 90
 
+#: Sources the reader can be pointed at.
+#:   acc_udp -- ACC's broadcasting protocol: position/speed/gear/timing, works
+#:              natively from Linux, but carries no physics.
+#:   acc_shm -- full physics (pedals/steering/rpm/tyres) forwarded by
+#:              tools/acc_bridge running on the Windows side of the prefix.
+#:   mock    -- replays a stored lap, for developing the UI without the game.
+SOURCES = ("acc_udp", "acc_shm", "mock")
+
 DEFAULT_CONFIG = {
-    "source": "acc_udp",          # "acc_udp" | "mock"
+    "source": "acc_udp",          # one of SOURCES
     "host": "127.0.0.1",
     "port": DEFAULT_PORT,
     "password": "",
     "commandPassword": "",
+    # UDP port the shared-memory bridge forwards to (acc_shm source only).
+    "bridgePort": DEFAULT_BRIDGE_PORT,
+    # Total steering-wheel range in degrees; ACC reports steering as a -1..1
+    # fraction of the car's lock, so this converts it back to degrees.
+    "steeringLockDeg": DEFAULT_STEERING_LOCK_DEG,
+    # acc_shm transport: "auto" (read the game's memory, fall back to the
+    # bridge), or pin it to "direct" / "bridge".
+    "shmTransport": "auto",
     # Rate we ask ACC to broadcast at. The game does this work on its own
     # thread while rendering, so a 16 ms (60 Hz) request measurably costs frames
     # in-game; 50 ms (20 Hz) is still smooth for a live map/trace.
@@ -198,8 +217,13 @@ class LiveTelemetryService:
             for key, value in updates.items():
                 if value is None or key not in DEFAULT_CONFIG:
                     continue
-                cfg[key] = int(value) if key in ("port", "updateMs") else value
-            if cfg["source"] not in ("acc_udp", "mock"):
+                if key in ("port", "updateMs", "bridgePort"):
+                    cfg[key] = int(value)
+                elif key == "steeringLockDeg":
+                    cfg[key] = float(value)
+                else:
+                    cfg[key] = value
+            if cfg["source"] not in SOURCES:
                 raise ValueError(f"Unknown live source: {cfg['source']}")
             changed = cfg != self._config
             self._config = cfg
@@ -279,6 +303,9 @@ class LiveTelemetryService:
                 # sending 60 packets/s but hz is 1, the filter is at fault).
                 "packetsPerSec": info.get("packetsPerSec", 0),
                 "carUpdatesPerSec": info.get("carUpdatesPerSec", 0),
+                # acc_shm only: "direct" (reading the game's memory) or
+                # "bridge" (waiting on the Windows-side forwarder).
+                "transport": info.get("transport"),
                 "frames": self._frames_seen,
                 "channels": list(self._channels),
                 "buffered": len(self._ring),
@@ -303,6 +330,9 @@ class LiveTelemetryService:
                     "hasPassword": bool(cfg.get("password")),
                     "updateMs": cfg.get("updateMs"),
                     "autoStart": bool(cfg.get("autoStart")),
+                    "bridgePort": cfg.get("bridgePort"),
+                    "steeringLockDeg": cfg.get("steeringLockDeg"),
+                    "shmTransport": cfg.get("shmTransport"),
                 },
             }
 
@@ -346,6 +376,15 @@ class LiveTelemetryService:
         cfg = self._config
         if cfg.get("source") == "mock":
             return MockLiveSource(hz=SAMPLE_HZ)
+        if cfg.get("source") == "acc_shm":
+            return AccSharedMemorySource(
+                host=cfg.get("host") or "127.0.0.1",
+                port=int(cfg.get("bridgePort") or DEFAULT_BRIDGE_PORT),
+                steering_lock_deg=float(
+                    cfg.get("steeringLockDeg") or DEFAULT_STEERING_LOCK_DEG),
+                sample_hz=SAMPLE_HZ,
+                transport=cfg.get("shmTransport") or "auto",
+            )
         return AccUdpBroadcastSource(
             host=cfg.get("host") or "127.0.0.1",
             port=int(cfg.get("port") or DEFAULT_PORT),

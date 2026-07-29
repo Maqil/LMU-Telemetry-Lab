@@ -4,7 +4,7 @@ import {
     Radio, AlertTriangle, Loader2, X, Play, Square, Search, Check, PauseCircle, Film, LineChart,
 } from 'lucide-react';
 import { useTelemetryStore, LIVE_SESSION_ID } from '../store/telemetryStore';
-import type { LiveStateKind } from '../types';
+import type { LiveStateKind, LiveSourceKind } from '../types';
 import { Tooltip } from './ui/Tooltip';
 
 /**
@@ -55,6 +55,12 @@ const RATE_OPTIONS: { ms: number; label: string }[] = [
     { ms: 16, label: '60 Hz' },
 ];
 
+const SOURCE_OPTIONS: { key: LiveSourceKind; label: string; hint: string }[] = [
+    { key: 'acc_udp', label: 'Timing', hint: "ACC's UDP broadcasting API: position, speed, gear, lap times. No Windows helper needed." },
+    { key: 'acc_shm', label: 'Physics', hint: 'Full physics (pedals, steering, RPM, tyres) via the shared-memory bridge running in ACC\'s Proton prefix.' },
+    { key: 'mock', label: 'Demo', hint: 'Replays a stored lap — for trying the live UI without running the game.' },
+];
+
 const Stat = ({ label, value, tone = 'text-gray-200' }: { label: string; value: string; tone?: string }) => (
     <div>
         <div className="text-[9px] font-black uppercase tracking-widest text-gray-600">{label}</div>
@@ -87,6 +93,7 @@ export const LiveTelemetryControl = ({ align = 'right' }: { align?: 'left' | 'ri
     const [host, setHost] = useState('');
     const [port, setPort] = useState('');
     const [password, setPassword] = useState('');
+    const [bridgePort, setBridgePort] = useState('');
     const rootRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => { if (!live) fetchStatus(); }, [live, fetchStatus]);
@@ -97,6 +104,7 @@ export const LiveTelemetryControl = ({ align = 'right' }: { align?: 'left' | 'ri
 
     useEffect(() => { if (live?.config) setPort(String(live.config.port ?? '')); }, [live?.config?.port]);
     useEffect(() => { if (live?.config) setHost(live.config.host || ''); }, [live?.config?.host]);
+    useEffect(() => { if (live?.config) setBridgePort(String(live.config.bridgePort ?? '')); }, [live?.config?.bridgePort]);
 
     useEffect(() => {
         if (!open) return;
@@ -111,7 +119,8 @@ export const LiveTelemetryControl = ({ align = 'right' }: { align?: 'left' | 'ri
 
     const state = live.state;
     const meta = STATE_META[state] ?? STATE_META.stopped;
-    const isMock = live.config.source === 'mock';
+    const source = live.config.source;
+    const isShm = source === 'acc_shm';
 
     const run = async (fn: () => Promise<void>) => {
         setBusy(true);
@@ -142,8 +151,12 @@ export const LiveTelemetryControl = ({ align = 'right' }: { align?: 'left' | 'ri
 
     const setRate = (ms: number) => run(async () => { await setConfig({ updateMs: ms }); });
 
-    const toggleSource = () => run(async () => {
-        await setConfig({ source: isMock ? 'acc_udp' : 'mock' });
+    const pickSource = (next: LiveSourceKind) => run(async () => { await setConfig({ source: next }); });
+
+    const handleSaveBridgePort = () => run(async () => {
+        const parsed = parseInt(bridgePort, 10);
+        if (!parsed || parsed < 1 || parsed > 65535) throw new Error('Enter a valid UDP port (1-65535).');
+        await setConfig({ bridgePort: parsed });
     });
 
     const speed = latest?.['Ground Speed'] ?? 0;
@@ -216,16 +229,54 @@ export const LiveTelemetryControl = ({ align = 'right' }: { align?: 'left' | 'ri
                             </div>
                         ) : (
                             <p className="text-[11px] text-gray-500 mb-3 leading-snug">
-                                Streams the driven car's position, speed, gear and lap times straight from a running
-                                ACC session over its UDP broadcasting API — no Windows helper needed.
-                                Enable it in ACC's <span className="font-mono text-gray-400">Config/broadcasting.json</span>.
+                                {isShm
+                                    ? <>Streams ACC's full physics page — throttle, brake, steering, RPM and tyres —
+                                        via the bridge running inside ACC's Proton prefix.</>
+                                    : <>Streams the driven car's position, speed, gear and lap times straight from a running
+                                        ACC session over its UDP broadcasting API — no Windows helper needed.
+                                        Enable it in ACC's <span className="font-mono text-gray-400">Config/broadcasting.json</span>.</>}
                             </p>
                         )}
 
+                        {/* Source picker */}
+                        <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">
+                            Source
+                        </label>
+                        <div className="flex items-center gap-1.5 mb-2">
+                            {SOURCE_OPTIONS.map(opt => (
+                                <button
+                                    key={opt.key}
+                                    onClick={() => pickSource(opt.key)}
+                                    disabled={busy}
+                                    title={opt.hint}
+                                    className={`flex-1 h-8 rounded-lg border text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-40 ${
+                                        source === opt.key
+                                            ? 'border-blue-500/50 bg-blue-600/25 text-blue-200'
+                                            : 'border-white/10 bg-white/5 text-gray-400 hover:text-white hover:border-white/20'
+                                    }`}
+                                >
+                                    {opt.label}
+                                </button>
+                            ))}
+                        </div>
+
                         <p className="text-[10px] text-gray-600 mb-3 leading-snug">
-                            The UDP feed carries <span className="text-gray-400">speed, gear, track position, lap
-                            times and deltas</span> — ACC does not broadcast throttle, brake, steering, RPM or tyre
-                            data, so those charts stay empty until the shared-memory bridge lands.
+                            {isShm ? (
+                                live.running && live.transport === 'direct'
+                                    ? <><span className="text-emerald-400/80">Reading ACC's memory directly</span> — no
+                                        bridge needed on this machine.</>
+                                    : live.running
+                                        ? <><span className="text-amber-400/80">Can't read ACC's memory directly</span> —
+                                            waiting for <span className="font-mono text-gray-400">tools/acc_bridge</span> on
+                                            UDP {live.config.bridgePort}. Start ACC, or run the bridge (see its README).</>
+                                        : <>Reads ACC's shared memory straight from the running game on Linux. Falls back
+                                            to <span className="font-mono text-gray-400">tools/acc_bridge</span> if that
+                                            isn't permitted, or if the game is on another machine.</>
+                            ) : (
+                                <>The UDP feed carries <span className="text-gray-400">speed, gear, track position, lap
+                                    times and deltas</span> — ACC does not broadcast throttle, brake, steering, RPM or
+                                    tyre data. Switch to <span className="text-gray-400">Physics</span> for those.</>
+                            )}
                         </p>
 
         {/* Rendering pause — the other lever on in-game FPS */}
@@ -249,7 +300,11 @@ export const LiveTelemetryControl = ({ align = 'right' }: { align?: 'left' | 'ri
                             </span>
                         </button>
 
-                        {/* Update rate — the main lever on in-game FPS */}
+                        {/* Update rate — the main lever on in-game FPS. Only the
+                            broadcasting feed lets us ask the game for a rate; the
+                            bridge sets its own with --hz. */}
+                        {!isShm && (
+                        <>
                         <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">
                             Update Rate <span className="text-gray-600">· higher costs in-game FPS</span>
                         </label>
@@ -269,6 +324,8 @@ export const LiveTelemetryControl = ({ align = 'right' }: { align?: 'left' | 'ri
                                 </button>
                             ))}
                         </div>
+                        </>
+                        )}
 
                         {/* Connection */}
                         <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">
@@ -282,6 +339,35 @@ export const LiveTelemetryControl = ({ align = 'right' }: { align?: 'left' | 'ri
                             className="w-full h-9 px-2.5 mb-2.5 rounded-lg bg-black/30 border border-white/10 text-[11px] font-mono text-gray-200 placeholder:text-gray-600 focus:outline-none focus:border-blue-500/50"
                         />
 
+                        {isShm ? (
+                            <>
+                                <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">
+                                    Bridge Port <span className="text-gray-600">· must match the bridge's --port</span>
+                                </label>
+                                <div className="flex items-center gap-2 mb-4">
+                                    <input
+                                        value={bridgePort}
+                                        onChange={(e) => setBridgePort(e.target.value)}
+                                        placeholder="9600"
+                                        inputMode="numeric"
+                                        spellCheck={false}
+                                        className="w-[86px] flex-shrink-0 h-9 px-2.5 rounded-lg bg-black/30 border border-white/10 text-[11px] font-mono text-gray-200 placeholder:text-gray-600 focus:outline-none focus:border-blue-500/50"
+                                    />
+                                    <button
+                                        onClick={handleSaveBridgePort}
+                                        disabled={busy}
+                                        className="flex-shrink-0 h-9 px-2.5 rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:border-white/20 transition-all disabled:opacity-40"
+                                        title="Save bridge port"
+                                    >
+                                        <Check size={14} />
+                                    </button>
+                                    <span className="text-[10px] text-gray-600 leading-snug">
+                                        Steering scaled to {Math.round(live.config.steeringLockDeg ?? 800)}° of wheel range.
+                                    </span>
+                                </div>
+                            </>
+                        ) : (
+                        <>
                         <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">
                             UDP Port {live.config.hasPassword && <span className="text-emerald-400/70">· password set</span>}
                         </label>
@@ -315,10 +401,9 @@ export const LiveTelemetryControl = ({ align = 'right' }: { align?: 'left' | 'ri
                             <button onClick={handleDetect} disabled={busy} className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-blue-400 hover:text-blue-300 disabled:opacity-40">
                                 <Search size={11} /> Read from game config
                             </button>
-                            <button onClick={toggleSource} disabled={busy} className="text-[10px] font-bold uppercase tracking-widest text-gray-500 hover:text-gray-300 disabled:opacity-40">
-                                {isMock ? 'Demo feed' : 'Use demo feed'}
-                            </button>
                         </div>
+                        </>
+                        )}
 
                         {(errorMsg || live.error) && (
                             <div className="mb-3 flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-2.5 py-2">
