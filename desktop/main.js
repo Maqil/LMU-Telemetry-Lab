@@ -51,8 +51,12 @@ function createWindow() {
                         } else resolve();
                     });
                 } else {
-                    // macOS / Linux: free the port via lsof if anything is holding it
-                    require('child_process').exec(`lsof -ti tcp:8000 | xargs kill -9`, () => resolve());
+                    // macOS / Linux: free the port. lsof is not installed by default on
+                    // many Linux distros, so fall back to fuser before giving up.
+                    require('child_process').exec(
+                        `lsof -ti tcp:8000 | xargs kill -9 || fuser -k 8000/tcp`,
+                        () => resolve()
+                    );
                 }
             });
         };

@@ -83,6 +83,9 @@ const SimCard = ({
 }) => {
     const disabled = !!sim.comingSoon;
 
+    // items-stretch is required: the UA stylesheet sets align-items:center on
+    // <button>, which collapses the artwork panel (all of its children are
+    // absolutely positioned, so it has zero intrinsic width) to 0px wide.
     return (
         <motion.button
             type="button"
@@ -91,7 +94,7 @@ const SimCard = ({
             whileHover={disabled ? undefined : { y: -6 }}
             transition={{ type: 'spring', stiffness: 300, damping: 24 }}
             onMouseMove={(e) => handleGlassMouseMove(e, 0.15)}
-            className={`group relative h-full w-full flex flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-[#16161c] text-left glass-container
+            className={`group relative h-full w-full flex flex-col items-stretch overflow-hidden rounded-2xl border border-white/[0.08] bg-[#16161c] text-left glass-container
                 shadow-[0_12px_50px_rgba(0,0,0,0.55)] transition-all duration-300
                 ${disabled ? 'cursor-not-allowed opacity-80' : 'cursor-pointer hover:border-blue-400/50 hover:shadow-[0_24px_70px_rgba(37,99,235,0.28)]'}`}
         >

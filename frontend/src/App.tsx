@@ -23,7 +23,6 @@ import { F1Dashboard } from './components/F1Dashboard';
 import { Tooltip } from './components/ui/Tooltip';
 import { GForceRadar } from './components/GForceRadar';
 import { Lab3DRoot } from './components/Lab3D/Lab3DRoot';
-import { UpdateNotifier } from './components/UpdateNotifier';
 import { CarSetupView } from './components/CarSetupView';
 import { DiscordShareModal } from './components/DiscordShareModal';
 import { AppRail } from './components/AppRail';
@@ -1824,7 +1823,6 @@ function App() {
           onClose={() => setShowDiscordShare(false)}
           lapNumber={selectedLapIdx || 0}
         />
-        <UpdateNotifier />
         <AnimatePresence>
           {showSetupView && (
             <motion.div 

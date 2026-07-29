@@ -39,6 +39,22 @@
             "category": "public.app-category.utilities",
             "icon": "build/icon.png",
             "identity": null
+        },
+        "linux": {
+            "target": [
+                "AppImage",
+                "dir"
+            ],
+            "category": "Utility",
+            "icon": "build/icon.png",
+            "synopsis": "Sim racing telemetry analysis",
+            "description": "Analyse Le Mans Ultimate and ACC telemetry: laps, deltas, traces and track maps.",
+            "desktop": {
+                "entry": {
+                    "Name": "SIM Telemetry Lab",
+                    "StartupWMClass": "SIM Telemetry Lab"
+                }
+            }
         }
     },
     "devDependencies": {
