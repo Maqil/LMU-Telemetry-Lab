@@ -627,6 +627,18 @@ function App() {
     localStorage.setItem('file_manager_open', showFileManager.toString());
   }, [showFileManager]);
 
+  // The Lap Details sidebar has its own visibility, independent of the Data
+  // Sources view: it's up by default in a session, and only the X in its header
+  // (or the navbar chrono) changes that. Tying it to showFileManager meant every
+  // path that opened a session -- library click, tab restore on reload -- closed
+  // it on the way in.
+  const [showLapDetails, setShowLapDetails] = useState(
+    () => localStorage.getItem('lap_details_open') !== 'false');
+
+  useEffect(() => {
+    localStorage.setItem('lap_details_open', showLapDetails.toString());
+  }, [showLapDetails]);
+
   // Home ("Select Your Sim") landing: shown when no specific sim is selected
   // and there's no active session to return to.
   const inHomeMode = (showFileManager || !currentSessionId) && gameFilter === 'all';
@@ -644,9 +656,13 @@ function App() {
     setLeftSidebarCollapsed(false);
   };
 
-  // Open a session from the Track Library -> telemetry + map view.
+  // Open a session from the Track Library -> telemetry + map view, with the Lap
+  // Details sidebar already up: it's the first thing you want on a freshly
+  // opened lap, and the navbar button only ever got used to put it back.
   const handleOpenSession = (sessionId: string) => {
     setShowFileManager(false);
+    setShowLapDetails(true);
+    setLeftSidebarCollapsed(false);
     selectSession(sessionId);
   };
 
@@ -1100,7 +1116,7 @@ function App() {
         />
       )}
       {/* Sidebar - Data Controls (only in Data Sources view; session info now lives in the navbar popover) */}
-      {!isMapMaximized && (showFileManager || !currentSessionId) && !inHomeMode && !inLibraryMode && (
+      {!isMapMaximized && showLapDetails && !inHomeMode && !inLibraryMode && (
         <div
           className={`h-full bg-[#111115] border-r border-[#1f1f26] flex flex-col flex-shrink-0 relative overflow-hidden group/sidebar transition-[width,opacity] duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]`}
           style={{
@@ -1121,7 +1137,7 @@ function App() {
               {currentSessionId && (
                 <Tooltip text="CLOSE LAP DETAILS" position="bottom" delay={100}>
                   <button
-                    onClick={() => setShowFileManager(false)}
+                    onClick={() => setShowLapDetails(false)}
                     className="p-1.5 rounded-md border border-white/10 text-gray-400 hover:text-white hover:bg-white/10 hover:border-white/20 transition-all active:scale-90 glass-container"
                     onMouseMove={(e) => handleGlassMouseMove(e, 0.2)}
                   >
@@ -1152,7 +1168,7 @@ function App() {
         </div>
       )}
 
-      {!isMapMaximized && (showFileManager || !currentSessionId) && !inHomeMode && !inLibraryMode && (
+      {!isMapMaximized && showLapDetails && !inHomeMode && !inLibraryMode && (
         <Tooltip text={isLeftSidebarCollapsed ? "" : "DOUBLE-CLICK TO RESET"} position="right">
           <div
             className={`w-1.5 flex justify-center items-center group/sidebar-resizer relative z-50 h-full transition-all duration-300 ${isLeftSidebarCollapsed ? 'cursor-default' : 'cursor-col-resize'}`}
@@ -1217,10 +1233,10 @@ function App() {
               </div> */}
 
               {/* Lap Details button (sidebar entry point, since the sidebar is hidden in session view) */}
-              {currentSessionId && !showFileManager && (
+              {currentSessionId && !showLapDetails && (
                 <Tooltip text="LAP DETAILS" position="bottom" delay={100}>
                   <button
-                    onClick={() => { setShowFileManager(true); setLeftSidebarCollapsed(false); }}
+                    onClick={() => { setShowLapDetails(true); setLeftSidebarCollapsed(false); }}
                     className="flex items-center gap-1.5 h-9 px-2.5 rounded-md border border-white/10 bg-[#1a1a1e]/60 text-gray-400 hover:text-white hover:border-white/20 glass-container transition-all group/data"
                     onMouseMove={(e) => handleGlassMouseMove(e, 0.2)}
                   >

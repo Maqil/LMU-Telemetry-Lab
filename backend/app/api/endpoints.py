@@ -6,64 +6,55 @@ import os
 import glob
 import logging
 import shutil
-from datetime import datetime
-from ..services.telemetry_service import TelemetryService
+from datetime import datetime, timezone
+from ..services.telemetry_service import TelemetryService, session_lap_distance
 from ..services.profiles_service import ProfilesService
 from ..services.elevation_service import get_3d_track_data
 import duckdb
 import numpy as np
-from ..utils.track_db import find_track_in_registry, find_layout_in_track
+from ..utils.track_db import find_track_in_registry, find_layout_in_track, layout_length, resolve_layout
 
 router = APIRouter()
 
 import sys
 
 def resolve_layout_and_length(con, track_data, matched_key: str, track_layout: str, track_name: str):
+    """Standardized layout key + official length for an open session.
+
+    Thin wrapper over the registry resolver: it only supplies the session's own
+    lap distance, which settles the variant when the file's names don't.
+    Returns (layout_key, official_track_length).
     """
-    Resolves the standardized layout key and official track length,
-    incorporating distance-based fingerprint fallback logic.
-    Returns (layout_key, official_track_length)
+    return resolve_layout(track_data, track_layout, track_name, session_lap_distance(con))
+
+def parse_recorded_at(meta_dict: dict) -> Optional[float]:
+    """When the session was actually driven, as a Unix timestamp (None if unknown).
+
+    Two sources, because the two import paths stamp different things:
+      * MoTeC exports (.ld) put a full wall-clock datetime in ``SessionTime``.
+      * Native LMU recordings put the in-game clock ("16:31:46") in
+        ``SessionTime`` and the real UTC start in ``RecordingTime``
+        ("2026-08-17T00_10_21Z" -- underscores because colons are illegal in
+        filenames).
+    Without the RecordingTime branch, native sessions have no recordedAt and the
+    UI falls back to the file mtime, i.e. the date they were imported.
     """
-    if not matched_key:
-        return track_layout, None
-        
-    layouts_dict = track_data.get("layouts", {})
-    matched_layout_key, layout_data = find_layout_in_track(track_data, track_layout, matched_key)
-    
-    layout_key = matched_layout_key if matched_layout_key else track_layout
-    official_len = None
-    if layout_data and "ref_points" in layout_data:
-        official_len = float(layout_data["ref_points"][-1]["dist"])
-        
-    # Smart Fallback: Distance-based fingerprinting
-    try:
-        max_dist_row = con.execute('SELECT MAX(value) FROM "Lap Dist"').fetchone()
-        if max_dist_row and max_dist_row[0] is not None:
-            actual_max_dist = float(max_dist_row[0])
-            if actual_max_dist > 500:
-                cur_len = official_len if official_len else actual_max_dist
-                ratio = actual_max_dist / cur_len
-                if ratio < 0.8 or ratio > 1.2 or not official_len:
-                    logger.info(f"Layout mismatch in endpoint (Ratio: {ratio:.2f}). Finding closest match for {actual_max_dist:.1f}m...")
-                    best_layout_key = layout_key
-                    best_len = official_len if official_len else actual_max_dist
-                    min_diff = abs(actual_max_dist - best_len) if official_len else float('inf')
-                    
-                    for k, v in layouts_dict.items():
-                        if "ref_points" in v:
-                            l_dist = float(v["ref_points"][-1]["dist"])
-                            diff = abs(actual_max_dist - l_dist)
-                            if diff < min_diff:
-                                min_diff = diff
-                                best_len = l_dist
-                                best_layout_key = k
-                                
-                    layout_key = best_layout_key
-                    official_len = best_len
-    except Exception as e:
-        logger.warning(f"Failed resolve_layout_and_length fingerprinting: {e}")
-        
-    return layout_key, official_len
+    raw = (meta_dict.get('RecordingTime') or '').strip()
+    if raw:
+        try:
+            return datetime.strptime(raw, "%Y-%m-%dT%H_%M_%SZ").replace(
+                tzinfo=timezone.utc).timestamp()
+        except (ValueError, TypeError):
+            pass
+
+    raw = (meta_dict.get('SessionTime') or '').strip()
+    if raw:
+        try:
+            return datetime.strptime(raw, "%Y-%m-%d %H:%M:%S").timestamp()
+        except (ValueError, TypeError):
+            pass
+    return None
+
 
 @router.get("/health")
 async def health_check():
@@ -616,7 +607,7 @@ async def list_sessions(profile_id: Optional[str] = Query("guest")):
                 
                 car_model, _ = get_car_info(raw_car, raw_class)
                 
-                if track_name: 
+                if track_name:
                     session_info["trackName"] = track_name
                     # Try to find aliases in registry
                     matched_key, track_data = find_track_in_registry(track_name)
@@ -625,36 +616,55 @@ async def list_sessions(profile_id: Optional[str] = Query("guest")):
                         session_info["displayName"] = track_data.get("display_name", matched_key)
                         session_info["trackAliases"] = track_data.get("aliases", [])
                         session_info["country"] = track_data.get("country", "")
-                        
-                        # Extract official length and standardize layout name with smart distance fallback
-                        layout_key, official_len = resolve_layout_and_length(con, track_data, matched_key, track_layout, track_name)
-                        if layout_key:
-                            session_info["layoutKey"] = layout_key
-                        if official_len:
-                            session_info["officialTrackLength"] = official_len
-                
+
+                    # Always resolved, registry hit or not: the library groups
+                    # and the record board key on this, so two sessions round
+                    # the same circuit variant have to carry the same string.
+                    layout_key, official_len = resolve_layout_and_length(con, track_data, matched_key, track_layout, track_name)
+                    session_info["layoutKey"] = layout_key
+                    if official_len:
+                        session_info["officialTrackLength"] = official_len
+
                 if track_layout: session_info["trackLayout"] = track_layout
                 if car_model: session_info["carModel"] = car_model
                 if raw_class: session_info["carClass"] = raw_class
                 if driver_name: session_info["driverName"] = driver_name
                 if raw_car: session_info["rawCarName"] = raw_car
 
-                # Real recording timestamp from the .ld header (SessionTime), surfaced
-                # for display + sorting. Falls back to the file mtime when absent.
+                # Session type is only meaningful on native recordings; the MoTeC
+                # import paths stamp a placeholder ("ACC Import") there.
+                session_type = (meta_dict.get('SessionType') or '').strip()
+                if session_type and not session_type.lower().endswith('import'):
+                    session_info["sessionType"] = session_type
+                weather = (meta_dict.get('WeatherConditions') or '').strip()
+                if weather and weather.lower() != 'unknown':
+                    session_info["weather"] = weather
+
+                # When the session was driven, surfaced for display + sorting.
+                # Falls back to the file mtime (= import time) only if neither
+                # timestamp is readable.
                 session_time = meta_dict.get('SessionTime', '')
                 if session_time:
                     session_info["sessionTime"] = session_time
-                    try:
-                        session_info["recordedAt"] = datetime.strptime(
-                            session_time, "%Y-%m-%d %H:%M:%S").timestamp()
-                    except (ValueError, TypeError):
-                        pass
+                recorded_at = parse_recorded_at(meta_dict)
+                if recorded_at is not None:
+                    session_info["recordedAt"] = recorded_at
                 
                 # Extract Best Lap
                 try:
                     laps_res = TelemetryService.get_laps_header(f)
                     laps = laps_res.get('laps', [])
                     if laps:
+                        # Timed laps = everything the driver actually completed,
+                        # minus the out lap. Both counts are surfaced so the list
+                        # can show "12 laps" with the valid split behind it.
+                        timed = [l for l in laps if l.get('duration', 0) > 0 and not l.get('isOutLap', False)]
+                        session_info["lapCount"] = len(timed)
+                        session_info["validLapCount"] = sum(1 for l in timed if l.get('isValid'))
+                        span = (laps[-1].get('endTime') or 0) - (laps[0].get('startTime') or 0)
+                        if span > 0:
+                            session_info["sessionDuration"] = span
+
                         # Exclude out laps and zero duration
                         # For exported files with a single lap, allow it to be the best lap even if it's Lap 0
                         is_single_lap = len(laps) == 1
@@ -1153,9 +1163,14 @@ async def get_reference_laps(
     track_name: str = Query(...),
     track_layout: str = Query(""),
     car_class: str = Query(...),
+    layout_key: str = Query(""),
     profile_id: Optional[str] = Query("guest")
 ):
     """Find compatible laps for reference across all profile sessions.
+
+    Matching is per circuit *layout*: only laps round the same variant are
+    comparable, so ``layout_key`` (the open session's resolved layout) narrows
+    the search when the caller has it.
 
     Results always include curated pro reference laps (Fri3d0lf's) from the
     shared reference library for the matching track + car class, so they surface
@@ -1163,7 +1178,8 @@ async def get_reference_laps(
     """
     data_dir, _ = get_contextual_dirs(profile_id)
     try:
-        laps = TelemetryService.find_compatible_laps(data_dir, track_name, track_layout, car_class)
+        laps = TelemetryService.find_compatible_laps(
+            data_dir, track_name, track_layout, car_class, layout_key=layout_key)
 
         # Merge in the shared pro reference library (deduped by sessionId so a
         # pro lap the user has also imported into their own profile isn't shown
@@ -1171,7 +1187,7 @@ async def get_reference_laps(
         try:
             ref_dir = ProfilesService.get_reference_library_dir()
             pro_laps = TelemetryService.find_compatible_laps(
-                ref_dir, track_name, track_layout, car_class, is_pro=True
+                ref_dir, track_name, track_layout, car_class, is_pro=True, layout_key=layout_key
             )
             existing_sessions = {l["sessionId"] for l in laps}
             pro_laps = [l for l in pro_laps if l["sessionId"] not in existing_sessions]

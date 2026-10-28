@@ -87,6 +87,9 @@ export const CarSelectionOverlay: React.FC = () => {
                                             ? 'bg-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.4)]' 
                                             : 'bg-white/5 border border-white/10'
                                     }`}>
+                                        {!getBrandLogoPath(model) ? (
+                                            <div className="w-6 h-6 bg-gray-800 rounded-full border border-gray-700" />
+                                        ) : (
                                         <img
                                             src={getBrandLogoPath(model)}
                                             alt={model}
@@ -96,6 +99,7 @@ export const CarSelectionOverlay: React.FC = () => {
                                                 e.currentTarget.parentElement!.insertAdjacentHTML('beforeend', '<div class="w-6 h-6 bg-gray-800 rounded-full border border-gray-700"></div>');
                                             }}
                                         />
+                                        )}
                                     </div>
 
                                     {/* Model Name */}

@@ -9,7 +9,8 @@ import {
 import { handleGlassMouseMove } from '../utils/glassEffect';
 import { Tooltip } from './ui/Tooltip';
 import { apiClient } from '../api/client';
-import { getBrandLogoPath, getClassColor } from '../utils/carHelpers';
+import { getClassColor } from '../utils/carHelpers';
+import { CarBrandLogo } from './ui/CarBrandLogo';
 import { getCountryFlagPath } from '../utils/trackHelpers';
 import { pairTelemetryUploads } from '../utils/uploadHelpers';
 
@@ -859,7 +860,7 @@ export const FileManager: React.FC<FileManagerProps> = ({ onClose }) => {
                                                     }}
                                                 >
                                                     <div className="relative flex-shrink-0 w-8 h-8 flex items-center justify-center">
-                                                        {getBrandLogoPath(s.carModel || "") ? <img src={getBrandLogoPath(s.carModel || "")} className="w-7 h-7 object-contain" onError={(e) => (e.currentTarget.style.display = 'none')} /> : <div className="p-1.5 rounded-lg bg-white/5"><img src="/LeMansUltimateLogo.png" className="w-4 h-4 object-contain opacity-20" /></div>}
+                                                        <CarBrandLogo name={s.carModel} carClass={s.carClass} size={28} />
                                                         {getCountryFlagPath(s.country) && <div className="absolute -bottom-1 -right-1 w-4 h-2.5 rounded-sm overflow-hidden border border-black/40 shadow-lg"><img src={getCountryFlagPath(s.country)!} className="w-full h-full object-cover" /></div>}
                                                     </div>
                                                     <div className="flex flex-col min-w-0 flex-1">
@@ -936,7 +937,7 @@ export const FileManager: React.FC<FileManagerProps> = ({ onClose }) => {
                                                     {item.type === 'track' && getCountryFlagPath(item.country) ? (
                                                         <img src={getCountryFlagPath(item.country)!} alt={item.country} className="w-full h-full object-cover" />
                                                     ) : item.type === 'car' ? (
-                                                        <img src={getBrandLogoPath(item.name)} alt={item.name} className="w-8 h-8 object-contain filter brightness-125 drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]" onError={(e) => (e.currentTarget.style.display = 'none')} />
+                                                        <CarBrandLogo name={item.name} size={32} className="filter brightness-125 drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]" />
                                                     ) : (
                                                         <MapPin size={18} className={isExpanded ? 'text-blue-300' : 'text-blue-400'} />
                                                     )}
@@ -1015,7 +1016,7 @@ export const FileManager: React.FC<FileManagerProps> = ({ onClose }) => {
                                                                     )
                                                                 ) : (
                                                                     <div className="w-5 h-5 flex items-center justify-center">
-                                                                        <img src={getBrandLogoPath(child.name)} className="w-full h-full object-contain filter brightness-125" onError={(e) => (e.currentTarget.style.display = 'none')} />
+                                                                        <CarBrandLogo name={child.name} size={20} className="filter brightness-125" />
                                                                     </div>
                                                                 )}
                                                                 {child.name}

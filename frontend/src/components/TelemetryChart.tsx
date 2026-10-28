@@ -3,10 +3,16 @@ import React, { useEffect, useRef } from 'react';
 import uPlot from 'uplot';
 import 'uplot/dist/uPlot.min.css';
 import { useTelemetryStore } from '../store/telemetryStore';
+import { smoothShiftCuts as bridgeShiftCuts } from '../utils/signalFilters';
 import { Layout, LayoutGrid, Rows2, Layers, Split } from 'lucide-react';
 import type { TelemetryData } from '../types';
 import { handleGlassMouseMove } from '../utils/glassEffect';
 import { Tooltip } from './ui/Tooltip';
+
+// The three driver-input rows share one neutral ground so they read as a block;
+// every other channel keeps its own colour tint.
+const UNIFIED_BG_CHANNELS = new Set(['Ground Speed', 'Throttle Pos', 'Brake Pos']);
+const CHART_ROW_BG = 'rgba(16, 20, 31, 0.72)';
 
 interface TelemetryChartProps {
     channel: string;
@@ -70,6 +76,7 @@ export const TelemetryChart = React.memo<TelemetryChartProps>(({
     const zoomRange = useTelemetryStore(state => state.zoomRange);
     const speedUnit = useTelemetryStore(state => state.speedUnit);
     const invertSuspensionTravel = useTelemetryStore(state => state.invertSuspensionTravel);
+    const smoothShiftCuts = useTelemetryStore(state => state.smoothShiftCuts);
     const suspensionTravelMode = useTelemetryStore(state => state.suspensionTravelMode);
     const userWheelRotation = useTelemetryStore(state => state.userWheelRotation);
     const sessionMetadata = useTelemetryStore(state => state.sessionMetadata);
@@ -564,6 +571,24 @@ export const TelemetryChart = React.memo<TelemetryChartProps>(({
             if (currentSeries.length > 0) currentSeries[currentSeries.length - 1] = currentVal;
         }
 
+        // Paddle upshifts cut the ignition and downshifts blip it, so the logged
+        // throttle is peppered with notches the driver never pedalled. Bridge
+        // them for readability -- see utils/signalFilters.
+        if (smoothShiftCuts && channel === 'Throttle Pos') {
+            const gearRaw = extractChannelData(telemetryData, 'Gear');
+            const brakeRaw = extractChannelData(telemetryData, 'Brake Pos');
+            const cleaned = bridgeShiftCuts(
+                currentVal,
+                gearRaw ? gearRaw.slice(startIdx, endIdx + 1) : null,
+                currentTime,
+                brakeRaw ? brakeRaw.slice(startIdx, endIdx + 1) : null,
+            );
+            if (cleaned !== currentVal) {
+                currentVal = cleaned;
+                if (currentSeries.length > 0) currentSeries[currentSeries.length - 1] = currentVal;
+            }
+        }
+
         let refValAligned: Float64Array | null = null;
         let refTimeAligned: Float64Array | null = null;
         let xAxisData: Float64Array = currentDist;
@@ -704,6 +729,17 @@ export const TelemetryChart = React.memo<TelemetryChartProps>(({
                                 }
                             }
                             processed = out;
+                        }
+
+                        if (smoothShiftCuts && chan === 'Throttle Pos') {
+                            const refGear = extractChannelData(effectiveRefSource as TelemetryData, 'Gear');
+                            const refBrake = extractChannelData(effectiveRefSource as TelemetryData, 'Brake Pos');
+                            processed = bridgeShiftCuts(
+                                processed,
+                                refGear ? refGear.slice(refStart, refEnd + 1) : null,
+                                rTime,
+                                refBrake ? refBrake.slice(refStart, refEnd + 1) : null,
+                            );
                         }
 
                         if (isTimeSync) {
@@ -1250,16 +1286,16 @@ export const TelemetryChart = React.memo<TelemetryChartProps>(({
         // --- 3. Dynamic Series Config for uPlot ---
         const uSeries: uPlot.Series[] = [{}]; // X-Axis
 
-        // Bigger + smoother lines apply ONLY to the Driver tab; every other tab keeps
-        // its original rendering. Within Driver, smooth (spline) continuous channels but
-        // keep straight segments for stepped/pulse channels (Gear, TC, ABS) and Time Delta.
+        // Line width applies to every tab. Smoothing stays Driver-only: smooth (spline)
+        // continuous channels there, but keep straight segments for stepped/pulse
+        // channels (Gear, TC, ABS) and Time Delta.
         const isDriverTab = activeChartCategory === 'Driver';
         const isStepChannel = channel === 'Gear'
             || (activeChartCategory === 'Systems' && (channel === 'TC' || channel === 'ABS'));
         const smoothPaths = (isDriverTab && !isStepChannel && channel !== 'Time Delta')
             ? (uPlot.paths as any).spline?.()
             : undefined;
-        const LINE_WIDTH = 1.5;
+        const LINE_WIDTH = 2.2;
 
         // Current Lap Series
         currentSeries.forEach((s, i) => {
@@ -1268,7 +1304,7 @@ export const TelemetryChart = React.memo<TelemetryChartProps>(({
             uSeries.push({
                 label: info.label,
                 stroke: channel === 'Time Delta' ? '#22c55e' : info.stroke,
-                width: isDriverTab ? LINE_WIDTH : undefined,
+                width: LINE_WIDTH,
                 paths: channel === 'Time Delta'
                     ? (u: uPlot, seriesIdx: number, idx0: number, idx1: number) => {
                         const { ctx } = u;
@@ -1276,7 +1312,7 @@ export const TelemetryChart = React.memo<TelemetryChartProps>(({
                         const yData = u.data[seriesIdx];
                         
                         ctx.save();
-                        ctx.lineWidth = 2.5;
+                        ctx.lineWidth = LINE_WIDTH;
                         ctx.lineCap = 'round';
                         ctx.lineJoin = 'round';
 
@@ -1379,7 +1415,7 @@ export const TelemetryChart = React.memo<TelemetryChartProps>(({
             uSeries.push({
                 label: `Ref ${info.label}`,
                 stroke: 'rgba(218, 165, 32, 0.6)', // Golden with opacity
-                width: isDriverTab ? LINE_WIDTH : 2,
+                width: LINE_WIDTH,
                 dash: [5, 5],
                 paths: smoothPaths,
                 points: isElectronics ? {
@@ -1761,7 +1797,7 @@ export const TelemetryChart = React.memo<TelemetryChartProps>(({
                 uplotRef.current = null;
             }
         };
-    }, [telemetryData, referenceTelemetryData, referenceLap, selectedLapIdx, referenceLapIdx, laps, channel, showLapTime, color, syncKey, setCursorIndex, setZoomRange, speedUnit, invertSuspensionTravel, userWheelRotation, sessionMetadata, referenceSessionMetadata, dashboardSyncMode, singleLapXAxisMode, suspensionTravelMode, selectedSegIdx, selectedSectorIdx, zoomRange, miniSectorState, sessionBests]);
+    }, [telemetryData, referenceTelemetryData, referenceLap, selectedLapIdx, referenceLapIdx, laps, channel, showLapTime, color, syncKey, setCursorIndex, setZoomRange, speedUnit, invertSuspensionTravel, smoothShiftCuts, userWheelRotation, sessionMetadata, referenceSessionMetadata, dashboardSyncMode, singleLapXAxisMode, suspensionTravelMode, selectedSegIdx, selectedSectorIdx, zoomRange, miniSectorState, sessionBests]);
 
     // Sync uPlot scale when global zoomRange changes (e.g. mini-sector click)
     useEffect(() => {
@@ -1953,6 +1989,7 @@ export const TelemetryChart = React.memo<TelemetryChartProps>(({
     const hasTyrePressToggle = channel === 'TyresPressure' && (wheelIndex === undefined || wheelIndex === null || wheelIndex === 0);
     const hasRideHeightToggle = channel === 'RideHeights' && (wheelIndex === undefined || wheelIndex === null || wheelIndex === 0);
     const hasSlipRatioToggle = channel === 'Slip Ratio' && (wheelIndex === undefined || wheelIndex === null || wheelIndex === 0);
+    const usesUnifiedBg = UNIFIED_BG_CHANNELS.has(channel);
     const hasHeaderControls = hasSuspToggle || has3rdToggle || hasHandlingToggle || hasTyrePressToggle || hasRideHeightToggle || hasSlipRatioToggle || (isBundled && !isCollapsed);
 
     return (
@@ -1978,8 +2015,8 @@ export const TelemetryChart = React.memo<TelemetryChartProps>(({
             onMouseMove={handleGlassMouseMove}>
             <div className="glass-content h-full flex flex-col relative z-10 px-1 py-1">
                 <div
-                    className="glass-sync-bg rounded-2xl opacity-[0.05] z-0"
-                    style={{ backgroundColor: getRGBA(color, 1) }}
+                    className={`glass-sync-bg rounded-2xl z-0 ${usesUnifiedBg ? '' : 'opacity-[0.05]'}`}
+                    style={{ backgroundColor: usesUnifiedBg ? CHART_ROW_BG : getRGBA(color, 1) }}
                 />
 
                 {hasHeaderControls && (

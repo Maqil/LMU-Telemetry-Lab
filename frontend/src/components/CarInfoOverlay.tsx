@@ -49,8 +49,11 @@ export const CarInfoOverlay = React.memo(({ sessionMetadata, referenceMetadata }
 
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 flex items-center justify-center bg-black/40 rounded-xl border border-white/10 p-1.5 shadow-inner">
+                        {!getBrandLogoPath(meta.modelName, meta.carClass) ? (
+                            <div className="w-6 h-6 bg-gray-800 rounded-full" />
+                        ) : (
                         <img
-                            src={getBrandLogoPath(meta.modelName)}
+                            src={getBrandLogoPath(meta.modelName, meta.carClass)}
                             alt="Logo"
                             className="w-full h-full object-contain filter brightness-110"
                             onError={(e) => {
@@ -58,6 +61,7 @@ export const CarInfoOverlay = React.memo(({ sessionMetadata, referenceMetadata }
                                 e.currentTarget.parentElement!.insertAdjacentHTML('beforeend', '<div class="w-6 h-6 bg-gray-800 rounded-full"></div>');
                             }}
                         />
+                        )}
                     </div>
                     <div className="flex flex-col whitespace-nowrap">
                         <h2 className="text-[13px] font-black italic tracking-widest text-[#f0f0f0] uppercase font-sans leading-none [text-shadow:0_2px_8px_rgba(0,0,0,0.8)]">

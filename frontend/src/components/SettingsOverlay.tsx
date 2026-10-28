@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { X, Gauge, Thermometer, Eye, EyeOff, Layout, GripVertical, RotateCcw, Move3d, Save, Compass, Activity, Settings as SettingsIcon, ArrowUpDown, Route } from 'lucide-react';
+import { X, Gauge, Thermometer, Eye, EyeOff, Layout, GripVertical, RotateCcw, Move3d, Save, Compass, Activity, Settings as SettingsIcon, ArrowUpDown, Route, Filter } from 'lucide-react';
 import { useTelemetryStore, CATEGORY_CHART_CONFIGS, getCategoryTemplateConfigs } from '../store/telemetryStore';
 import { handleGlassMouseMove } from '../utils/glassEffect';
 import { Tooltip } from './ui/Tooltip';
@@ -91,6 +91,8 @@ export const SettingsOverlay: React.FC = () => {
     const tempUnit = useTelemetryStore(state => state.tempUnit);
     const setTempUnit = useTelemetryStore(state => state.setTempUnit);
     const invertSuspensionTravel = useTelemetryStore(state => state.invertSuspensionTravel);
+    const smoothShiftCuts = useTelemetryStore(state => state.smoothShiftCuts);
+    const setSmoothShiftCuts = useTelemetryStore(state => state.setSmoothShiftCuts);
     const setInvertSuspensionTravel = useTelemetryStore(state => state.setInvertSuspensionTravel);
     const suspensionTravelMode = useTelemetryStore(state => state.suspensionTravelMode);
     const setSuspensionTravelMode = useTelemetryStore(state => state.setSuspensionTravelMode);
@@ -659,6 +661,60 @@ export const SettingsOverlay: React.FC = () => {
                                         className={`relative z-10 flex-1 h-full text-[11px] font-black uppercase tracking-wider transition-all rounded-xl ${invertSuspensionTravel ? 'text-blue-400 font-extrabold' : 'text-gray-500 hover:text-gray-300'}`}
                                     >
                                         Inverted
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Throttle Shift-Cut Filter */}
+                    <div className="flex flex-col gap-4">
+                        <div className="flex items-center gap-2 px-2 text-gray-400">
+                            <Filter size={18} className="text-blue-400" />
+                            <span className="text-xs font-black uppercase tracking-widest">Throttle Trace</span>
+                        </div>
+
+                        <div
+                            className="glass-container bg-black/30 rounded-[2rem] border border-white/5 shadow-[inset_0_2px_20px_rgba(0,0,0,0.5)] p-5 transition-all duration-300"
+                            onMouseMove={(e) => handleGlassMouseMove(e, 0.1)}
+                            style={{ '--glass-hover-scale': '1.015', '--glass-content-scale': '1.01' } as any}
+                        >
+                            <div className="glass-content flex items-center justify-between gap-6">
+                                <div className="flex flex-col gap-1.5 flex-1">
+                                    <div className="flex flex-wrap items-center gap-y-1 gap-x-2">
+                                        <span className="text-xs font-black text-white uppercase tracking-wider whitespace-nowrap">
+                                            Shift Cut Filter
+                                        </span>
+                                        <span className="text-[9px] font-black bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded-md border border-blue-500/20 uppercase tracking-wider whitespace-nowrap">
+                                            Display Only
+                                        </span>
+                                    </div>
+                                    <p className="text-[10px] text-gray-400 font-medium leading-relaxed">
+                                        The gearbox cuts ignition on every upshift and blips it on every downshift, notching the logged throttle where you never lifted.
+                                        <br />
+                                        <strong className="text-gray-300">Filtered:</strong> Those notches are bridged at the gear change only. Nothing else is touched, and the filter can only ever fill a cut -- never reduce a real application.
+                                        <br />
+                                        <strong className="text-gray-300">Raw:</strong> The channel exactly as logged.
+                                    </p>
+                                </div>
+
+                                {/* Right Side: Sliding Switch */}
+                                <div className="glass-container-flat bg-black/50 p-1.5 rounded-lg flex border border-white/5 relative w-[180px] h-[48px] shrink-0 items-center">
+                                    <div
+                                        className="absolute top-1.5 bottom-1.5 w-[calc(50%-6px)] bg-blue-500/20 backdrop-blur-md rounded-xl border border-blue-500/30 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] shadow-[0_0_15px_rgba(59,130,246,0.2)]"
+                                        style={{ left: smoothShiftCuts ? '6px' : 'calc(50%)' }}
+                                    />
+                                    <button
+                                        onClick={() => setSmoothShiftCuts(true)}
+                                        className={`relative z-10 flex-1 h-full text-[11px] font-black uppercase tracking-wider transition-all rounded-xl ${smoothShiftCuts ? 'text-blue-400 font-extrabold' : 'text-gray-500 hover:text-gray-300'}`}
+                                    >
+                                        Filtered
+                                    </button>
+                                    <button
+                                        onClick={() => setSmoothShiftCuts(false)}
+                                        className={`relative z-10 flex-1 h-full text-[11px] font-black uppercase tracking-wider transition-all rounded-xl ${!smoothShiftCuts ? 'text-blue-400 font-extrabold' : 'text-gray-500 hover:text-gray-300'}`}
+                                    >
+                                        Raw
                                     </button>
                                 </div>
                             </div>

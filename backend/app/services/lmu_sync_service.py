@@ -42,6 +42,26 @@ _TELEMETRY_SUFFIX = os.path.join(
 # LMU flushes the .duckdb after the session ends; skip files still being written.
 STABLE_SECONDS = 5
 
+
+def _source_stat(src: str) -> tuple[float, int]:
+    """(mtime, size) for a source file, counting its DuckDB write-ahead log.
+
+    If LMU exits without checkpointing, the .duckdb is a near-empty shell and
+    the whole session lives in a sibling ``<name>.duckdb.wal``. Folding the WAL
+    into the stat means such a session (a) is seen as "changed" once the WAL
+    appears and (b) is treated as still-being-written until the WAL settles.
+    """
+    st = os.stat(src)
+    mtime, size = st.st_mtime, st.st_size
+    try:
+        wal = os.stat(src + ".wal")
+        mtime = max(mtime, wal.st_mtime)
+        size += wal.st_size
+    except OSError:
+        pass
+    return mtime, size
+
+
 # Serialise scans per profile so a manual "Sync now" and (later) the timer
 # can't double-import the same file.
 _scan_locks: dict[str, threading.Lock] = {}
@@ -186,6 +206,12 @@ def _import_file(src: str, data_dir: str) -> str:
     tmp = dest + ".importing.tmp"
 
     shutil.copy2(src, tmp)
+    # An unflushed session keeps its tables in <name>.duckdb.wal; copy it under
+    # the temp file's own WAL name so the connection below replays it. Without
+    # this the copy is an empty database ("Table with name metadata does not
+    # exist") and the session can never be imported.
+    if os.path.isfile(src + ".wal"):
+        shutil.copy2(src + ".wal", tmp + ".wal")
     try:
         con = duckdb.connect(tmp)
         try:
@@ -203,10 +229,11 @@ def _import_file(src: str, data_dir: str) -> str:
             con.close()
         os.replace(tmp, dest)
     except Exception:
-        try:
-            os.remove(tmp)
-        except OSError:
-            pass
+        for leftover in (tmp, tmp + ".wal"):
+            try:
+                os.remove(leftover)
+            except OSError:
+                pass
         raise
     return session_id
 
@@ -296,6 +323,7 @@ def scan(data_dir: str, profile_id: str = "guest") -> dict:
         tombstoned = set(lmu.get("tombstoned", []))
         now = time.time()
         imported = skipped = errors = 0
+        failures: list[dict] = []
 
         os.makedirs(data_dir, exist_ok=True)
 
@@ -312,12 +340,12 @@ def scan(data_dir: str, profile_id: str = "guest") -> dict:
                 continue
             src = os.path.join(folder, name)
             try:
-                st = os.stat(src)
+                src_mtime, src_size = _source_stat(src)
             except OSError:
                 continue
 
             # Still being written by the game -> catch it on the next scan.
-            if now - st.st_mtime < STABLE_SECONDS:
+            if now - src_mtime < STABLE_SECONDS:
                 skipped += 1
                 continue
 
@@ -332,8 +360,8 @@ def scan(data_dir: str, profile_id: str = "guest") -> dict:
             # IMPORTER_VERSION also forces a re-import in place.
             prev = ledger.get(src)
             prev_out = os.path.join(data_dir, prev["sessionId"]) if prev and prev.get("sessionId") else None
-            unchanged = bool(prev and prev.get("mtime") == st.st_mtime
-                             and prev.get("size") == st.st_size
+            unchanged = bool(prev and prev.get("mtime") == src_mtime
+                             and prev.get("size") == src_size
                              and prev_out and os.path.isfile(prev_out))
             if is_ld:
                 unchanged = unchanged and prev.get("converterVersion") == LMU_IMPORTER_VERSION
@@ -344,8 +372,8 @@ def scan(data_dir: str, profile_id: str = "guest") -> dict:
             try:
                 session_id = _import_ld(src, data_dir) if is_ld else _import_file(src, data_dir)
                 entry = {
-                    "mtime": st.st_mtime,
-                    "size": st.st_size,
+                    "mtime": src_mtime,
+                    "size": src_size,
                     "sessionId": session_id,
                     "importedAt": now,
                 }
@@ -356,8 +384,13 @@ def scan(data_dir: str, profile_id: str = "guest") -> dict:
             except Exception as e:
                 logger.error("LMU sync import failed for %s: %s", src, e)
                 errors += 1
+                # Keep a few details so the UI can name the offending file
+                # instead of only reporting a count.
+                if len(failures) < 5:
+                    failures.append({"file": name, "error": str(e).splitlines()[0][:200]})
 
-        lmu["lastResult"] = {"imported": imported, "skipped": skipped, "errors": errors}
+        lmu["lastResult"] = {"imported": imported, "skipped": skipped,
+                             "errors": errors, "failures": failures}
         lmu["lastScanAt"] = now
         _save_state(data_dir, state)
         logger.info("LMU sync scan (%s): imported=%d skipped=%d errors=%d",

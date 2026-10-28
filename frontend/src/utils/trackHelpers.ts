@@ -31,6 +31,7 @@ export const ACC_TRACK_ROSTER: TrackInfo[] = [
   { key: 'bathurst', name: 'Mount Panorama (Bathurst)', country: 'Australia', keywords: ['bathurst', 'mount panorama', 'panorama'] },
   { key: 'brands-hatch', name: 'Brands Hatch', country: 'United Kingdom', keywords: ['brands hatch', 'brands'] },
   { key: 'cota', name: 'Circuit of the Americas', country: 'United States', keywords: ['circuit of the americas', 'americas', 'cota'] },
+  { key: 'daytona', name: 'Daytona International Speedway', country: 'United States', keywords: ['daytona'] },
   { key: 'donington', name: 'Donington Park', country: 'United Kingdom', keywords: ['donington'] },
   { key: 'fuji', name: 'Fuji Speedway', country: 'Japan', keywords: ['fuji'] },
   { key: 'hungaroring', name: 'Hungaroring', country: 'Hungary', keywords: ['hungaroring'] },
@@ -100,3 +101,21 @@ export const getTrackImagePath = (trackName?: string): string => {
   const t = matchTrack(trackName);
   return t ? `/acc-tracks/${t.key}.svg` : '';
 };
+
+/**
+ * The circuit variant a session was driven on, as the backend resolved it
+ * ("Default", "Short Circuit", "Mulsanne Circuit", ...).
+ *
+ * Lusail's short circuit and Lusail share a name but not a lap, so anything
+ * that groups, ranks or compares sessions keys on the track *and* this.
+ */
+export const getLayoutKey = (s: { layoutKey?: string; trackLayout?: string }): string =>
+  (s.layoutKey || s.trackLayout || '').trim() || 'Default';
+
+/**
+ * How a layout reads in the UI. The registry's "Default" is the circuit's
+ * full configuration -- the one people just call by the track's name -- so it
+ * is spelled out only where a variant sits beside it.
+ */
+export const getLayoutLabel = (layoutKey: string): string =>
+  layoutKey.toLowerCase() === 'default' ? 'Full Circuit' : layoutKey;

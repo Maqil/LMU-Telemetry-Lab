@@ -37,11 +37,11 @@ const CarInfoCard: React.FC<CarInfoCardProps> = ({ metadata, theme = 'current' }
             <div className="glass-content flex items-center gap-2.5 w-full min-w-0">
                 {/* Brand logo */}
                 <div className={`w-8 h-8 flex-shrink-0 flex items-center justify-center bg-white/10 rounded-md border border-white/20 ${borderColor} transition-all p-1`}>
-                    {logoFailed ? (
+                    {logoFailed || !getBrandLogoPath(metadata.modelName, metadata.carClass) ? (
                         <Car size={12} className="text-gray-500" />
                     ) : (
                         <img
-                            src={getBrandLogoPath(metadata.modelName)}
+                            src={getBrandLogoPath(metadata.modelName, metadata.carClass)}
                             alt="Brand Logo"
                             className="w-full h-full object-contain filter brightness-125 drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]"
                             onError={() => setLogoFailed(true)}

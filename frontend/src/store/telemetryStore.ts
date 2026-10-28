@@ -210,6 +210,9 @@ export interface TelemetryState {
     tempUnit: 'c' | 'f';
     invertSuspensionTravel: boolean;
     setInvertSuspensionTravel: (val: boolean) => void;
+    /** Bridge the ignition-cut notches the gearbox leaves in the throttle trace. */
+    smoothShiftCuts: boolean;
+    setSmoothShiftCuts: (val: boolean) => void;
     suspensionTravelMode: 'raw' | 'relative';
     setSuspensionTravelMode: (mode: 'raw' | 'relative') => void;
     suspensionViewMode: 'split' | 'merged';
@@ -423,13 +426,12 @@ export interface TelemetryState {
 }
 
 const DEFAULT_CHARTS: ChartConfig[] = [
-    { id: 'Ground Speed', alias: 'Speed', color: '#00aaff', visible: true, order: 0, height: 160, unit: 'km/h' },
-    { id: 'Throttle Pos', alias: 'Throttle', color: '#00ff00', visible: true, order: 1, height: 160, unit: '%' },
-    { id: 'Brake Pos', alias: 'Brake', color: '#ff0000', visible: true, order: 2, height: 160, unit: '%' },
-    { id: 'Steering Angle', alias: 'Steering', color: '#ff00ff', visible: true, order: 3, height: 120, unit: 'deg' },
-    { id: 'Time Delta', alias: 'Delta', color: '#bf00ff', visible: true, order: 4, height: 120, unit: 's' },
+    { id: 'Ground Speed', alias: 'Speed', color: '#00aaff', visible: true, order: 0, height: 220, unit: 'km/h' },
+    { id: 'Throttle Pos', alias: 'Throttle', color: '#00ff00', visible: true, order: 1, height: 240, unit: '%' },
+    { id: 'Brake Pos', alias: 'Brake', color: '#ff0000', visible: true, order: 2, height: 240, unit: '%' },
+    { id: 'Steering Angle', alias: 'Steering', color: '#ff00ff', visible: true, order: 3, height: 180, unit: 'deg' },
+    { id: 'Time Delta', alias: 'Delta', color: '#bf00ff', visible: true, order: 4, height: 180, unit: 's' },
     { id: 'Gear', alias: 'Gear', color: '#ffaa00', visible: true, order: 5, height: 120 },
-    { id: 'Engine RPM', alias: 'Engine RPM', color: '#ffff00', visible: true, order: 6, height: 120, unit: 'rpm' },
 ];
 
 export interface ChartPreset {
@@ -472,6 +474,7 @@ export const CATEGORY_CHART_CONFIGS: Record<ChartCategory, ChartConfig[]> = {
         { id: 'ABS', alias: 'ABS Active', color: '#38bdf8', visible: true, order: 1, height: 120 },
         { id: 'SoC', alias: 'Hybrid SoC', color: '#10b981', visible: true, order: 2, height: 120, unit: 'MJ' },
         { id: 'Fuel Level', alias: 'Fuel Level', color: '#facc15', visible: true, order: 3, height: 120, unit: 'L' },
+        { id: 'Engine RPM', alias: 'Engine RPM', color: '#ffff00', visible: true, order: 4, height: 120, unit: 'rpm' },
     ]
 };
 
@@ -514,9 +517,8 @@ const BUILT_IN_PRESETS: ChartPreset[] = [
             { id: 'Throttle Pos', alias: 'Throttle', color: '#00c844', visible: true, order: 1, height: 100, unit: '%' },
             { id: 'Brake Pos', alias: 'Brake', color: '#ff3333', visible: true, order: 2, height: 100, unit: '%' },
             { id: 'Gear', alias: 'Gear', color: '#ffaa00', visible: true, order: 3, height: 80 },
-            { id: 'Engine RPM', alias: 'RPM', color: '#ffff00', visible: true, order: 4, height: 120, unit: 'rpm' },
-            { id: 'Time Delta', alias: 'Delta', color: '#bf00ff', visible: false, order: 5, height: 100, unit: 's' },
-            { id: 'Steering Angle', alias: 'Steering', color: '#ff00ff', visible: false, order: 6, height: 100, unit: 'deg' },
+            { id: 'Time Delta', alias: 'Delta', color: '#bf00ff', visible: false, order: 4, height: 100, unit: 's' },
+            { id: 'Steering Angle', alias: 'Steering', color: '#ff00ff', visible: false, order: 5, height: 100, unit: 'deg' },
         ],
     },
     {
@@ -530,7 +532,6 @@ const BUILT_IN_PRESETS: ChartPreset[] = [
             { id: 'Brake Pos', alias: 'Brake', color: '#ff4444', visible: true, order: 3, height: 100, unit: '%' },
             { id: 'Steering Angle', alias: 'Steering', color: '#ff66ff', visible: true, order: 4, height: 120, unit: 'deg' },
             { id: 'Gear', alias: 'Gear', color: '#ffaa00', visible: false, order: 5, height: 80 },
-            { id: 'Engine RPM', alias: 'RPM', color: '#ffff00', visible: false, order: 6, height: 100, unit: 'rpm' },
         ],
     },
 ];
@@ -722,6 +723,7 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
 
     // Settings Defaults
     speedUnit: (localStorage.getItem('speed_unit') as 'kmh' | 'mph') || 'kmh',
+    smoothShiftCuts: localStorage.getItem('smooth_shift_cuts') !== 'false',
     tempUnit: (localStorage.getItem('temp_unit') as 'c' | 'f') || 'c',
     invertSuspensionTravel: localStorage.getItem('invert_suspension_travel') === 'true',
     suspensionTravelMode: (localStorage.getItem('suspension_travel_mode') as 'raw' | 'relative') || 'raw',
@@ -834,6 +836,10 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
     setTempUnit: (unit) => {
         localStorage.setItem('temp_unit', unit);
         set({ tempUnit: unit });
+    },
+    setSmoothShiftCuts: (val) => {
+        localStorage.setItem('smooth_shift_cuts', val ? 'true' : 'false');
+        set({ smoothShiftCuts: val });
     },
     setInvertSuspensionTravel: (val) => {
         localStorage.setItem('invert_suspension_travel', val ? 'true' : 'false');

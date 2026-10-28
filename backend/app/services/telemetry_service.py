@@ -10,6 +10,26 @@ from .car_lookup import get_car_info, parse_steer_lock
 
 logger = logging.getLogger(__name__)
 
+
+def session_lap_distance(con) -> float | None:
+    """Max ``Lap Dist`` of a session that completed at least one lap.
+
+    Used as a layout fingerprint, so a session that never crossed the line is
+    deliberately reported as ``None``: its distance peaks wherever the driver
+    stopped, which reads like a shorter circuit rather than like a lap.
+    """
+    try:
+        completed = con.execute('SELECT COUNT(*) FROM "Lap Time" WHERE value > 0').fetchone()
+        if not completed or not completed[0]:
+            return None
+        row = con.execute('SELECT MAX(value) FROM "Lap Dist"').fetchone()
+        if row and row[0] is not None:
+            return float(row[0])
+    except Exception as e:
+        logger.debug(f"Lap distance unavailable for layout fingerprinting: {e}")
+    return None
+
+
 class TelemetryService:
     @staticmethod
     def get_laps_header(db_path: str) -> dict:
@@ -263,47 +283,17 @@ class TelemetryService:
             real_car_name, final_steer_lock = get_car_info(raw_car, raw_class, override_steer_lock=meta_steer_lock)
             
             # --- Enrich Track Metadata from Registry ---
-            from ..utils.track_db import find_track_in_registry, find_layout_in_track
+            # The layout is resolved the same way the session list resolves it
+            # (registry name -> track name -> lap-distance fingerprint), so a
+            # session's own header and its row in the library never disagree
+            # about which variant of the circuit it is.
+            from ..utils.track_db import find_track_in_registry, resolve_layout
             matched_key, track_data = find_track_in_registry(raw_track)
             common_track_name = matched_key if matched_key else raw_track
             track_country = track_data.get("country", "") if matched_key else ""
             track_aliases = track_data.get("aliases", []) if matched_key else []
-            official_track_length = None
-            matched_layout_key = None
-            if matched_key:
-                layouts_dict = track_data.get("layouts", {})
-                matched_layout_key, layout_data = find_layout_in_track(track_data, raw_layout, matched_key)
-                
-                if layout_data and "ref_points" in layout_data:
-                    official_track_length = float(layout_data["ref_points"][-1]["dist"])
-
-            # --- Smart Fallback: Distance-based Fingerprinting ---
-            if matched_key and layouts_dict:
-                # 1. Get actual max distance for this session
-                actual_max_dist = 0
-                try:
-                    max_dist_row = con.execute('SELECT MAX(value) FROM "Lap Dist"').fetchone()
-                    if max_dist_row and max_dist_row[0] is not None:
-                        actual_max_dist = float(max_dist_row[0])
-                        # If it looks like a lap distance (e.g. > 1km), use it for fingerprinting
-                        if actual_max_dist > 500:
-                            # Verify if currently matched length makes sense
-                            if official_track_length:
-                                ratio = actual_max_dist / official_track_length
-                                if ratio < 0.8 or ratio > 1.2:
-                                    logger.info(f"Metadata Layout mismatch (Ratio: {ratio:.2f}). Finding closest match...")
-                                    best_len = official_track_length
-                                    min_diff = abs(actual_max_dist - official_track_length)
-                                    for k, v in layouts_dict.items():
-                                        if "ref_points" in v:
-                                            l_dist = float(v["ref_points"][-1]["dist"])
-                                            diff = abs(actual_max_dist - l_dist)
-                                            if diff < min_diff:
-                                                min_diff = diff
-                                                best_len = l_dist
-                                    official_track_length = best_len
-                except:
-                    pass
+            matched_layout_key, official_track_length = resolve_layout(
+                track_data, raw_layout, raw_track, session_lap_distance(con))
 
             # --- Calculate Sector Lines (Lat/Lon) based on Fastest Valid Lap ---
             sector_lines = []
@@ -357,7 +347,7 @@ class TelemetryService:
                 "trackAliases": track_aliases,
                 "country": track_country,
                 "trackLayout": raw_layout,
-                "layoutKey": matched_layout_key if matched_layout_key else raw_layout,
+                "layoutKey": matched_layout_key,
                 "officialTrackLength": official_track_length,
                 "carClass": raw_class,
                 "modelName": real_car_name,
@@ -559,40 +549,22 @@ class TelemetryService:
             median_lap_dist = np.median(valid_lengths) if valid_lengths else 0
             
             track_length_ref = 6019.0 # Default Fallback
-            
+            # Resolved below and reused for the elevation profile, which is
+            # surveyed per layout.
+            resolved_layout_key = track_layout
+
             # Try to get official length from registry
             try:
-                from ..utils.track_db import find_track_in_registry, find_layout_in_track
+                from ..utils.track_db import find_track_in_registry, resolve_layout
                 matched_key, track_data = find_track_in_registry(track_name)
                 if matched_key:
-                    layouts_dict = track_data.get("layouts", {})
-                    matched_layout_key, layout_data = find_layout_in_track(track_data, track_layout, matched_key)
-                        
-                    # Secondary Check: Distance-based Fingerprinting
-                    # If the matched length is significantly different from actual data, 
-                    # find the layout that is physically closest to the median distance.
-                    if layout_data and "ref_points" in layout_data:
-                        candidate_len = float(layout_data["ref_points"][-1]["dist"])
-                        ratio = median_lap_dist / candidate_len if candidate_len > 0 else 0
-                        
-                        if ratio < 0.8 or ratio > 1.2:
-                            logger.info(f"Layout mismatch detected (Ratio: {ratio:.2f}). Searching for closest physical match...")
-                            best_layout = layout_data
-                            min_diff = abs(median_lap_dist - candidate_len)
-                            
-                            for k, v in layouts_dict.items():
-                                if "ref_points" in v:
-                                    official_len = float(v["ref_points"][-1]["dist"])
-                                    diff = abs(median_lap_dist - official_len)
-                                    if diff < min_diff:
-                                        min_diff = diff
-                                        best_layout = v
-                            
-                            layout_data = best_layout
-                            logger.info(f"Smart Fallback: Selected layout based on closest distance.")
-
-                    if layout_data and "ref_points" in layout_data:
-                        track_length_ref = float(layout_data["ref_points"][-1]["dist"])
+                    # The median of the completed laps is this session's own
+                    # fingerprint, so the length follows the circuit that was
+                    # actually driven even when the file names another.
+                    resolved_layout_key, resolved_len = resolve_layout(
+                        track_data, track_layout, track_name, median_lap_dist)
+                    if resolved_len:
+                        track_length_ref = resolved_len
                         logger.info(f"Using Official Track Length from Registry: {track_length_ref:.2f}m")
                     else:
                         # Fallback to median logic if layout not found
@@ -879,7 +851,7 @@ class TelemetryService:
                     'GPS Longitude': np.array(fused_data.get('GPS Longitude', np.zeros(len(master_time)))),
                     'Lap Dist': np.array(fused_data.get('Lap Dist', np.zeros(len(master_time))))
                 })
-                fused_data['WorldPosZ'] = compute_z_for_fused_data(df_temp, track_name, track_layout)
+                fused_data['WorldPosZ'] = compute_z_for_fused_data(df_temp, track_name, resolved_layout_key)
                 logger.info("3D Elevation (WorldPosZ) successfully fused.")
             except Exception as ez:
                 logger.error(f"Elevation Fusion Failed: {ez}")
@@ -972,17 +944,29 @@ class TelemetryService:
             con.close()
 
     @staticmethod
-    def find_compatible_laps(data_dir: str, track_name: str, track_layout: str, car_class: str, is_pro: bool = False):
+    def find_compatible_laps(data_dir: str, track_name: str, track_layout: str, car_class: str,
+                             is_pro: bool = False, layout_key: str = None):
         """Find all laps across all sessions matching track, layout and class.
+
+        Track and layout are compared as the registry resolves them, not as the
+        files happen to spell them: a lap round Lusail's short circuit is not a
+        reference for a lap round the full one, and both write the same empty
+        ``TrackLayout``. ``layout_key`` is the caller's already-resolved layout
+        (the open session's), used in preference to re-deriving it from names.
 
         ``is_pro`` tags every returned lap as a curated pro reference lap (used
         when scanning the shared reference library).
         """
         import glob
         import duckdb
-        
+        from ..utils.track_db import find_track_in_registry, resolve_layout
+
         files = glob.glob(os.path.join(data_dir, "*.duckdb"))
         compatible_laps = []
+
+        target_track_key, target_track_data = find_track_in_registry(track_name)
+        target_layout = (layout_key or "").strip() or resolve_layout(
+            target_track_data, track_layout, track_name)[0]
         
         for f in files:
             session_id = os.path.basename(f)
@@ -992,13 +976,21 @@ class TelemetryService:
                     meta_rows = con.execute("SELECT key, value FROM metadata WHERE key IN ('TrackName', 'TrackLayout', 'CarClass', 'CarName', 'DriverName', 'SessionTime')").fetchall()
                     meta = {k: v.strip() if isinstance(v, str) else v for k, v in meta_rows}
                     
-                    track_name_match = (meta.get('TrackName') == track_name.strip())
-                    
-                    # Lenient layout matching
-                    provided_layout = track_layout.strip()
-                    db_layout = meta.get('TrackLayout', '').strip()
-                    layout_match = (db_layout == provided_layout) or (not provided_layout and (not db_layout or db_layout == meta.get('TrackName')))
-                    
+                    db_track = meta.get('TrackName', '')
+                    db_track_key, db_track_data = find_track_in_registry(db_track)
+                    # Registry keys where both sides resolve ("Spa" and
+                    # "Circuit de Spa-Francorchamps" are one circuit); raw names
+                    # otherwise, so an unregistered track still matches itself.
+                    if target_track_key and db_track_key:
+                        track_name_match = (db_track_key == target_track_key)
+                    else:
+                        track_name_match = (db_track == track_name.strip())
+
+                    db_layout = resolve_layout(
+                        db_track_data, meta.get('TrackLayout', ''), db_track,
+                        session_lap_distance(con))[0]
+                    layout_match = (db_layout == target_layout)
+
                     car_class_match = (meta.get('CarClass') == car_class.strip())
 
                     if track_name_match and layout_match and car_class_match:

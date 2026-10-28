@@ -30,6 +30,11 @@ export interface Session {
     bestLapValid?: boolean;
     game?: string; // 'LMU' | 'ACC'
     source?: 'sync' | 'manual'; // 'sync' = auto-imported from game folder, 'manual' = user upload
+    sessionType?: string;      // 'Race' | 'Qualify' | 'Practice'; absent on MoTeC imports
+    weather?: string;          // e.g. "Clear"; absent when the file says "Unknown"
+    lapCount?: number;         // timed laps (out lap excluded)
+    validLapCount?: number;    // how many of those were clean
+    sessionDuration?: number;  // seconds, first lap start -> last lap end
 }
 
 export interface SessionMetadata {
@@ -94,7 +99,18 @@ export interface AccSyncState {
 // LMU game-folder sync mirrors the ACC sync shape (kept as a distinct alias so
 // the two paths stay decoupled).
 export type LmuSyncStatusKind = AccSyncStatusKind;
-export type LmuSyncState = AccSyncState;
+
+export interface LmuSyncResult {
+    imported: number;
+    skipped: number;
+    errors: number;
+    /** Per-file detail for the first few failures, so the UI can name them. */
+    failures?: { file: string; error: string }[];
+}
+
+export interface LmuSyncState extends Omit<AccSyncState, 'lastResult'> {
+    lastResult: LmuSyncResult | null;
+}
 
 export interface Profile {
     id: string;

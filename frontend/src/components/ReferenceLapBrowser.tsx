@@ -2,10 +2,48 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useTelemetryStore, findMappedCarModel } from '../store/telemetryStore';
 import { apiClient } from '../api/client';
 import type { ReferenceLap } from '../types';
-import { Search, History, MapPin, X, Loader2, Calendar, ChevronRight, ChevronDown, Trophy } from 'lucide-react';
+import { Search, History, MapPin, X, Loader2, Calendar, ChevronRight, ChevronDown, Trophy, Timer, Crown } from 'lucide-react';
 import { handleGlassMouseMove } from '../utils/glassEffect';
 import { Tooltip } from './ui/Tooltip';
-import { getBrandLogoPath } from '../utils/carHelpers';
+import { CarBrandLogo } from './ui/CarBrandLogo';
+
+// Race / Quali / Practice grouping for the session list. The backend only sends a
+// session type for sim-recorded sessions, so fall back to the type token LMU writes
+// into the file name (e.g. CIRCUIT..._R_2026-09-16T20_59_59).
+const SESSION_CATEGORY_ORDER = ['race', 'qualify', 'practice', 'warmup', 'testday'];
+
+const sessionCategory = (sessionName: string, sessionType?: string): string => {
+    const t = (sessionType || '').toLowerCase().replace(/\s+/g, '');
+    if (t.startsWith('race')) return 'race';
+    if (t.startsWith('qual')) return 'qualify';
+    if (t.startsWith('practice')) return 'practice';
+    if (t.startsWith('warmup')) return 'warmup';
+    if (t.startsWith('test')) return 'testday';
+
+    const token = sessionName.match(/_(R|Q|P|WU|TD)\d*_/i)?.[1]?.toUpperCase();
+    switch (token) {
+        case 'R': return 'race';
+        case 'Q': return 'qualify';
+        case 'P': return 'practice';
+        case 'WU': return 'warmup';
+        case 'TD': return 'testday';
+        default: return 'other';
+    }
+};
+
+const CATEGORY_LABEL: Record<string, string> = {
+    race: 'Race',
+    qualify: 'Quali',
+    practice: 'Practice',
+    warmup: 'Warmup',
+    testday: 'Test Day',
+    other: 'Session',
+};
+
+const categoryRank = (category: string) => {
+    const idx = SESSION_CATEGORY_ORDER.indexOf(category);
+    return idx === -1 ? SESSION_CATEGORY_ORDER.length : idx;
+};
 
 interface ReferenceLapBrowserProps {
     onClose: () => void;
@@ -46,10 +84,11 @@ export const ReferenceLapBrowser: React.FC<ReferenceLapBrowserProps> = ({ onClos
 
             const key = rawCarName || l.carModel;
             const mappedCar = findMappedCarModel(key, customCarMappings);
-            if (mappedCar) {
-                return { ...l, carModel: mappedCar };
-            }
-            return l;
+            return {
+                ...l,
+                carModel: mappedCar || l.carModel,
+                category: sessionCategory(l.sessionName, matchedSession?.sessionType),
+            };
         });
 
         const filtered = mappedLaps.filter(l => 
@@ -67,6 +106,8 @@ export const ReferenceLapBrowser: React.FC<ReferenceLapBrowserProps> = ({ onClos
             stintCount?: number;
             totalLaps?: number;
             isPro?: boolean;
+            category: string;
+            isCategoryFastest: boolean;
             fastestValidDuration: number;
             stints: Record<number, ReferenceLap[]>
         }> = {};
@@ -82,6 +123,8 @@ export const ReferenceLapBrowser: React.FC<ReferenceLapBrowserProps> = ({ onClos
                     stintCount: lap.stintCount,
                     totalLaps: lap.totalLaps,
                     isPro: lap.isPro,
+                    category: lap.category,
+                    isCategoryFastest: false,
                     fastestValidDuration: Infinity,
                     stints: {}
                 };
@@ -96,10 +139,30 @@ export const ReferenceLapBrowser: React.FC<ReferenceLapBrowserProps> = ({ onClos
             }
         });
 
-        // Pro reference laps (Fri3d0lf's) are always surfaced first as suggestions,
-        // then the profile's own sessions ordered most-recent first.
-        return Object.values(groups).sort((a, b) =>
-            (b.isPro ? 1 : 0) - (a.isPro ? 1 : 0) || b.date - a.date
+        // Within each category the session holding its quickest valid lap leads;
+        // the rest follow most-recent-first. Pro reference laps (Fri3d0lf's) stay
+        // pinned above the profile's own sessions as suggestions.
+        const sessionGroups = Object.values(groups);
+        const fastestPerBucket = new Map<string, { id: string; duration: number }>();
+        sessionGroups.forEach(g => {
+            if (!Number.isFinite(g.fastestValidDuration)) return;
+            const bucket = `${g.isPro ? 1 : 0}-${g.category}`;
+            const leader = fastestPerBucket.get(bucket);
+            if (!leader || g.fastestValidDuration < leader.duration) {
+                fastestPerBucket.set(bucket, { id: g.sessionId, duration: g.fastestValidDuration });
+            }
+        });
+        sessionGroups.forEach(g => {
+            g.isCategoryFastest = fastestPerBucket.get(`${g.isPro ? 1 : 0}-${g.category}`)?.id === g.sessionId;
+        });
+
+        return sessionGroups.sort((a, b) =>
+            (b.isPro ? 1 : 0) - (a.isPro ? 1 : 0)
+            || categoryRank(a.category) - categoryRank(b.category)
+            || (b.isCategoryFastest ? 1 : 0) - (a.isCategoryFastest ? 1 : 0)
+            || b.date - a.date
+            // Imported sessions share a file date; the name carries the driven timestamp.
+            || b.sessionName.localeCompare(a.sessionName)
         );
     }, [laps, search, customCarMappings, sessions]);
 
@@ -216,10 +279,11 @@ export const ReferenceLapBrowser: React.FC<ReferenceLapBrowserProps> = ({ onClos
                                             </div>
                                             <div className="flex items-center gap-4 mt-2">
                                                 <div className="flex items-center gap-2 py-0.5 px-2 bg-blue-500/5 rounded-lg border border-blue-500/20 group/car">
-                                                    <img 
-                                                        src={getBrandLogoPath(session.carModel || '')} 
-                                                        className="w-5 h-5 object-contain filter drop-shadow-[0_0_8px_rgba(255,255,255,0.2)] group-hover/car:scale-110 transition-transform" 
-                                                        onError={(e) => (e.target as HTMLImageElement).style.display = 'none'}
+                                                    <CarBrandLogo
+                                                        name={session.carModel}
+                                                        carClass={sessionMetadata?.carClass}
+                                                        size={20}
+                                                        className="filter drop-shadow-[0_0_8px_rgba(255,255,255,0.2)] group-hover/car:scale-110 transition-transform"
                                                     />
                                                     <span className="text-[11px] font-black text-blue-400 uppercase tracking-tight">{session.carModel}</span>
                                                 </div>
@@ -228,6 +292,26 @@ export const ReferenceLapBrowser: React.FC<ReferenceLapBrowserProps> = ({ onClos
                                                     <span className="w-1 h-1 bg-gray-600 rounded-full" />
                                                     <span className="text-[10px] font-black uppercase tracking-tighter text-gray-300">{session.totalLaps} Laps</span>
                                                 </div>
+                                                {Number.isFinite(session.fastestValidDuration) && (
+                                                    <Tooltip
+                                                        text={session.isCategoryFastest
+                                                            ? `FASTEST ${(CATEGORY_LABEL[session.category] || 'SESSION').toUpperCase()} LAP`
+                                                            : 'SESSION BEST LAP'}
+                                                    >
+                                                        <div className={`flex items-center gap-1.5 py-0.5 px-2 rounded-lg border ${
+                                                            session.isCategoryFastest
+                                                                ? 'bg-purple-500/20 border-purple-300/60 shadow-[0_0_10px_rgba(168,85,247,0.35)]'
+                                                                : 'bg-purple-500/10 border-purple-400/30'
+                                                        }`}>
+                                                            {session.isCategoryFastest
+                                                                ? <Crown size={12} className="text-purple-200" />
+                                                                : <Timer size={12} className="text-purple-400" />}
+                                                            <span className={`text-[11px] font-mono font-black ${session.isCategoryFastest ? 'text-purple-100' : 'text-purple-300'}`}>
+                                                                {formatDuration(session.fastestValidDuration)}
+                                                            </span>
+                                                        </div>
+                                                    </Tooltip>
+                                                )}
                                             </div>
                                         </div>
                                     </button>

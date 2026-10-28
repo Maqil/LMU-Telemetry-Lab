@@ -1,5 +1,23 @@
 import difflib
 
+
+def layout_length(layout_data) -> float | None:
+    """Official lap distance for a layout, or None if the registry has none.
+
+    Most layouts carry an elevation profile whose last ``ref_points`` entry is
+    the lap distance. Layouts we know the length of but have no surveyed
+    elevation for instead carry a plain ``length`` (metres).
+    """
+    if not layout_data:
+        return None
+    ref_points = layout_data.get("ref_points")
+    if ref_points:
+        return float(ref_points[-1]["dist"])
+    if layout_data.get("length"):
+        return float(layout_data["length"])
+    return None
+
+
 def find_track_in_registry(search_name: str):
     """
     Finds a track in the registry using exact match, alias match, or fuzzy match.
@@ -35,22 +53,67 @@ def find_track_in_registry(search_name: str):
             if normalize(alias) == norm_search:
                 return key, data
 
-    # 4. Fuzzy Match
-    # Gather all searchable names (keys + aliases)
-    all_names_map = {} # norm_name -> key
+    # 4. Layout Name Match
+    # A MoTeC export carries one "Venue", and the sims put the *layout* there:
+    # "Circuit de la Sarthe Mulsanne" is neither the track's key nor one of its
+    # aliases, so without this a variant reads as an unknown circuit entirely.
+    # Names more than one circuit uses ("National Circuit", "Default") are
+    # dropped rather than resolved to whichever track the registry lists first.
+    layout_names = {} # norm_name -> track key, or None once ambiguous
+    for key, data in TRACK_REGISTRY.items():
+        for layout_name, layout_data in (data.get("layouts") or {}).items():
+            names = list(layout_data.get("aliases", []) or [])
+            if layout_name != "Default":
+                names.append(layout_name)
+            for name in names:
+                norm = normalize(name)
+                if norm:
+                    layout_names[norm] = key if layout_names.get(norm, key) == key else None
+
+    if layout_names.get(norm_search):
+        matched_key = layout_names[norm_search]
+        return matched_key, TRACK_REGISTRY[matched_key]
+
+    # 5. Fuzzy Match
+    # Gather all searchable names (keys + aliases + unambiguous layout names)
+    all_names_map = {name: key for name, key in layout_names.items() if key}
     for key, data in TRACK_REGISTRY.items():
         all_names_map[normalize(key)] = key
         for alias in data.get("aliases", []):
             all_names_map[normalize(alias)] = key
-    
+
     candidates = list(all_names_map.keys())
     matches = difflib.get_close_matches(norm_search, candidates, n=1, cutoff=0.6)
-    
-    if matches:
+
+    if matches and _fuzzy_match_is_plausible(norm_search, matches[0]):
         matched_key = all_names_map[matches[0]]
         return matched_key, TRACK_REGISTRY[matched_key]
 
     return None, None
+
+
+# Words that say nothing about WHICH circuit this is, so they must never be the
+# only thing a fuzzy match rests on.
+_GENERIC_TRACK_WORDS = {
+    "speedway", "raceway", "racing", "course", "park", "motor", "motorsport",
+    "park", "international", "nazionale", "internazionale", "autodrome",
+}
+
+
+def _fuzzy_match_is_plausible(norm_search: str, norm_match: str) -> bool:
+    """Guard difflib's character-level score with a word-level sanity check.
+
+    difflib happily scores "daytona speedway" vs "fuji speedway" at 0.62 -- over
+    the 0.6 cutoff -- purely on the shared suffix, which silently files Daytona
+    sessions under Fuji. Require the two names to share at least one
+    distinguishing word before trusting a fuzzy hit. Names made entirely of
+    short/generic words (e.g. "spa") keep the old permissive behaviour.
+    """
+    search_words = {w for w in norm_search.split() if len(w) > 3} - _GENERIC_TRACK_WORDS
+    match_words = {w for w in norm_match.split() if len(w) > 3} - _GENERIC_TRACK_WORDS
+    if not search_words or not match_words:
+        return True
+    return bool(search_words & match_words)
 
 
 def find_layout_in_track(track_data, raw_layout: str, raw_track: str):
@@ -145,6 +208,74 @@ def find_layout_in_track(track_data, raw_layout: str, raw_track: str):
         return "Default", default_data
         
     return None, None
+
+
+# A layout is only re-picked from the recorded distance when the closest
+# registry length is within this much of it. A session that stopped mid-lap
+# peaks wherever the driver parked, which can sit right on top of a shorter
+# variant's length; demanding a near-exact fit keeps that from being filed as
+# the short layout.
+_FINGERPRINT_TOLERANCE = 0.05
+
+
+def resolve_layout(track_data, raw_layout: str, raw_track: str, lap_distance: float | None = None):
+    """Canonical layout key + official length for one session.
+
+    ``raw_layout`` is the file's ``TrackLayout``, ``raw_track`` its
+    ``TrackName``. Returns ``(layout_key, official_length)`` where the key is a
+    layout name from the registry ("Default", "Short Circuit", ...) and is
+    never empty -- sessions of the same variant must land on the same key, or
+    the library groups and the record board merge circuits that share a name
+    but not a lap.
+
+    ``lap_distance`` is the session's maximum ``Lap Dist``, and only from a
+    session that actually completed a lap; it settles the variant when the
+    names don't.
+    """
+    fallback = (raw_layout or "").strip() or "Default"
+    if not track_data:
+        return fallback, None
+
+    layouts = track_data.get("layouts") or {}
+    if not layouts:
+        return fallback, None
+
+    key, data = find_layout_in_track(track_data, raw_layout, raw_track)
+
+    # Every MoTeC import writes TrackLayout="" -- the .ld header carries a
+    # single "Venue" -- so when a sim names the variant at all it does so
+    # inside the track name ("Lusail Short Circuit"). Ask the track name when
+    # the layout field said nothing.
+    if (not key or key == "Default") and raw_track:
+        venue_key, venue_data = find_layout_in_track(track_data, raw_track, raw_track)
+        if venue_key and venue_key != "Default":
+            key, data = venue_key, venue_data
+
+    if not key:
+        key = "Default" if "Default" in layouts else next(iter(layouts))
+        data = layouts.get(key)
+
+    length = layout_length(data)
+
+    # Distance fingerprint: the named layout disagreeing with the lap the
+    # driver actually drove means the name is wrong (or missing), so fall back
+    # to the variant whose surveyed length matches.
+    if lap_distance and lap_distance > 500:
+        off_by_name = (not length) or not (0.8 <= lap_distance / length <= 1.2)
+        if off_by_name:
+            best_key, best_len = None, None
+            best_diff = lap_distance * _FINGERPRINT_TOLERANCE
+            for k, v in layouts.items():
+                l_dist = layout_length(v)
+                if l_dist is None:
+                    continue
+                diff = abs(lap_distance - l_dist)
+                if diff <= best_diff:
+                    best_diff, best_key, best_len = diff, k, l_dist
+            if best_key:
+                key, length = best_key, best_len
+
+    return key, length
 
 TRACK_REGISTRY = {
     "Bahrain International Circuit": {
@@ -665,6 +796,25 @@ TRACK_REGISTRY = {
                 ]
             },
         }
+    },
+    "Daytona International Speedway": {
+        "display_name": "Daytona",
+        "aliases": [
+            "daytona", "Daytona", "Daytona Road Course",
+            "Daytona International Speedway Road Course",
+        ],
+        "country": "United States",
+        "layouts": {
+            # LMU runs the road course. Length only -- no surveyed elevation
+            # profile yet, so the 3D map renders it flat rather than guessed.
+            "Road Course": {
+                "aliases": [
+                    "Daytona International Speedway Road Course",
+                    "Daytona Road Course", "Road Course",
+                ],
+                "length": 5729,
+            },
+        },
     },
     "Silverstone": {
         "display_name": "Silverstone",

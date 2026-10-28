@@ -21,10 +21,31 @@ test_cases = [
     "Algarve"
 ]
 
-print(f"{'Input Name':<40} | {'Matched Key':<20} | {'Result'}")
-print("-" * 80)
+# Names that must resolve to one specific circuit. "Daytona" guards the fuzzy
+# matcher: difflib scores it 0.62 against "Fuji Speedway" purely on the shared
+# "speedway", which used to file every Daytona session under Fuji.
+expected = {
+    "Daytona International Speedway": "Daytona International Speedway",
+    "Daytona Road Course": "Daytona International Speedway",
+    "Fuji Speedway": "Fuji Speedway",
+    "Le Mans": "Circuit de La Sarthe",
+    "Sakhir": "Bahrain International Circuit",
+}
+test_cases += [n for n in expected if n not in test_cases]
 
+print(f"{'Input Name':<40} | {'Matched Key':<45} | {'Result'}")
+print("-" * 100)
+
+failures = 0
 for name in test_cases:
     key, data = find_track_in_registry(name)
-    result = "PASS" if key else "FAIL"
-    print(f"{name:<40} | {str(key):<20} | {result}")
+    want = expected.get(name)
+    ok = (key == want) if want else bool(key)
+    if not ok:
+        failures += 1
+    result = "PASS" if ok else f"FAIL (expected {want})"
+    print(f"{name:<40} | {str(key):<45} | {result}")
+
+print("-" * 100)
+print("ALL TESTS PASSED!" if not failures else f"{failures} TEST(S) FAILED")
+sys.exit(1 if failures else 0)

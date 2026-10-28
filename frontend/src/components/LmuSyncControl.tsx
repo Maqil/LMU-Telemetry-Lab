@@ -223,6 +223,18 @@ export const LmuSyncControl = () => {
                             </span>
                             <span className="text-gray-600 font-mono">{timeAgo(lmuSync.lastScanAt)}</span>
                         </div>
+
+                        {/* Which files failed -- a bare count leaves nothing to act on. */}
+                        {!!result?.failures?.length && (
+                            <div className="mt-2 rounded-lg border border-red-500/25 bg-red-500/5 px-2.5 py-2 space-y-1.5">
+                                {result.failures.map(f => (
+                                    <div key={f.file}>
+                                        <p className="text-[10px] font-mono text-red-300 truncate" title={f.file}>{f.file}</p>
+                                        <p className="text-[10px] text-gray-500 leading-snug break-words">{f.error}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </motion.div>
                 )}
             </AnimatePresence>
